@@ -1,14 +1,19 @@
 {
-  "name": "backend",
+  "name": "formulario-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Backend API para plataforma de formularios",
+  "main": "src/index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "migrate": "npx prisma migrate dev",
+    "generate": "npx prisma generate",
+    "studio": "npx prisma studio"
   },
-  "keywords": [],
+  "keywords": ["forms", "api"],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@prisma/client": "^6.18.0",
     "cors": "^2.8.5",
