@@ -1,0 +1,11 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../components/auth/ProtectedRoute';
+import UserList from '../../components/users/UserList';
+---
+
+<AdminLayout title="Gestión de Usuarios" currentPath="/admin/users">
+  <ProtectedRoute client:load requireSuperAdmin={true}>
+    <UserList client:load />
+  </ProtectedRoute>
+</AdminLayout>

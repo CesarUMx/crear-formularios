@@ -1,37 +1,22 @@
-import { useState, useEffect } from 'react';
-import { authService, type User } from '../lib/auth';
-import { User as UserIcon, Mail, Save, AlertCircle, CheckCircle } from 'lucide-react';
-import Modal from './Modal';
+import { useState } from 'react';
+import { userService } from '../../lib/userService';
+import type { SystemUser, UserRole } from '../../lib/types';
+import { Save, AlertCircle, CheckCircle, User, Shield } from 'lucide-react';
+import Modal from '../common/Modal';
 
-interface ProfileModalProps {
+interface EditUserModalProps {
   isOpen: boolean;
+  user: SystemUser;
   onClose: () => void;
+  onSuccess: () => void;
 }
 
-export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [name, setName] = useState('');
+export default function EditUserModal({ isOpen, user, onClose, onSuccess }: EditUserModalProps) {
+  const [name, setName] = useState(user.name);
+  const [role, setRole] = useState<UserRole>(user.role);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  useEffect(() => {
-    if (isOpen) {
-      loadProfile();
-    }
-  }, [isOpen]);
-
-  const loadProfile = async () => {
-    try {
-      const profile = await authService.getProfile();
-      setUser(profile);
-      setName(profile.name);
-      setError('');
-      setSuccess('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar perfil');
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,38 +25,27 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     setLoading(true);
 
     try {
-      // Solo enviar el nombre, el email no se puede modificar
-      await authService.updateProfile({ name });
-      setSuccess('Perfil actualizado correctamente');
-      
-      // Actualizar el usuario en el estado
-      const updatedProfile = await authService.getProfile();
-      setUser(updatedProfile);
+      await userService.updateUser(user.id, {
+        name,
+        role
+      });
+
+      setSuccess('Usuario actualizado exitosamente');
       
       // Cerrar modal después de 1.5 segundos
       setTimeout(() => {
+        onSuccess();
         onClose();
-        window.location.reload(); // Recargar para actualizar el menú
       }, 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al actualizar perfil');
+      setError(err instanceof Error ? err.message : 'Error al actualizar usuario');
     } finally {
       setLoading(false);
     }
   };
 
-  if (!user) {
-    return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Mi Perfil">
-        <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      </Modal>
-    );
-  }
-
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Mi Perfil" size="md">
+    <Modal isOpen={isOpen} onClose={onClose} title="Editar Usuario" size="md">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Mensajes */}
         {error && (
@@ -88,27 +62,30 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           </div>
         )}
 
-        {/* Avatar y Rol */}
-        <div className="flex items-center space-x-4 pb-6 border-b border-gray-200">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg">
-            {user.name.charAt(0).toUpperCase()}
-          </div>
-          <div>
-            <h4 className="text-lg font-semibold text-gray-900">{user.name}</h4>
-            <p className="text-sm text-gray-500">
-              {user.role === 'SUPER_ADMIN' ? 'Super Administrador' : 'Administrador'}
-            </p>
-          </div>
+        {/* Email (solo lectura) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Email
+          </label>
+          <input
+            type="email"
+            value={user.email}
+            disabled
+            className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            El email no se puede modificar
+          </p>
         </div>
 
         {/* Nombre */}
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-            Nombre Completo
+            Nombre Completo *
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <UserIcon className="h-5 w-5 text-gray-400" />
+              <User className="h-5 w-5 text-gray-400" />
             </div>
             <input
               id="name"
@@ -117,32 +94,35 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               onChange={(e) => setName(e.target.value)}
               required
               className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-              placeholder="Tu nombre completo"
+              placeholder="Juan Pérez"
             />
           </div>
         </div>
 
-        {/* Email (Solo lectura) */}
+        {/* Rol */}
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-            Email
+          <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
+            Rol *
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Mail className="h-5 w-5 text-gray-400" />
+              <Shield className="h-5 w-5 text-gray-400" />
             </div>
-            <input
-              id="email"
-              type="email"
-              value={user.email}
-              readOnly
-              disabled
-              className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
-              placeholder="tu@email.com"
-            />
+            <select
+              id="role"
+              value={role}
+              onChange={(e) => setRole(e.target.value as UserRole)}
+              className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+            >
+              <option value="ADMIN">Admin</option>
+              <option value="SUPER_ADMIN">Super Admin</option>
+            </select>
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            El email no se puede modificar por seguridad
+            {role === 'SUPER_ADMIN' 
+              ? 'Acceso completo al sistema incluyendo gestión de usuarios'
+              : 'Puede crear y gestionar formularios'
+            }
           </p>
         </div>
 
@@ -172,6 +152,10 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               </span>
             </div>
           )}
+          <div className="flex justify-between">
+            <span className="text-gray-600">Formularios creados:</span>
+            <span className="font-medium text-gray-900">{user._count?.createdForms || 0}</span>
+          </div>
         </div>
 
         {/* Botones */}

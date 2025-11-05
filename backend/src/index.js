@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
+import formRoutes from './routes/formRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
 dotenv.config();
 
@@ -37,6 +39,7 @@ app.get('/api', (req, res) => {
     endpoints: {
       auth: '/api/auth',
       forms: '/api/forms',
+      users: '/api/users',
       responses: '/api/responses'
     }
   });
@@ -44,6 +47,8 @@ app.get('/api', (req, res) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/forms', formRoutes);
+app.use('/api/users', userRoutes);
 
 // 404 handler
 app.use((req, res) => {

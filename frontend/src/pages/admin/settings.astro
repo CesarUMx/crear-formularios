@@ -1,0 +1,11 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../components/auth/ProtectedRoute';
+import PlatformCustomization from '../../components/settings/PlatformCustomization';
+---
+
+<AdminLayout title="Configuración" currentPath="/admin/settings">
+  <ProtectedRoute client:load requireSuperAdmin={true}>
+    <PlatformCustomization client:load />
+  </ProtectedRoute>
+</AdminLayout>

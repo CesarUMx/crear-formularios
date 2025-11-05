@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { authService } from '../lib/auth';
+import { authService } from '../../lib/auth';
 
 export default function LoginOrDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);

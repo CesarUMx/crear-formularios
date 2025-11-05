@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { authService, type User } from '../lib/auth';
-import { LogOut, User as UserIcon, Lock, KeyRound } from 'lucide-react';
-import ProfileModal from './ProfileModal';
-import ChangePasswordModal from './ChangePasswordModal';
+import { authService, type User } from '../../lib/auth';
+import { LogOut, User as UserIcon, Lock, Users } from 'lucide-react';
+import { ProfileModal, ChangePasswordModal } from './';
 
 export default function UserMenu() {
   const [user, setUser] = useState<User | null>(null);
@@ -74,6 +73,20 @@ export default function UserMenu() {
               <Lock className="w-4 h-4" />
               Cambiar Contraseña
             </button>
+
+            {/* Gestión de Usuarios (solo SUPER_ADMIN) */}
+            {user.role === 'SUPER_ADMIN' && (
+              <>
+                <div className="border-t border-gray-200 my-1" />
+                <a
+                  href="/admin/users"
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition text-left"
+                >
+                  <Users className="w-4 h-4" />
+                  Gestión de Usuarios
+                </a>
+              </>
+            )}
             
             <div className="border-t border-gray-200 my-1" />
             

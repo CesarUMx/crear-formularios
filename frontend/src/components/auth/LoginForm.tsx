@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { authService } from '../lib/auth';
+import { authService } from '../../lib/auth';
 import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react';
+import { AnimatedCharacters } from './';
 
 export default function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,15 +26,27 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex">
+      {/* Columna Izquierda - Formulario */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white px-4 sm:px-6 lg:px-20 xl:px-24">
+        <div className="max-w-md w-full space-y-8">
         <div>
+          {/* Logo */}
+          <div className="flex justify-center mb-6">
+            <img 
+              src="/images/logo.svg" 
+              alt="Forms Logo" 
+              className="h-32 w-32 object-contain"
+              onError={(e) => {
+                console.error('Error loading logo');
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          </div>
+          
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Iniciar Sesión
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Plataforma de Formularios UMx
-          </p>
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -82,6 +96,8 @@ export default function LoginForm() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setIsPasswordFocused(true)}
+                  onBlur={() => setIsPasswordFocused(false)}
                   className="appearance-none relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                   placeholder="••••••••"
                 />
@@ -109,6 +125,12 @@ export default function LoginForm() {
             </p>
           </div>
         </form>
+        </div>
+      </div>
+
+      {/* Columna Derecha - Personajes Animados */}
+      <div className="hidden lg:block lg:w-1/2">
+        <AnimatedCharacters isPasswordFocused={isPasswordFocused} />
       </div>
     </div>
   );

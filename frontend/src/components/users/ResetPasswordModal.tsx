@@ -1,20 +1,20 @@
 import { useState } from 'react';
-import { authService } from '../lib/auth';
-import { Lock, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
-import Modal from './Modal';
+import { userService } from '../../lib/userService';
+import type { SystemUser } from '../../lib/types';
+import { Key, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import Modal from '../common/Modal';
 
-interface ChangePasswordModalProps {
+interface ResetPasswordModalProps {
   isOpen: boolean;
+  user: SystemUser;
   onClose: () => void;
+  onSuccess: () => void;
 }
 
-export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProps) {
-  const [currentPassword, setCurrentPassword] = useState('');
+export default function ResetPasswordModal({ isOpen, user, onClose, onSuccess }: ResetPasswordModalProps) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -26,7 +26,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
 
     // Validaciones
     if (newPassword.length < 6) {
-      setError('La nueva contraseña debe tener al menos 6 caracteres');
+      setError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
@@ -35,35 +35,29 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
       return;
     }
 
-    if (currentPassword === newPassword) {
-      setError('La nueva contraseña debe ser diferente a la actual');
-      return;
-    }
-
     setLoading(true);
 
     try {
-      await authService.changePassword(currentPassword, newPassword);
-      setSuccess('Contraseña actualizada correctamente');
+      await userService.resetPassword(user.id, newPassword);
+      setSuccess('Contraseña actualizada exitosamente');
       
       // Limpiar formulario
-      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      
+
       // Cerrar modal después de 2 segundos
       setTimeout(() => {
+        onSuccess();
         onClose();
       }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cambiar contraseña');
+      setError(err instanceof Error ? err.message : 'Error al resetear contraseña');
     } finally {
       setLoading(false);
     }
   };
 
   const handleClose = () => {
-    setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
     setError('');
@@ -72,7 +66,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Cambiar Contraseña" size="md">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Resetear Contraseña" size="md">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Mensajes */}
         {error && (
@@ -89,58 +83,44 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
           </div>
         )}
 
-        {/* Contraseña Actual */}
-        <div>
-          <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-2">
-            Contraseña Actual
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Lock className="h-5 w-5 text-gray-400" />
+        {/* Información del usuario */}
+        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+              {user.name.charAt(0).toUpperCase()}
             </div>
-            <input
-              id="currentPassword"
-              type={showCurrentPassword ? 'text' : 'password'}
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-              className="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-              placeholder="••••••••"
-            />
-            <button
-              type="button"
-              onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-            >
-              {showCurrentPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
+            <div>
+              <p className="font-medium text-gray-900">{user.name}</p>
+              <p className="text-sm text-gray-600">{user.email}</p>
+            </div>
           </div>
         </div>
 
         {/* Nueva Contraseña */}
         <div>
           <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
-            Nueva Contraseña
+            Nueva Contraseña *
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Lock className="h-5 w-5 text-gray-400" />
+              <Key className="h-5 w-5 text-gray-400" />
             </div>
             <input
               id="newPassword"
-              type={showNewPassword ? 'text' : 'password'}
+              type={showPassword ? 'text' : 'password'}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
+              minLength={6}
               className="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
               placeholder="••••••••"
             />
             <button
               type="button"
-              onClick={() => setShowNewPassword(!showNewPassword)}
+              onClick={() => setShowPassword(!showPassword)}
               className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
             >
-              {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
           </div>
           <p className="mt-1 text-xs text-gray-500">Mínimo 6 caracteres</p>
@@ -149,28 +129,21 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
         {/* Confirmar Contraseña */}
         <div>
           <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-            Confirmar Nueva Contraseña
+            Confirmar Nueva Contraseña *
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Lock className="h-5 w-5 text-gray-400" />
+              <Key className="h-5 w-5 text-gray-400" />
             </div>
             <input
               id="confirmPassword"
-              type={showConfirmPassword ? 'text' : 'password'}
+              type={showPassword ? 'text' : 'password'}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              className="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+              className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
               placeholder="••••••••"
             />
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-            >
-              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
           </div>
         </div>
 
@@ -190,6 +163,13 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
           </div>
         )}
 
+        {/* Advertencia */}
+        <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+          <p className="text-sm text-yellow-800">
+            <strong>Nota:</strong> El usuario deberá usar esta nueva contraseña en su próximo inicio de sesión.
+          </p>
+        </div>
+
         {/* Botones */}
         <div className="flex gap-3 pt-4 border-t border-gray-200">
           <button
@@ -204,7 +184,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
             disabled={loading}
             className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Cambiando...' : 'Cambiar Contraseña'}
+            {loading ? 'Reseteando...' : 'Resetear Contraseña'}
           </button>
         </div>
       </form>
