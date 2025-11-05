@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import authRoutes from './routes/authRoutes.js';
 
 dotenv.config();
 
@@ -28,17 +29,21 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Routes placeholder
+// API Info
 app.get('/api', (req, res) => {
   res.json({ 
-    message: 'API de Formularios',
+    message: 'API de Formularios UMx',
     version: '1.0.0',
     endpoints: {
+      auth: '/api/auth',
       forms: '/api/forms',
       responses: '/api/responses'
     }
   });
 });
+
+// Routes
+app.use('/api/auth', authRoutes);
 
 // 404 handler
 app.use((req, res) => {

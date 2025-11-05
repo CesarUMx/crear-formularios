@@ -1,0 +1,45 @@
+---
+import '../styles/global.css';
+import UserMenu from '../components/UserMenu';
+
+interface Props {
+  title: string;
+  description?: string;
+  showUserMenu?: boolean;
+}
+
+const { title, description = 'Plataforma de formularios UMx', showUserMenu = false } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <nav class="bg-white shadow-sm border-b">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16 items-center">
+          <a href="/" class="text-2xl font-bold text-blue-600">
+            📋 Formularios UMx
+          </a>
+          <div class="flex items-center gap-6">
+            {showUserMenu && <UserMenu client:load />}
+          </div>
+        </div>
+      </div>
+    </nav>
+    <main>
+      <slot />
+    </main>
+    <footer class="bg-white border-t mt-auto py-6">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-600">
+        <p>&copy; 2025 UMx - Plataforma de Formularios</p>
+      </div>
+    </footer>
+  </body>
+</html>

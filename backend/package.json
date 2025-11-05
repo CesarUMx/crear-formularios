@@ -9,18 +9,24 @@
     "start": "node src/index.js",
     "migrate": "npx prisma migrate dev",
     "generate": "npx prisma generate",
-    "studio": "npx prisma studio"
+    "studio": "npx prisma studio",
+    "create-admin": "node src/scripts/createSuperAdmin.js"
   },
-  "keywords": ["forms", "api"],
+  "keywords": [
+    "forms",
+    "api"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^6.18.0",
+    "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "express-validator": "^7.3.0",
     "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1"
   },
   "devDependencies": {

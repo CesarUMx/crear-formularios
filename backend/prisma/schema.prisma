@@ -7,6 +7,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id              String         @id @default(cuid())
+  email           String         @unique
+  password        String
+  name            String
+  role            UserRole       @default(ADMIN)
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  lastLogin       DateTime?
+  createdForms    Form[]         @relation("FormCreator")
+  sharedForms     FormShare[]
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+}
+
 model Form {
   id          String        @id @default(cuid())
   title       String
@@ -15,12 +35,34 @@ model Form {
   isActive    Boolean       @default(true)
   isPublic    Boolean       @default(false)
   publicUrl   String?
+  createdById String
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+  createdBy   User          @relation("FormCreator", fields: [createdById], references: [id])
   versions    FormVersion[]
   responses   Response[]
   pages       PublicPage[]
+  sharedWith  FormShare[]
   @@map("forms")
+}
+
+model FormShare {
+  id          String   @id @default(cuid())
+  formId      String
+  userId      String
+  permission  SharePermission @default(VIEW)
+  sharedAt    DateTime @default(now())
+  sharedById  String?
+  form        Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([formId, userId])
+  @@map("form_shares")
+}
+
+enum SharePermission {
+  VIEW
+  EDIT
+  FULL
 }
 
 model PublicPage {

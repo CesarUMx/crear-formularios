@@ -1,16 +1,20 @@
 ---
-
+import LoginForm from '../components/LoginForm';
+import LoginOrDashboard from '../components/LoginOrDashboard';
+import '../styles/global.css';
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content="Plataforma de Formularios UMx" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Formularios UMx</title>
+  </head>
+  <body>
+    <LoginOrDashboard client:only="react" />
+    <LoginForm client:load />
+  </body>
 </html>
