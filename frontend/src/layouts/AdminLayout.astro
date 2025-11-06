@@ -19,20 +19,39 @@ const { title, description = 'Plataforma de formularios UMx', currentPath } = As
     <meta name="description" content={description} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
-    <script>
-      // Aplicar configuración de colores al cargar
-      (function() {
-        const settings = localStorage.getItem('platform_settings');
-        if (settings) {
-          try {
-            const { primaryColor, secondaryColor, accentColor } = JSON.parse(settings);
+    <script is:inline>
+      // Aplicar configuración de colores INMEDIATAMENTE para evitar parpadeo
+      (async function() {
+        try {
+          // Intentar cargar desde caché primero
+          const cached = sessionStorage.getItem('platform_colors');
+          if (cached) {
+            const colors = JSON.parse(cached);
             const root = document.documentElement;
-            if (primaryColor) root.style.setProperty('--color-primary', primaryColor);
-            if (secondaryColor) root.style.setProperty('--color-secondary', secondaryColor);
-            if (accentColor) root.style.setProperty('--color-accent', accentColor);
-          } catch (e) {
-            console.error('Error loading platform settings:', e);
+            if (colors.primaryColor) root.style.setProperty('--color-primary', colors.primaryColor);
+            if (colors.secondaryColor) root.style.setProperty('--color-secondary', colors.secondaryColor);
+            if (colors.accentColor) root.style.setProperty('--color-accent', colors.accentColor);
           }
+          
+          // Luego cargar desde API y actualizar caché
+          const API_URL = 'http://localhost:3000/api';
+          const response = await fetch(`${API_URL}/settings`);
+          if (response.ok) {
+            const settings = await response.json();
+            const root = document.documentElement;
+            if (settings.primaryColor) root.style.setProperty('--color-primary', settings.primaryColor);
+            if (settings.secondaryColor) root.style.setProperty('--color-secondary', settings.secondaryColor);
+            if (settings.accentColor) root.style.setProperty('--color-accent', settings.accentColor);
+            
+            // Guardar en sessionStorage para próximas páginas
+            sessionStorage.setItem('platform_colors', JSON.stringify({
+              primaryColor: settings.primaryColor,
+              secondaryColor: settings.secondaryColor,
+              accentColor: settings.accentColor
+            }));
+          }
+        } catch (e) {
+          console.error('Error loading platform settings:', e);
         }
       })();
     </script>

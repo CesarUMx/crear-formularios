@@ -47,7 +47,7 @@ export const getFormById = async (req, res, next) => {
  */
 export const createForm = async (req, res, next) => {
   try {
-    const { title, description, sections } = req.body;
+    const { title, description, sections, templateId } = req.body;
 
     // Validaciones
     if (!title || title.trim() === '') {
@@ -85,6 +85,7 @@ export const createForm = async (req, res, next) => {
     const form = await formService.createForm(req.user.id, {
       title,
       description,
+      templateId: templateId || 'modern', // Default a plantilla moderna
       sections
     });
 
@@ -103,7 +104,7 @@ export const createForm = async (req, res, next) => {
 export const updateForm = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { title, description, sections } = req.body;
+    const { title, description, templateId, sections } = req.body;
 
     // Verificar permisos
     const canEdit = await permissionService.canEditForm(req.user.id, id);
@@ -123,6 +124,7 @@ export const updateForm = async (req, res, next) => {
     const form = await formService.updateForm(id, {
       title,
       description,
+      templateId,
       sections
     });
 

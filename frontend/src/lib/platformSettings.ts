@@ -1,6 +1,6 @@
 import type { PlatformSettings } from './types';
 
-const STORAGE_KEY = 'platform_settings';
+const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api';
 
 // Configuración por defecto
 const DEFAULT_SETTINGS: PlatformSettings = {
@@ -12,28 +12,56 @@ const DEFAULT_SETTINGS: PlatformSettings = {
 
 class PlatformSettingsService {
   /**
-   * Obtener configuración actual
+   * Obtener configuración actual desde la API
    */
-  getSettings(): PlatformSettings {
-    if (typeof window === 'undefined') return DEFAULT_SETTINGS;
-    
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return DEFAULT_SETTINGS;
-    
+  async getSettings(): Promise<PlatformSettings> {
     try {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
-    } catch {
+      const response = await fetch(`${API_URL}/settings`);
+      if (!response.ok) throw new Error('Error al obtener configuración');
+      
+      const data = await response.json();
+      return {
+        logo: data.logo || DEFAULT_SETTINGS.logo,
+        primaryColor: data.primaryColor,
+        secondaryColor: data.secondaryColor,
+        accentColor: data.accentColor
+      };
+    } catch (error) {
+      console.error('Error al obtener configuración:', error);
       return DEFAULT_SETTINGS;
     }
   }
 
   /**
-   * Guardar configuración
+   * Guardar configuración en la API
    */
-  saveSettings(settings: PlatformSettings): void {
-    if (typeof window === 'undefined') return;
+  async saveSettings(settings: PlatformSettings): Promise<void> {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('No autenticado');
     
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    const response = await fetch(`${API_URL}/settings`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(settings)
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Error al guardar configuración');
+    }
+    
+    // Guardar en sessionStorage para evitar parpadeo
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('platform_colors', JSON.stringify({
+        primaryColor: settings.primaryColor,
+        secondaryColor: settings.secondaryColor,
+        accentColor: settings.accentColor
+      }));
+    }
+    
     this.applySettings(settings);
   }
 
@@ -74,18 +102,30 @@ class PlatformSettingsService {
   /**
    * Resetear a configuración por defecto
    */
-  resetToDefaults(): void {
-    if (typeof window === 'undefined') return;
+  async resetToDefaults(): Promise<void> {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('No autenticado');
     
-    localStorage.removeItem(STORAGE_KEY);
-    this.applySettings(DEFAULT_SETTINGS);
+    const response = await fetch(`${API_URL}/settings/reset`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Error al resetear configuración');
+    }
+    
+    const settings = await response.json();
+    this.applySettings(settings);
   }
 
   /**
    * Inicializar configuración al cargar la página
    */
-  initialize(): void {
-    const settings = this.getSettings();
+  async initialize(): Promise<void> {
+    const settings = await this.getSettings();
     this.applySettings(settings);
   }
 }

@@ -89,7 +89,7 @@ export const getFormById = async (formId) => {
  * Crear un nuevo formulario
  */
 export const createForm = async (userId, data) => {
-  const { title, description, sections } = data;
+  const { title, description, templateId, sections } = data;
 
   // Generar slug único
   const baseSlug = title
@@ -114,6 +114,7 @@ export const createForm = async (userId, data) => {
       title,
       description,
       slug,
+      templateId,
       createdById: userId,
       versions: {
         create: {
@@ -170,7 +171,7 @@ export const createForm = async (userId, data) => {
  * Actualizar un formulario (crea nueva versión)
  */
 export const updateForm = async (formId, data) => {
-  const { title, description, sections } = data;
+  const { title, description, templateId, sections } = data;
 
   // Obtener la última versión
   const lastVersion = await prisma.formVersion.findFirst({
@@ -186,6 +187,7 @@ export const updateForm = async (formId, data) => {
     data: {
       title,
       description,
+      ...(templateId && { templateId }), // Solo actualizar si se proporciona
       versions: {
         create: {
           version: newVersionNumber,

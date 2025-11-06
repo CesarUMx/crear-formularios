@@ -1,0 +1,105 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../../../components/auth/ProtectedRoute';
+import StatisticsView from '../../../../components/forms/StatisticsView';
+import { formService } from '../../../../lib/formService';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/admin');
+}
+
+// Intentar obtener información básica del formulario
+let formTitle = 'Formulario';
+try {
+  const form = await formService.getFormById(id);
+  formTitle = form.title;
+} catch (error) {
+  console.error('Error al cargar información del formulario:', error);
+}
+---
+
+<AdminLayout title="Estadísticas del Formulario" currentPath="/admin">
+  <ProtectedRoute client:load>
+    <div class="max-w-7xl mx-auto">
+      <!-- Header -->
+      <div class="mb-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-900">Estadísticas del Formulario</h1>
+            <p class="text-gray-600 mt-1">Análisis de las respuestas recibidas</p>
+          </div>
+          <a
+            href={`/admin/forms/${id}/responses`}
+            class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+          >
+            ← Volver a Respuestas
+          </a>
+        </div>
+      </div>
+
+      <!-- Contenido -->
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+          <div>
+            <h2 class="text-xl font-semibold text-gray-900">
+              Estadísticas: {formTitle}
+            </h2>
+            <p class="text-gray-600 text-sm mt-1">
+              Visualización gráfica de las respuestas
+            </p>
+          </div>
+          <div class="mt-4 md:mt-0 flex flex-col sm:flex-row gap-3">
+            <a
+              href={`/admin/forms/${id}/responses`}
+              class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Ver Tabla de Respuestas
+            </a>
+            <button
+              id="exportCsvBtn"
+              class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Exportar a CSV
+            </button>
+          </div>
+        </div>
+        
+        <!-- Componente de estadísticas -->
+        <StatisticsView formId={id} client:load />
+      </div>
+      
+      <script>
+        // Script para exportar a CSV
+        document.getElementById('exportCsvBtn')?.addEventListener('click', async () => {
+          const formId = window.location.pathname.split('/').filter(Boolean)[2];
+          if (!formId) return;
+          
+          try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+              alert('Necesitas iniciar sesión para exportar respuestas');
+              return;
+            }
+            
+            const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api';
+            const exportUrl = `${API_URL}/analytics/forms/${formId}/export?format=csv&token=${token}`;
+            window.open(exportUrl, '_blank');
+          } catch (error) {
+            console.error('Error al exportar respuestas:', error);
+            alert('Error al exportar respuestas');
+          }
+        });
+      </script>
+    </div>
+  </ProtectedRoute>
+</AdminLayout>

@@ -75,6 +75,7 @@ export default function FormEditorLoader({ formId }: FormEditorLoaderProps) {
   const initialData = {
     title: form.title,
     description: form.description,
+    templateId: form.templateId,
     sections: latestVersion.sections.map(section => ({
       title: section.title,
       description: section.description,
@@ -84,6 +85,8 @@ export default function FormEditorLoader({ formId }: FormEditorLoaderProps) {
         placeholder: question.placeholder,
         helpText: question.helpText,
         isRequired: question.isRequired,
+        allowedFileTypes: question.allowedFileTypes,
+        maxFileSize: question.maxFileSize,
         options: question.options.map(opt => ({ text: opt.text }))
       }))
     })) as SectionInput[]

@@ -12,14 +12,31 @@ import {
 } from 'lucide-react';
 
 export default function PlatformCustomization() {
-  const [settings, setSettings] = useState<PlatformSettings>(platformSettingsService.getSettings());
-  const [logoPreview, setLogoPreview] = useState<string>(settings.logo || '');
-  const [loading, setLoading] = useState(false);
+  const [settings, setSettings] = useState<PlatformSettings>({
+    primaryColor: '#2563eb',
+    secondaryColor: '#1e40af',
+    accentColor: '#3b82f6'
+  });
+  const [logoPreview, setLogoPreview] = useState<string>('');
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
-    setLogoPreview(settings.logo || '');
-  }, [settings.logo]);
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true);
+      const data = await platformSettingsService.getSettings();
+      setSettings(data);
+      setLogoPreview(data.logo || '');
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Error al cargar configuración' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -54,10 +71,10 @@ export default function PlatformCustomization() {
     setSettings({ ...settings, [colorType]: value });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     try {
       setLoading(true);
-      platformSettingsService.saveSettings(settings);
+      await platformSettingsService.saveSettings(settings);
       setMessage({ type: 'success', text: 'Configuración guardada correctamente' });
       
       // Recargar la página para aplicar cambios
@@ -65,21 +82,25 @@ export default function PlatformCustomization() {
         window.location.reload();
       }, 1500);
     } catch (error) {
-      setMessage({ type: 'error', text: 'Error al guardar la configuración' });
-    } finally {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Error al guardar la configuración' });
       setLoading(false);
     }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (confirm('¿Estás seguro de que deseas restaurar la configuración por defecto?')) {
-      platformSettingsService.resetToDefaults();
-      setSettings(platformSettingsService.getSettings());
-      setMessage({ type: 'success', text: 'Configuración restaurada' });
-      
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      try {
+        setLoading(true);
+        await platformSettingsService.resetToDefaults();
+        setMessage({ type: 'success', text: 'Configuración restaurada' });
+        
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } catch (error) {
+        setMessage({ type: 'error', text: 'Error al restaurar configuración' });
+        setLoading(false);
+      }
     }
   };
 

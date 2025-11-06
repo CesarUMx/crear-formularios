@@ -10,7 +10,10 @@
     "migrate": "npx prisma migrate dev",
     "generate": "npx prisma generate",
     "studio": "npx prisma studio",
-    "create-admin": "node src/scripts/createSuperAdmin.js"
+    "create-admin": "node src/scripts/createSuperAdmin.js",
+    "init-templates": "node src/scripts/initTemplates.js",
+    "init-settings": "node src/scripts/initSettings.js",
+    "init-all": "npm run create-admin && npm run init-templates && npm run init-settings"
   },
   "keywords": [
     "forms",
@@ -28,7 +31,11 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.1",
-    "nodemailer": "^7.0.10"
+    "multer": "^2.0.2",
+    "nodemailer": "^7.0.10",
+    "pdf-lib": "^1.17.1",
+    "sharp": "^0.34.4",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.10",

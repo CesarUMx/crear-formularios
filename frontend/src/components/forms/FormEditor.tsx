@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { formService } from '../../lib/formService';
 import type { QuestionType, SectionInput, QuestionInput } from '../../lib/types';
+import { TemplateSelector } from '../templates';
 import { 
   Plus, 
   Trash2, 
@@ -17,6 +18,7 @@ interface FormEditorProps {
   initialData?: {
     title: string;
     description?: string;
+    templateId?: string;
     sections: SectionInput[];
   };
 }
@@ -27,11 +29,13 @@ const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
   { value: 'SELECT', label: 'Selección (Dropdown)' },
   { value: 'RADIO', label: 'Opción Única (Radio)' },
   { value: 'CHECKBOX', label: 'Opción Múltiple (Checkbox)' },
+  { value: 'FILE', label: 'Subir Archivo' },
 ];
 
 export default function FormEditor({ formId, initialData }: FormEditorProps) {
   const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
+  const [templateId, setTemplateId] = useState(initialData?.templateId || 'modern');
   const [sections, setSections] = useState<SectionInput[]>(
     initialData?.sections || [
       {
@@ -182,7 +186,7 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
     setLoading(true);
 
     try {
-      const data = { title, description, sections };
+      const data = { title, description, templateId, sections };
 
       if (formId) {
         await formService.updateForm(formId, data);
@@ -251,6 +255,12 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
           />
         </div>
       </div>
+
+      {/* Selector de Plantilla */}
+      <TemplateSelector
+        selectedTemplateId={templateId}
+        onSelect={setTemplateId}
+      />
 
       {/* Secciones */}
       <div className="space-y-4">
@@ -406,6 +416,87 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
                           placeholder="Información adicional..."
                         />
                       </div>
+
+                      {/* File Configuration */}
+                      {question.type === 'FILE' && (
+                        <div className="space-y-4 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                          <h5 className="font-medium text-blue-900">Configuración de Archivo</h5>
+                          
+                          {/* Allowed File Types */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Tipos de Archivo Permitidos *
+                            </label>
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={question.allowedFileTypes?.includes('IMAGE') || false}
+                                  onChange={(e) => {
+                                    const current = question.allowedFileTypes?.split(',').map(t => t.trim()).filter(Boolean) || [];
+                                    const newTypes = e.target.checked
+                                      ? [...current, 'IMAGE']
+                                      : current.filter(t => t !== 'IMAGE');
+                                    updateQuestion(sectionIndex, questionIndex, 'allowedFileTypes', newTypes.join(','));
+                                  }}
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-gray-700">Imágenes (se convertirán a WebP)</span>
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={question.allowedFileTypes?.includes('PDF') || false}
+                                  onChange={(e) => {
+                                    const current = question.allowedFileTypes?.split(',').map(t => t.trim()).filter(Boolean) || [];
+                                    const newTypes = e.target.checked
+                                      ? [...current, 'PDF']
+                                      : current.filter(t => t !== 'PDF');
+                                    updateQuestion(sectionIndex, questionIndex, 'allowedFileTypes', newTypes.join(','));
+                                  }}
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-gray-700">PDF (se comprimirán)</span>
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={question.allowedFileTypes?.includes('EXCEL') || false}
+                                  onChange={(e) => {
+                                    const current = question.allowedFileTypes?.split(',').map(t => t.trim()).filter(Boolean) || [];
+                                    const newTypes = e.target.checked
+                                      ? [...current, 'EXCEL']
+                                      : current.filter(t => t !== 'EXCEL');
+                                    updateQuestion(sectionIndex, questionIndex, 'allowedFileTypes', newTypes.join(','));
+                                  }}
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-gray-700">Excel (.xlsx)</span>
+                              </label>
+                            </div>
+                          </div>
+
+                          {/* Max File Size */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Tamaño Máximo (MB)
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="50"
+                              value={question.maxFileSize || 10}
+                              onChange={(e) =>
+                                updateQuestion(sectionIndex, questionIndex, 'maxFileSize', parseInt(e.target.value))
+                              }
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                              Tamaño máximo permitido por archivo (1-50 MB)
+                            </p>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Options */}
                       {needsOptions(question.type) && (

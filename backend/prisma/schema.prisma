@@ -35,10 +35,12 @@ model Form {
   isActive    Boolean       @default(true)
   isPublic    Boolean       @default(false)
   publicUrl   String?
+  templateId  String?       // ID de la plantilla a usar (nullable temporalmente)
   createdById String
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   createdBy   User          @relation("FormCreator", fields: [createdById], references: [id])
+  template    FormTemplate? @relation(fields: [templateId], references: [id])
   versions    FormVersion[]
   responses   Response[]
   pages       PublicPage[]
@@ -63,6 +65,40 @@ enum SharePermission {
   VIEW
   EDIT
   FULL
+}
+
+model FormTemplate {
+  id          String   @id // ID único de la plantilla (ej: "modern", "academic", "corporate")
+  name        String   // Nombre de la plantilla
+  description String?  // Descripción de la plantilla
+  thumbnail   String?  // URL de imagen de vista previa
+  isActive    Boolean  @default(true)
+  
+  // Configuración de colores
+  primaryColor    String @default("#3B82F6")   // Color principal
+  secondaryColor  String @default("#10B981")   // Color secundario
+  accentColor     String @default("#F59E0B")   // Color de acento
+  backgroundColor String @default("#F9FAFB")   // Color de fondo
+  textColor       String @default("#111827")   // Color de texto
+  
+  // Configuración de diseño
+  headerStyle     String @default("simple")    // "simple", "gradient", "image"
+  sectionStyle    String @default("card")      // "card", "bordered", "minimal"
+  buttonStyle     String @default("rounded")   // "rounded", "square", "pill"
+  inputStyle      String @default("outlined")  // "outlined", "filled", "underlined"
+  
+  // Configuración de tipografía
+  fontFamily      String @default("Inter")     // Familia de fuente
+  fontSize        String @default("base")      // "sm", "base", "lg"
+  
+  // Configuración adicional (JSON)
+  customStyles    Json?  // Estilos personalizados adicionales
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  forms       Form[]
+  
+  @@map("form_templates")
 }
 
 model PublicPage {
@@ -111,6 +147,8 @@ model Question {
   placeholder     String?
   helpText        String?
   isRequired      Boolean          @default(false)
+  allowedFileTypes String?         // Para FILE: "IMAGE", "PDF", "EXCEL" (separados por coma)
+  maxFileSize     Int?             // Tamaño máximo en MB (default: 10)
   order           Int
   createdAt       DateTime         @default(now())
   section         Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
@@ -125,6 +163,7 @@ enum QuestionType {
   SELECT
   RADIO
   CHECKBOX
+  FILE
 }
 
 model QuestionOption {
@@ -142,6 +181,7 @@ model Response {
   formId          String
   formVersionId   String?
   responseNumber  Int      @default(autoincrement())
+  folio           String?  @unique
   submittedAt     DateTime @default(now())
   ipAddress       String?
   userAgent       String?
@@ -152,6 +192,7 @@ model Response {
   answers         Answer[]
   @@map("responses")
   @@index([formId, responseNumber])
+  @@index([folio])
 }
 
 model Answer {
@@ -159,6 +200,9 @@ model Answer {
   responseId      String
   questionId      String
   textValue       String?
+  fileUrl         String?
+  fileName        String?
+  fileSize        Int?
   createdAt       DateTime        @default(now())
   response        Response        @relation(fields: [responseId], references: [id], onDelete: Cascade)
   question        Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
@@ -167,4 +211,15 @@ model Answer {
   @@unique([responseId, questionId])
   @@index([responseId])
   @@index([questionId])
+}
+
+model PlatformSettings {
+  id             String   @id @default(cuid())
+  logo           String?
+  primaryColor   String   @default("#2563eb")
+  secondaryColor String   @default("#1e40af")
+  accentColor    String   @default("#3b82f6")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@map("platform_settings")
 }

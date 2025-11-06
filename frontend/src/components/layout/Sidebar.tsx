@@ -48,12 +48,6 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
 
   const menuItems = [
     {
-      name: 'Dashboard',
-      icon: LayoutDashboard,
-      path: '/admin',
-      show: true
-    },
-    {
       name: 'Formularios',
       icon: FileText,
       path: '/admin',
@@ -65,12 +59,13 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
       path: '/admin/users',
       show: isSuperAdmin
     },
-    {
-      name: 'Analíticas',
-      icon: BarChart3,
-      path: '/admin/analytics',
-      show: false // Próximamente
-    },
+    // Opción de Analíticas removida - Las analíticas se acceden desde cada formulario
+    // {
+    //   name: 'Analíticas',
+    //   icon: BarChart3,
+    //   path: '/admin/analytics',
+    //   show: false
+    // },
     {
       name: 'Configuración',
       icon: Settings,
@@ -105,16 +100,17 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
 
       {/* Sidebar */}
       <aside
+        style={{ backgroundColor: 'var(--color-secondary)' }}
         className={`
           fixed top-0 left-0 z-40 h-screen transition-all duration-300 ease-in-out
-          bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white
+          text-white shadow-2xl
           flex flex-col
           ${isOpen ? 'w-64' : 'w-20'}
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
           {isOpen ? (
             <div className="flex items-center gap-3">
               <img 
@@ -143,9 +139,9 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
 
         {/* User Info */}
         {user && (
-          <div className={`p-4 border-b border-gray-700 ${!isOpen && 'flex justify-center'}`}>
+          <div className={`p-4 border-b border-white/10 ${!isOpen && 'flex justify-center'}`}>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0" style={{ backgroundColor: 'var(--color-primary)' }}>
                 {user.name.charAt(0).toUpperCase()}
               </div>
               {isOpen && (
@@ -154,8 +150,8 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
                   <p className="text-xs text-gray-400 truncate">{user.email}</p>
                   <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${
                     user.role === 'SUPER_ADMIN' 
-                      ? 'bg-purple-500/20 text-purple-300' 
-                      : 'bg-blue-500/20 text-blue-300'
+                      ? 'bg-green-800/80 text-white' 
+                      : 'bg-gray-500/80 text-white'
                   }`}>
                     {user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}
                   </span>
@@ -175,11 +171,12 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
               <a
                 key={item.path}
                 href={item.path}
+                style={isActive ? { backgroundColor: 'var(--color-primary)' } : {}}
                 className={`
                   flex items-center gap-3 px-3 py-3 rounded-lg transition-all
                   ${isActive 
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/50' 
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                    ? 'text-white shadow-lg' 
+                    : 'text-gray-200 hover:bg-white/10 hover:text-white'
                   }
                   ${!isOpen && 'justify-center'}
                 `}
@@ -193,7 +190,7 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-700 flex-shrink-0 space-y-2">
+        <div className="p-4 border-t border-white/10 flex-shrink-0 space-y-2">
           {/* Botón de Configuración con menú desplegable */}
           <div className="relative">
             <button
@@ -203,7 +200,7 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
               }}
               className={`
                 w-full flex items-center gap-3 px-3 py-3 rounded-lg
-                text-gray-300 hover:bg-gray-700 hover:text-white transition-all
+                text-gray-200 hover:bg-white/10 hover:text-white transition-all
                 ${!isOpen && 'justify-center'}
               `}
               title={!isOpen ? 'Configuración' : ''}
@@ -214,13 +211,13 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
 
             {/* Menú desplegable de configuración */}
             {showConfigMenu && isOpen && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 bg-gray-800 rounded-lg shadow-lg border border-gray-700 overflow-hidden">
+              <div className="absolute bottom-full left-0 right-0 mb-2 rounded-lg shadow-lg border border-white/20 overflow-hidden" style={{ backgroundColor: 'var(--color-secondary)' }}>
                 <button
                   onClick={() => {
                     setShowProfileModal(true);
                     setShowConfigMenu(false);
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all text-left"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-200 hover:bg-white/10 hover:text-white transition-all text-left"
                 >
                   <User className="w-4 h-4" />
                   <span className="text-sm">Mi Perfil</span>
@@ -230,7 +227,7 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
                     setShowPasswordModal(true);
                     setShowConfigMenu(false);
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-gray-700 hover:text-white transition-all text-left"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-200 hover:bg-white/10 hover:text-white transition-all text-left"
                 >
                   <Lock className="w-4 h-4" />
                   <span className="text-sm">Cambiar Contraseña</span>

@@ -1,0 +1,60 @@
+---
+import PublicForm from '../../components/public/PublicForm';
+import '../../styles/global.css';
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect('/');
+}
+---
+
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Formulario público" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Formulario</title>
+    
+    <script is:inline>
+      // Aplicar colores personalizados
+      (async function() {
+        try {
+          const cached = sessionStorage.getItem('platform_colors');
+          if (cached) {
+            const colors = JSON.parse(cached);
+            const root = document.documentElement;
+            if (colors.primaryColor) root.style.setProperty('--color-primary', colors.primaryColor);
+            if (colors.secondaryColor) root.style.setProperty('--color-secondary', colors.secondaryColor);
+            if (colors.accentColor) root.style.setProperty('--color-accent', colors.accentColor);
+          }
+          
+          const API_URL = 'http://localhost:3000/api';
+          const response = await fetch(`${API_URL}/settings`);
+          if (response.ok) {
+            const settings = await response.json();
+            const root = document.documentElement;
+            if (settings.primaryColor) root.style.setProperty('--color-primary', settings.primaryColor);
+            if (settings.secondaryColor) root.style.setProperty('--color-secondary', settings.secondaryColor);
+            if (settings.accentColor) root.style.setProperty('--color-accent', settings.accentColor);
+            
+            sessionStorage.setItem('platform_colors', JSON.stringify({
+              primaryColor: settings.primaryColor,
+              secondaryColor: settings.secondaryColor,
+              accentColor: settings.accentColor
+            }));
+          }
+        } catch (e) {
+          console.error('Error loading platform settings:', e);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <PublicForm client:load slug={slug} />
+  </body>
+</html>

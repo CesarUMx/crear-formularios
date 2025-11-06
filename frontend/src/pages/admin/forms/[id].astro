@@ -3,6 +3,8 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 import ProtectedRoute from '../../../components/auth/ProtectedRoute';
 import FormEditorLoader from '../../../components/forms/FormEditorLoader';
 
+export const prerender = false;
+
 const { id } = Astro.params;
 
 if (!id) {
@@ -13,8 +15,20 @@ if (!id) {
 <AdminLayout title="Editar Formulario" currentPath="/admin">
   <ProtectedRoute client:load>
     <div class="max-w-5xl mx-auto">
+      <!-- Header -->
       <div class="mb-6">
-        <p class="text-gray-600">Los cambios crearán una nueva versión del formulario</p>
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-900">Editar Formulario</h1>
+            <p class="text-gray-600 mt-1">Los cambios crearán una nueva versión del formulario</p>
+          </div>
+          <a
+            href="/admin"
+            class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+          >
+            ← Volver
+          </a>
+        </div>
       </div>
       
       <FormEditorLoader client:load formId={id} />

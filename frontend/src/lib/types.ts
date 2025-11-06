@@ -1,5 +1,5 @@
 // Tipos de preguntas
-export type QuestionType = 'TEXT' | 'TEXTAREA' | 'SELECT' | 'RADIO' | 'CHECKBOX';
+export type QuestionType = 'TEXT' | 'TEXTAREA' | 'SELECT' | 'RADIO' | 'CHECKBOX' | 'FILE';
 
 // Permisos de compartido
 export type Permission = 'VIEW' | 'EDIT' | 'FULL';
@@ -54,6 +54,8 @@ export interface Question {
   placeholder?: string;
   helpText?: string;
   isRequired: boolean;
+  allowedFileTypes?: string;
+  maxFileSize?: number;
   order: number;
   options: QuestionOption[];
 }
@@ -98,6 +100,7 @@ export interface Form {
   slug: string;
   isActive: boolean;
   isPublic: boolean;
+  templateId?: string; // ID de la plantilla de diseño
   createdAt: string;
   updatedAt: string;
   createdBy: {
@@ -111,12 +114,15 @@ export interface Form {
     responses: number;
     versions: number;
   };
+  responseCount?: number;
+  viewCount?: number;
 }
 
 // Formulario para crear/editar
 export interface FormInput {
   title: string;
   description?: string;
+  templateId?: string; // ID de la plantilla a usar
   sections: SectionInput[];
 }
 
@@ -132,5 +138,7 @@ export interface QuestionInput {
   placeholder?: string;
   helpText?: string;
   isRequired: boolean;
+  allowedFileTypes?: string; // Para FILE: "IMAGE", "PDF", "EXCEL"
+  maxFileSize?: number; // Tamaño máximo en MB
   options?: { text: string }[];
 }

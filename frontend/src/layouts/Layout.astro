@@ -1,6 +1,5 @@
 ---
 import '../styles/global.css';
-import UserMenu from '../components/UserMenu';
 
 interface Props {
   title: string;
@@ -28,7 +27,7 @@ const { title, description = 'Plataforma de formularios UMx', showUserMenu = fal
             📋 Formularios UMx
           </a>
           <div class="flex items-center gap-6">
-            {showUserMenu && <UserMenu client:load />}
+            {showUserMenu && <span class="text-sm text-gray-600">Sesión de administrador</span>}
           </div>
         </div>
       </div>

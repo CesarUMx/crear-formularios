@@ -1,0 +1,145 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/global.css';
+
+// Si hay un folio en la URL, lo usamos para verificar
+const folio = Astro.url.searchParams.get('folio');
+let verificationResult = null;
+let error = null;
+
+if (folio) {
+  try {
+    const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api';
+    console.log(`Verificando folio: ${folio} en ${API_URL}/responses/verify/${folio}`);
+    
+    const response = await fetch(`${API_URL}/responses/verify/${folio}`);
+    
+    if (response.ok) {
+      verificationResult = await response.json();
+      console.log('Resultado de verificación:', verificationResult);
+    } else {
+      try {
+        const errorData = await response.json();
+        error = errorData.error || 'Error al verificar el folio';
+      } catch (e) {
+        error = `Error al verificar el folio (${response.status})`;
+      }
+      console.error('Error en verificación:', error);
+    }
+  } catch (err) {
+    console.error('Error de conexión:', err);
+    error = 'Error de conexión al verificar el folio';
+  }
+}
+
+// Formatear fecha si hay resultado
+let formattedDate = '';
+if (verificationResult?.submittedAt) {
+  const submittedDate = new Date(verificationResult.submittedAt);
+  formattedDate = new Intl.DateTimeFormat('es-MX', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(submittedDate);
+}
+---
+
+<Layout title="Verificar Respuesta">
+  <main class="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <!-- Mensaje de depuración (solo en desarrollo) -->
+    {import.meta.env.DEV && (
+      <div class="max-w-lg mx-auto mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm">
+        <p class="font-medium text-yellow-800">Modo de depuración:</p>
+        <p class="mt-1 text-yellow-700">Folio: {folio || 'No proporcionado'}</p>
+        <p class="mt-1 text-yellow-700">API URL: {import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api'}</p>
+        {error && <p class="mt-1 text-red-700">Error: {error}</p>}
+        {verificationResult && <p class="mt-1 text-green-700">Resultado: Encontrado</p>}
+      </div>
+    )}
+    
+    <div class="max-w-lg mx-auto">
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Verificar Respuesta</h1>
+        <p class="mt-2 text-gray-600">
+          Ingresa el folio de tu respuesta para verificar su estado
+        </p>
+      </div>
+
+      <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+        <div class="p-6">
+          <form method="get" class="space-y-4">
+            <div>
+              <label for="folio" class="block text-sm font-medium text-gray-700 mb-1">
+                Folio de Respuesta
+              </label>
+              <input
+                type="text"
+                id="folio"
+                name="folio"
+                value={folio || ''}
+                placeholder="Ej: UMX-20251106-ABCD-X"
+                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
+              />
+              <p class="mt-1 text-xs text-gray-500">
+                El folio tiene el formato UMX-YYYYMMDD-XXXX-X
+              </p>
+            </div>
+            <button
+              type="submit"
+              class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Verificar Folio
+            </button>
+          </form>
+
+          {error && (
+            <div class="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div class="flex items-start gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <div>
+                  <h3 class="text-sm font-medium text-red-800">Error de verificación</h3>
+                  <p class="mt-1 text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {verificationResult && (
+            <div class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div class="flex items-start gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <div>
+                  <h3 class="text-sm font-medium text-green-800">Respuesta verificada</h3>
+                  <div class="mt-3 space-y-3">
+                    <div>
+                      <p class="text-xs text-green-700">Folio:</p>
+                      <p class="text-sm font-mono font-medium text-green-900">{verificationResult.folio}</p>
+                    </div>
+                    <div>
+                      <p class="text-xs text-green-700">Formulario:</p>
+                      <p class="text-sm font-medium text-green-900">{verificationResult.formTitle}</p>
+                    </div>
+                    <div>
+                      <p class="text-xs text-green-700">Fecha de envío:</p>
+                      <p class="text-sm font-medium text-green-900">{formattedDate}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  </main>
+</Layout>

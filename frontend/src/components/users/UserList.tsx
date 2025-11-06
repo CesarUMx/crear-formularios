@@ -92,13 +92,11 @@ export default function UserList() {
   return (
     <div className="space-y-6">
       {/* Header con estadísticas */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
-          <p className="text-gray-600">Administra los usuarios del sistema</p>
-        </div>
+      <div className="flex flex-col sm:flex-row justify-end items-start sm:items-center gap-4 mb-6">
         <button
           onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg shadow-blue-600/30 font-medium"
+          style={{ backgroundColor: 'var(--color-secondary)' }}
+          className="flex items-center gap-2 px-4 py-2.5 text-white rounded-lg hover:opacity-90 transition-all shadow-lg font-medium"
         >
           <Plus className="w-5 h-5" />
           Nuevo Usuario
