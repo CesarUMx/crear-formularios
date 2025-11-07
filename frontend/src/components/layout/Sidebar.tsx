@@ -21,13 +21,21 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentPath = '' }: SidebarProps) {
-  const [isOpen, setIsOpen] = useState(true);
+  // Usar useEffect para manejar el estado en el cliente después del renderizado inicial
+  const [isOpen, setIsOpen] = useState(false); // Iniciar cerrado para evitar discrepancias
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showConfigMenu, setShowConfigMenu] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const user = authService.getUser();
-  const isSuperAdmin = authService.isSuperAdmin();
+  const [user, setUser] = useState<any>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  
+  // Inicializar estado después del renderizado en cliente
+  useEffect(() => {
+    setIsOpen(true); // Ahora podemos abrirlo en el cliente
+    setUser(authService.getUser());
+    setIsSuperAdmin(authService.isSuperAdmin());
+  }, []);
 
   // Cerrar menú de configuración al hacer click fuera
   useEffect(() => {
@@ -138,55 +146,55 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
         </div>
 
         {/* User Info */}
-        {user && (
-          <div className={`p-4 border-b border-white/10 ${!isOpen && 'flex justify-center'}`}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0" style={{ backgroundColor: 'var(--color-primary)' }}>
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-              {isOpen && (
-                <div className="overflow-hidden">
-                  <p className="font-medium text-sm truncate">{user.name}</p>
-                  <p className="text-xs text-gray-400 truncate">{user.email}</p>
-                  <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${
-                    user.role === 'SUPER_ADMIN' 
-                      ? 'bg-green-800/80 text-white' 
-                      : 'bg-gray-500/80 text-white'
-                  }`}>
-                    {user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}
-                  </span>
-                </div>
-              )}
+        <div className={`p-4 border-b border-white/10 ${!isOpen && 'flex justify-center'}`}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0" style={{ backgroundColor: 'var(--color-primary)' }}>
+              {user?.name ? user.name.charAt(0).toUpperCase() : ''}
             </div>
+            {isOpen && user && (
+              <div className="overflow-hidden">
+                <p className="font-medium text-sm truncate">{user.name}</p>
+                <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${
+                  user.role === 'SUPER_ADMIN' 
+                    ? 'bg-green-800/80 text-white' 
+                    : 'bg-gray-500/80 text-white'
+                }`}>
+                  {user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}
+                </span>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto min-h-0">
-          {menuItems.filter(item => item.show).map((item) => {
-            const Icon = item.icon;
-            const isActive = currentPath === item.path;
-            
-            return (
-              <a
-                key={item.path}
-                href={item.path}
-                style={isActive ? { backgroundColor: 'var(--color-primary)' } : {}}
-                className={`
-                  flex items-center gap-3 px-3 py-3 rounded-lg transition-all
-                  ${isActive 
-                    ? 'text-white shadow-lg' 
-                    : 'text-gray-200 hover:bg-white/10 hover:text-white'
-                  }
-                  ${!isOpen && 'justify-center'}
-                `}
-                title={!isOpen ? item.name : ''}
-              >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                {isOpen && <span className="font-medium">{item.name}</span>}
-              </a>
-            );
-          })}
+          {menuItems
+            .filter(item => item.show)
+            .map((item) => {
+              const Icon = item.icon;
+              const isActive = currentPath === item.path;
+              
+              return (
+                <a
+                  key={item.path}
+                  href={item.path}
+                  style={isActive ? { backgroundColor: 'var(--color-primary)' } : undefined}
+                  className={`
+                    flex items-center gap-3 px-3 py-3 rounded-lg transition-all
+                    ${isActive 
+                      ? 'text-white shadow-lg' 
+                      : 'text-gray-200 hover:bg-white/10 hover:text-white'
+                    }
+                    ${!isOpen ? 'justify-center' : ''}
+                  `}
+                  title={!isOpen ? item.name : ''}
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  {isOpen && <span className="font-medium">{item.name}</span>}
+                </a>
+              );
+            })}
         </nav>
 
         {/* Footer */}
@@ -201,7 +209,7 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
               className={`
                 w-full flex items-center gap-3 px-3 py-3 rounded-lg
                 text-gray-200 hover:bg-white/10 hover:text-white transition-all
-                ${!isOpen && 'justify-center'}
+                ${!isOpen ? 'justify-center' : ''}
               `}
               title={!isOpen ? 'Configuración' : ''}
             >
@@ -242,7 +250,7 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
             className={`
               w-full flex items-center gap-3 px-3 py-3 rounded-lg
               text-gray-300 hover:bg-red-600 hover:text-white transition-all
-              ${!isOpen && 'justify-center'}
+              ${!isOpen ? 'justify-center' : ''}
             `}
             title={!isOpen ? 'Cerrar Sesión' : ''}
           >

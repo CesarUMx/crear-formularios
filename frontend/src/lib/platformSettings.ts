@@ -101,15 +101,17 @@ class PlatformSettingsService {
 
   /**
    * Resetear a configuración por defecto
+   * @returns La configuración por defecto aplicada
    */
-  async resetToDefaults(): Promise<void> {
+  async resetToDefaults(): Promise<PlatformSettings> {
     const token = localStorage.getItem('token');
     if (!token) throw new Error('No autenticado');
     
     const response = await fetch(`${API_URL}/settings/reset`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${token}`,
+        'Cache-Control': 'no-cache'
       }
     });
     
@@ -118,7 +120,28 @@ class PlatformSettingsService {
     }
     
     const settings = await response.json();
-    this.applySettings(settings);
+    
+    // Convertir a objeto PlatformSettings
+    const platformSettings: PlatformSettings = {
+      logo: settings.logo || DEFAULT_SETTINGS.logo,
+      primaryColor: settings.primaryColor || DEFAULT_SETTINGS.primaryColor,
+      secondaryColor: settings.secondaryColor || DEFAULT_SETTINGS.secondaryColor,
+      accentColor: settings.accentColor || DEFAULT_SETTINGS.accentColor
+    };
+    
+    // Aplicar configuración
+    this.applySettings(platformSettings);
+    
+    // Guardar en localStorage para persistencia
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('platform_colors', JSON.stringify({
+        primaryColor: platformSettings.primaryColor,
+        secondaryColor: platformSettings.secondaryColor,
+        accentColor: platformSettings.accentColor
+      }));
+    }
+    
+    return platformSettings;
   }
 
   /**

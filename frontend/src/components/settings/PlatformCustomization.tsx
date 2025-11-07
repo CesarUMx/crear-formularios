@@ -68,19 +68,73 @@ export default function PlatformCustomization() {
   };
 
   const handleColorChange = (colorType: 'primaryColor' | 'secondaryColor' | 'accentColor', value: string) => {
-    setSettings({ ...settings, [colorType]: value });
+    // Actualizar el estado
+    const updatedSettings = { ...settings, [colorType]: value };
+    setSettings(updatedSettings);
+    
+    // Previsualizar el color inmediatamente
+    previewColors(updatedSettings);
+  };
+  
+  // Función para previsualizar colores sin guardarlos
+  const previewColors = (colors: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  }) => {
+    // Aplicar colores directamente al DOM para previsualizar
+    const root = document.documentElement;
+    root.style.setProperty('--color-primary', colors.primaryColor);
+    root.style.setProperty('--color-secondary', colors.secondaryColor);
+    root.style.setProperty('--color-accent', colors.accentColor);
+    
+    console.log('Previsualizando colores:', colors);
+  };
+
+  // Función para aplicar colores inmediatamente
+  const applyColorsImmediately = (colors: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  }) => {
+    // Aplicar colores directamente al DOM
+    const root = document.documentElement;
+    root.style.setProperty('--color-primary', colors.primaryColor);
+    root.style.setProperty('--color-secondary', colors.secondaryColor);
+    root.style.setProperty('--color-accent', colors.accentColor);
+    
+    // Crear o actualizar el estilo forzado
+    let styleEl = document.getElementById('forced-colors-style');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'forced-colors-style';
+      document.head.appendChild(styleEl);
+    }
+    
+    styleEl.textContent = `
+      :root {
+        --color-primary: ${colors.primaryColor} !important;
+        --color-secondary: ${colors.secondaryColor} !important;
+        --color-accent: ${colors.accentColor} !important;
+      }
+    `;
+    
+    // Actualizar localStorage
+    localStorage.setItem('platform_colors', JSON.stringify(colors));
+    
+    console.log('Colores aplicados inmediatamente:', colors);
   };
 
   const handleSave = async () => {
     try {
       setLoading(true);
       await platformSettingsService.saveSettings(settings);
-      setMessage({ type: 'success', text: 'Configuración guardada correctamente' });
       
-      // Recargar la página para aplicar cambios
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      // Aplicar colores inmediatamente sin recargar
+      applyColorsImmediately(settings);
+      
+      setMessage({ type: 'success', text: 'Configuración guardada correctamente' });
+      setLoading(false);
     } catch (error) {
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Error al guardar la configuración' });
       setLoading(false);
@@ -91,12 +145,20 @@ export default function PlatformCustomization() {
     if (confirm('¿Estás seguro de que deseas restaurar la configuración por defecto?')) {
       try {
         setLoading(true);
-        await platformSettingsService.resetToDefaults();
-        setMessage({ type: 'success', text: 'Configuración restaurada' });
+        const defaultSettings = await platformSettingsService.resetToDefaults();
         
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+        // Actualizar el estado local
+        setSettings(defaultSettings);
+        
+        // Aplicar colores inmediatamente
+        applyColorsImmediately({
+          primaryColor: defaultSettings.primaryColor,
+          secondaryColor: defaultSettings.secondaryColor,
+          accentColor: defaultSettings.accentColor
+        });
+        
+        setMessage({ type: 'success', text: 'Configuración restaurada' });
+        setLoading(false);
       } catch (error) {
         setMessage({ type: 'error', text: 'Error al restaurar configuración' });
         setLoading(false);
