@@ -117,13 +117,6 @@ export default function LoginForm() {
               {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </button>
           </div>
-
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              Credenciales por defecto: <br />
-              <code className="bg-gray-100 px-2 py-1 rounded text-xs">admin@umx.com / admin123</code>
-            </p>
-          </div>
         </form>
         </div>
       </div>
