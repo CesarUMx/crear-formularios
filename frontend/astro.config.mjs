@@ -2,11 +2,15 @@
 import { defineConfig } from 'astro/config';
 
 import react from '@astrojs/react';
+import node from '@astrojs/node';
 import tailwindcss from '@tailwindcss/vite';
 
 // https://astro.build/config
 export default defineConfig({
   output: 'server', // Habilitar SSR para rutas dinámicas
+  adapter: node({
+    mode: 'standalone'
+  }),
   integrations: [react()],
   server: {
     host: '0.0.0.0', // Permitir acceso desde cualquier IP
@@ -14,14 +18,6 @@ export default defineConfig({
   },
 
   vite: {
-    plugins: [tailwindcss()],
-    server: {
-      proxy: {
-        '/uploads': {
-          target: 'http://172.18.0.45:3000',
-          changeOrigin: true
-        }
-      }
-    }
+    plugins: [tailwindcss()]
   }
 });

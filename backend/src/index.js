@@ -18,13 +18,16 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy (necesario detrás de Nginx)
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: [process.env.FRONTEND_URL, 'http://localhost:4321', 'http://172.18.0.45:4321'],
+  origin: process.env.FRONTEND_URL || 'http://localhost:4321',
   credentials: true
 }));
-app.use(morgan('dev'));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

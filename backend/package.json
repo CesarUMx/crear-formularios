@@ -8,6 +8,8 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "migrate": "npx prisma migrate dev",
+    "migrate:deploy": "npx prisma migrate deploy",
+    "db:push": "npx prisma db push",
     "generate": "npx prisma generate",
     "studio": "npx prisma studio",
     "create-admin": "node src/scripts/createSuperAdmin.js",
