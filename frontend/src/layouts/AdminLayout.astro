@@ -1,14 +1,47 @@
 ---
 import '../styles/global.css';
 import Sidebar from '../components/layout/Sidebar';
+import StyleDebugger from '../components/debug/StyleDebugger';
 
 interface Props {
   title: string;
   description?: string;
   currentPath?: string;
+  showDebugger?: boolean;
 }
 
-const { title, description = 'Plataforma de formularios UMx', currentPath } = Astro.props;
+const { 
+  title, 
+  description = 'Plataforma de formularios UMx', 
+  currentPath, 
+  showDebugger = true 
+} = Astro.props;
+
+// Cargar colores desde el servidor durante SSR
+let platformColors = {
+  primaryColor: '#2563eb',   // Valor por defecto
+  secondaryColor: '#1e40af', // Valor por defecto
+  accentColor: '#3b82f6'     // Valor por defecto
+};
+
+try {
+  const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api';
+  const response = await fetch(`${API_URL}/settings/colors`, {
+    headers: { 'Cache-Control': 'no-cache' }
+  });
+  
+  if (response.ok) {
+    const colors = await response.json();
+    platformColors = {
+      primaryColor: colors.primaryColor || platformColors.primaryColor,
+      secondaryColor: colors.secondaryColor || platformColors.secondaryColor,
+      accentColor: colors.accentColor || platformColors.accentColor
+    };
+    console.log('Colores cargados durante SSR:', platformColors);
+  }
+} catch (error) {
+  console.error('Error al cargar colores durante SSR:', error);
+}
 ---
 
 <!doctype html>
@@ -19,40 +52,126 @@ const { title, description = 'Plataforma de formularios UMx', currentPath } = As
     <meta name="description" content={description} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
-    <script is:inline>
-      // Aplicar configuración de colores INMEDIATAMENTE para evitar parpadeo
-      (async function() {
-        try {
-          // Intentar cargar desde caché primero
-          const cached = sessionStorage.getItem('platform_colors');
-          if (cached) {
-            const colors = JSON.parse(cached);
-            const root = document.documentElement;
-            if (colors.primaryColor) root.style.setProperty('--color-primary', colors.primaryColor);
-            if (colors.secondaryColor) root.style.setProperty('--color-secondary', colors.secondaryColor);
-            if (colors.accentColor) root.style.setProperty('--color-accent', colors.accentColor);
+    <!-- Aplicar colores cargados durante SSR directamente en el HTML -->  
+    <style define:vars={{ primaryColor: platformColors.primaryColor, secondaryColor: platformColors.secondaryColor, accentColor: platformColors.accentColor }}>
+      :root {
+        --color-primary: var(--primaryColor);
+        --color-secondary: var(--secondaryColor);
+        --color-accent: var(--accentColor);
+      }
+    </style>
+
+    <script is:inline define:vars={{ initialColors: platformColors }}>
+      // IIFE para aplicar colores inmediatamente
+      (function() {
+        // Forzar la aplicación de colores directamente en el DOM
+        const root = document.documentElement;
+        const colors = initialColors;
+        
+        // Aplicar colores directamente al elemento root
+        root.style.setProperty('--color-primary', colors.primaryColor);
+        root.style.setProperty('--color-secondary', colors.secondaryColor);
+        root.style.setProperty('--color-accent', colors.accentColor);
+        
+        // Guardar en localStorage para persistencia
+        localStorage.setItem('platform_colors', JSON.stringify(colors));
+        
+        console.log('Colores aplicados directamente:', colors);
+        
+        // Crear un estilo CSS con !important para forzar los colores
+        const forceStyleEl = document.createElement('style');
+        forceStyleEl.textContent = `
+          :root {
+            --color-primary: ${colors.primaryColor} !important;
+            --color-secondary: ${colors.secondaryColor} !important;
+            --color-accent: ${colors.accentColor} !important;
           }
-          
-          // Luego cargar desde API y actualizar caché
-          const API_URL = 'http://localhost:3000/api';
-          const response = await fetch(`${API_URL}/settings`);
-          if (response.ok) {
-            const settings = await response.json();
-            const root = document.documentElement;
-            if (settings.primaryColor) root.style.setProperty('--color-primary', settings.primaryColor);
-            if (settings.secondaryColor) root.style.setProperty('--color-secondary', settings.secondaryColor);
-            if (settings.accentColor) root.style.setProperty('--color-accent', settings.accentColor);
+        `;
+        document.head.appendChild(forceStyleEl);
+        
+        // Verificar colores aplicados
+        setTimeout(() => {
+          const computedStyle = getComputedStyle(root);
+          console.log('Colores verificados:', {
+            primary: computedStyle.getPropertyValue('--color-primary').trim(),
+            secondary: computedStyle.getPropertyValue('--color-secondary').trim(),
+            accent: computedStyle.getPropertyValue('--color-accent').trim()
+          });
+        }, 100);
+        
+        // Función para mantener los colores actualizados
+        const keepColorsUpdated = () => {
+          // Volver a aplicar los colores para asegurar que no se sobrescriban
+          root.style.setProperty('--color-primary', colors.primaryColor);
+          root.style.setProperty('--color-secondary', colors.secondaryColor);
+          root.style.setProperty('--color-accent', colors.accentColor);
+        };
+        
+        // Aplicar colores cada vez que cambie el DOM
+        const observer = new MutationObserver(keepColorsUpdated);
+        observer.observe(document.documentElement, { 
+          childList: true, 
+          subtree: true 
+        });
+        
+        // También aplicar colores después de que la página haya cargado completamente
+        window.addEventListener('load', keepColorsUpdated);
+        
+        // Y cada vez que se cargue un recurso
+        window.addEventListener('DOMContentLoaded', keepColorsUpdated);
+        
+        // Actualizar colores desde el servidor periódicamente
+        const updateColorsFromServer = async () => {
+          try {
+            const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api';
+            const response = await fetch(`${API_URL}/settings/colors`, { 
+              headers: { 'Cache-Control': 'no-cache' },
+              cache: 'no-store'
+            });
             
-            // Guardar en sessionStorage para próximas páginas
-            sessionStorage.setItem('platform_colors', JSON.stringify({
-              primaryColor: settings.primaryColor,
-              secondaryColor: settings.secondaryColor,
-              accentColor: settings.accentColor
-            }));
+            if (response.ok) {
+              const newColors = await response.json();
+              
+              // Actualizar colores solo si han cambiado
+              if (newColors.primaryColor !== colors.primaryColor || 
+                  newColors.secondaryColor !== colors.secondaryColor || 
+                  newColors.accentColor !== colors.accentColor) {
+                
+                console.log('Actualizando colores desde el servidor:', newColors);
+                
+                // Actualizar variables CSS con !important
+                forceStyleEl.textContent = `
+                  :root {
+                    --color-primary: ${newColors.primaryColor} !important;
+                    --color-secondary: ${newColors.secondaryColor} !important;
+                    --color-accent: ${newColors.accentColor} !important;
+                  }
+                `;
+                
+                // También actualizar directamente
+                root.style.setProperty('--color-primary', newColors.primaryColor);
+                root.style.setProperty('--color-secondary', newColors.secondaryColor);
+                root.style.setProperty('--color-accent', newColors.accentColor);
+                
+                // Actualizar localStorage
+                localStorage.setItem('platform_colors', JSON.stringify(newColors));
+                
+                // Actualizar la referencia local
+                Object.assign(colors, newColors);
+              }
+            }
+          } catch (error) {
+            console.error('Error al actualizar colores desde el servidor:', error);
           }
-        } catch (e) {
-          console.error('Error loading platform settings:', e);
-        }
+        };
+        
+        // Actualizar colores al cargar la página
+        window.addEventListener('load', () => {
+          setTimeout(updateColorsFromServer, 500);
+        });
+        
+        // Y cada 30 segundos para mantenerlos sincronizados
+        setInterval(updateColorsFromServer, 30000);
       })();
     </script>
   </head>
@@ -87,5 +206,7 @@ const { title, description = 'Plataforma de formularios UMx', currentPath } = As
         </div>
       </footer>
     </div>
+    
+    <!-- Eliminado el depurador de estilos ya que no es necesario con la nueva implementación -->
   </body>
 </html>

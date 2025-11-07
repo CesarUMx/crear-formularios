@@ -136,11 +136,11 @@ export default function FormList() {
           </a>
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
           {forms.map((form) => (
             <div
               key={form.id}
-              className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow"
+              className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow min-w-[280px] w-full"
             >
               {/* Card Header */}
               <div className="p-6 border-b border-gray-200">
@@ -216,28 +216,28 @@ export default function FormList() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleCopyLink(form)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition"
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 min-h-[40px] min-w-[80px] text-xs font-medium bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition"
                         title="Copiar enlace"
                       >
                         {copiedFormId === form.id ? (
                           <>
-                            <Check className="w-3 h-3" />
-                            Copiado!
+                            <Check className="w-4 h-4" />
+                            <span className="whitespace-nowrap">Copiado!</span>
                           </>
                         ) : (
                           <>
-                            <Copy className="w-3 h-3" />
-                            Copiar
+                            <Copy className="w-4 h-4" />
+                            <span className="whitespace-nowrap">Copiar</span>
                           </>
                         )}
                       </button>
                       <button
                         onClick={() => handleOpenPublic(form.slug)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition"
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 min-h-[40px] min-w-[80px] text-xs font-medium bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition"
                         title="Abrir en nueva pestaña"
                       >
-                        <ExternalLink className="w-3 h-3" />
-                        Abrir
+                        <ExternalLink className="w-4 h-4" />
+                        <span className="whitespace-nowrap">Abrir</span>
                       </button>
                     </div>
                   </div>
@@ -245,35 +245,35 @@ export default function FormList() {
               </div>
 
               {/* Card Footer */}
-              <div className="p-4 bg-gray-50 border-t border-gray-200 flex gap-2">
+              <div className="p-4 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-2">
                 <a
                   href={`/admin/forms/${form.id}`}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] min-w-[70px] text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition"
                 >
-                  <Edit className="w-4 h-4" />
-                  Editar
+                  <Edit className="w-4 h-4 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Editar</span>
                 </a>
                 <button
                   onClick={() => setShareModalForm({ id: form.id, title: form.title })}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-green-600 hover:bg-green-50 rounded-lg transition"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] min-w-[70px] text-sm font-medium text-green-600 hover:bg-green-50 rounded-lg transition"
                   title="Compartir"
                 >
-                  <Share2 className="w-4 h-4" />
-                  Compartir
+                  <Share2 className="w-4 h-4 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Compartir</span>
                 </button>
                 <a
                   href={`/admin/forms/${form.id}/responses`}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] min-w-[70px] text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition"
                 >
-                  <BarChart3 className="w-4 h-4" />
-                  Ver
+                  <BarChart3 className="w-4 h-4 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Ver</span>
                 </a>
                 <button
                   onClick={() => handleDelete(form.id, form.title)}
-                  className="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] min-w-[45px] text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition"
                   title="Eliminar"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4 flex-shrink-0" />
                 </button>
               </div>
             </div>
