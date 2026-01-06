@@ -10,7 +10,7 @@ async function createSuperAdmin() {
   try {
     console.log('🔧 Creando Super Administrador...\n');
 
-    const email = process.argv[2] || 'admin@umx.com';
+    const email = process.argv[2] || 'admin@mail.com';
     const password = process.argv[3] || 'Admin123456';
     const name = process.argv[4] || 'Super Admin';
 

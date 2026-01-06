@@ -40,9 +40,9 @@ export const sendWelcomeEmail = async (userEmail, userName, password) => {
     const transporter = createTransporter();
 
     const mailOptions = {
-      from: process.env.EMAIL_FROM || '"Formularios UMx" <noreply@umx.com>',
+      from: process.env.EMAIL_FROM || '"Forms" <noreply@mail.com>',
       to: userEmail,
-      subject: '¡Bienvenido a Formularios UMx! 🎉',
+      subject: '¡Bienvenido a Forms! 🎉',
       html: `
         <!DOCTYPE html>
         <html>
@@ -122,14 +122,14 @@ export const sendWelcomeEmail = async (userEmail, userName, password) => {
         </head>
         <body>
           <div class="header">
-            <h1>¡Bienvenido a Formularios UMx!</h1>
+            <h1>¡Bienvenido a Forms!</h1>
             <p>Tu cuenta ha sido creada exitosamente</p>
           </div>
           
           <div class="content">
             <p>Hola <strong>${userName}</strong>,</p>
             
-            <p>Tu cuenta de administrador ha sido creada en la plataforma de Formularios UMx. A continuación encontrarás tus credenciales de acceso:</p>
+            <p>Tu cuenta de administrador ha sido creada en la plataforma de Forms. A continuación encontrarás tus credenciales de acceso:</p>
             
             <div class="credentials-box">
               <div class="credential-item">
@@ -167,18 +167,18 @@ export const sendWelcomeEmail = async (userEmail, userName, password) => {
           </div>
           
           <div class="footer">
-            <p>&copy; 2025 UMx - Plataforma de Formularios</p>
+            <p>&copy; 2025 - Plataforma de Formularios</p>
             <p>Este es un correo automático, por favor no respondas a este mensaje.</p>
           </div>
         </body>
         </html>
       `,
       text: `
-        ¡Bienvenido a Formularios UMx!
+        ¡Bienvenido a Forms!
         
         Hola ${userName},
         
-        Tu cuenta de administrador ha sido creada en la plataforma de Formularios UMx.
+        Tu cuenta de administrador ha sido creada en la plataforma de Formularios.
         
         Tus credenciales de acceso:
         Email: ${userEmail}
@@ -190,7 +190,7 @@ export const sendWelcomeEmail = async (userEmail, userName, password) => {
         
         ¡Bienvenido al equipo!
         
-        © 2025 UMx - Plataforma de Formularios
+        © 2025 - Plataforma de Formularios
       `
     };
 
@@ -218,7 +218,7 @@ export const sendPasswordResetEmail = async (userEmail, userName, newPassword) =
     const transporter = createTransporter();
 
     const mailOptions = {
-      from: process.env.EMAIL_FROM || '"Formularios UMx" <noreply@umx.com>',
+      from: process.env.EMAIL_FROM || '"Forms" <noreply@mail.com>',
       to: userEmail,
       subject: 'Tu contraseña ha sido actualizada 🔐',
       html: `
@@ -317,7 +317,7 @@ export const sendPasswordResetEmail = async (userEmail, userName, newPassword) =
           </div>
           
           <div class="footer">
-            <p>&copy; 2025 UMx - Plataforma de Formularios</p>
+            <p>&copy; 2025 - Plataforma de Formularios</p>
           </div>
         </body>
         </html>
@@ -335,7 +335,7 @@ export const sendPasswordResetEmail = async (userEmail, userName, newPassword) =
         
         Accede a la plataforma en: ${process.env.FRONTEND_URL || 'http://localhost:4321'}
         
-        © 2025 UMx - Plataforma de Formularios
+        © 2025 - Plataforma de Formularios
       `
     };
 

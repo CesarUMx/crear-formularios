@@ -43,7 +43,7 @@ app.get('/health', (req, res) => {
 // API Info
 app.get('/api', (req, res) => {
   res.json({ 
-    message: 'API de Formularios UMx',
+    message: 'API de Formularios',
     version: '1.0.0',
     endpoints: {
       auth: '/api/auth',

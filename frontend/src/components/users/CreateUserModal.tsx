@@ -118,7 +118,7 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
               onChange={(e) => setEmail(e.target.value)}
               required
               className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-              placeholder="juan@umx.com"
+              placeholder="juan@mail.com"
             />
           </div>
         </div>

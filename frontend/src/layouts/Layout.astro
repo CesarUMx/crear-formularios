@@ -7,7 +7,7 @@ interface Props {
   showUserMenu?: boolean;
 }
 
-const { title, description = 'Plataforma de formularios UMx', showUserMenu = false } = Astro.props;
+const { title, description = 'Plataforma de formularios', showUserMenu = false } = Astro.props;
 ---
 
 <!doctype html>
@@ -24,7 +24,7 @@ const { title, description = 'Plataforma de formularios UMx', showUserMenu = fal
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16 items-center">
           <a href="/" class="text-2xl font-bold text-blue-600">
-            📋 Formularios UMx
+            📋 Forms
           </a>
           <div class="flex items-center gap-6">
             {showUserMenu && <span class="text-sm text-gray-600">Sesión de administrador</span>}
@@ -37,7 +37,7 @@ const { title, description = 'Plataforma de formularios UMx', showUserMenu = fal
     </main>
     <footer class="bg-white border-t mt-auto py-6">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-600">
-        <p>&copy; 2025 UMx - Plataforma de Formularios</p>
+        <p>&copy; 2025 - Plataforma de Formularios</p>
       </div>
     </footer>
   </body>
