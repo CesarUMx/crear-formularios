@@ -1,4 +1,4 @@
-# Plataforma de Formularios UMx
+# Plataforma de Formularios
 
 ## Estructura
 - `backend/` - API con Node.js + Express + Prisma

@@ -1,0 +1,18 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../../components/auth/ProtectedRoute';
+import ExamEditor from '../../../components/exams/ExamEditor';
+---
+
+<AdminLayout title="Crear Nuevo Examen" currentPath="/admin/exams">
+  <ProtectedRoute client:load>
+    <div class="max-w-5xl mx-auto">
+      <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">Crear Nuevo Examen</h1>
+        <p class="text-gray-600 mt-2">Diseña tu examen agregando secciones y preguntas con puntos</p>
+      </div>
+      
+      <ExamEditor client:load />
+    </div>
+  </ProtectedRoute>
+</AdminLayout>

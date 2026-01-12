@@ -39,8 +39,8 @@ Estos comandos crean:
 ## Datos Iniciales
 
 ### Usuario Administrador
-- **Email**: admin@umx.com
-- **Contraseña**: admin123
+- **Email**: admin@mail.com
+- **Contraseña**: admin123456
 - **Rol**: SUPER_ADMIN
 
 ### Plantillas de Formularios

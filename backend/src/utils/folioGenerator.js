@@ -4,9 +4,9 @@
 
 /**
  * Genera un folio único para una respuesta
- * Formato: UMX-YYYYMMDD-XXXX-Z
+ * Formato: RES-YYYYMMDD-XXXX-Z
  * Donde:
- * - UMX: Prefijo constante
+ * - RES: Prefijo constante
  * - YYYYMMDD: Fecha actual
  * - XXXX: 4 caracteres aleatorios (alfanuméricos)
  * - Z: Último carácter del ID del formulario
@@ -33,7 +33,7 @@ export function generateResponseFolio(formId) {
   const formSuffix = formId.slice(-1).toUpperCase();
   
   // Construir y retornar el folio
-  return `UMX-${dateStr}-${random}-${formSuffix}`;
+  return `RES-${dateStr}-${random}-${formSuffix}`;
 }
 
 /**
@@ -43,7 +43,7 @@ export function generateResponseFolio(formId) {
  * @returns {boolean} true si el formato es válido
  */
 export function validateFolio(folio) {
-  // Formato esperado: UMX-YYYYMMDD-XXXX-Z
-  const regex = /^UMX-\d{8}-[A-Z0-9]{4}-[A-Z0-9]$/;
+  // Formato esperado: RES-YYYYMMDD-XXXX-Z
+  const regex = /^RES-\d{8}-[A-Z0-9]{4}-[A-Z0-9]$/;
   return regex.test(folio);
 }

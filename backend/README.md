@@ -1,6 +1,6 @@
 # Backend - API de Formularios
 
-API REST para la plataforma de formularios UMx.
+API REST para la plataforma de formularios.
 
 ## 🚀 Inicio Rápido
 

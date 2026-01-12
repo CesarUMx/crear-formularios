@@ -1,0 +1,16 @@
+---
+import Layout from '../../../../layouts/Layout.astro';
+import ExamTaker from '../../../../components/exams/ExamTaker';
+
+export const prerender = false;
+
+const { slug, attemptId } = Astro.params;
+
+if (!slug || !attemptId) {
+  return Astro.redirect('/');
+}
+---
+
+<Layout title="Tomar Examen">
+  <ExamTaker client:load attemptId={attemptId} />
+</Layout>

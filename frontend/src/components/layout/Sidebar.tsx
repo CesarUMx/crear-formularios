@@ -11,7 +11,8 @@ import {
   ChevronLeft,
   LogOut,
   User,
-  Lock
+  Lock,
+  GraduationCap
 } from 'lucide-react';
 import { authService } from '../../lib/auth';
 import { ProfileModal, ChangePasswordModal } from '../users';
@@ -59,6 +60,12 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
       name: 'Formularios',
       icon: FileText,
       path: '/admin',
+      show: true
+    },
+    {
+      name: 'Exámenes',
+      icon: GraduationCap,
+      path: '/admin/exams',
       show: true
     },
     {
@@ -126,7 +133,7 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
                 alt="Forms Logo" 
                 className="w-12 h-12 object-contain"
               />
-              <span className="text-xl font-bold text-white">Forms UMx</span>
+              <span className="text-xl font-bold text-white">Forms</span>
             </div>
           ) : (
             <div className="flex justify-center w-full">
