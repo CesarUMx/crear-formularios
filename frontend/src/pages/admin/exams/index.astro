@@ -1,0 +1,13 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../../components/auth/ProtectedRoute';
+import ExamList from '../../../components/exams/ExamList';
+---
+
+<AdminLayout title="Exámenes" currentPath="/admin/exams">
+  <ProtectedRoute client:load>
+    <div class="max-w-7xl mx-auto">
+      <ExamList client:load />
+    </div>
+  </ProtectedRoute>
+</AdminLayout>

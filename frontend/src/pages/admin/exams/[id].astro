@@ -1,0 +1,93 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../../components/auth/ProtectedRoute';
+import ExamEditorLoader from '../../../components/exams/ExamEditorLoader';
+import ExamFilesManagerLoader from '../../../components/exams/ExamFilesManagerLoader';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/admin/exams');
+}
+---
+
+<AdminLayout title="Editar Examen" currentPath="/admin/exams">
+  <ProtectedRoute client:load>
+    <div class="max-w-5xl mx-auto">
+      <!-- Header -->
+      <div class="mb-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-900">Editar Examen</h1>
+            <p class="text-gray-600 mt-1">Los cambios crearán una nueva versión del examen</p>
+          </div>
+          <a
+            href="/admin/exams"
+            class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+          >
+            ← Volver
+          </a>
+        </div>
+      </div>
+      
+      <!-- Tabs -->
+      <div class="mb-6 border-b border-gray-200">
+        <nav class="-mb-px flex space-x-8">
+          <button
+            id="tab-content"
+            class="tab-button border-b-2 border-blue-600 py-4 px-1 text-sm font-medium text-blue-600"
+          >
+            Contenido del Examen
+          </button>
+          <button
+            id="tab-files"
+            class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300"
+          >
+            Archivos de Apoyo
+          </button>
+        </nav>
+      </div>
+
+      <!-- Tab Content -->
+      <div id="content-panel" class="tab-panel">
+        <ExamEditorLoader client:load examId={id} />
+      </div>
+
+      <div id="files-panel" class="tab-panel hidden">
+        <div class="bg-white rounded-lg shadow-sm p-6">
+          <ExamFilesManagerLoader client:load examId={id} />
+        </div>
+      </div>
+    </div>
+  </ProtectedRoute>
+</AdminLayout>
+
+<script>
+  // Tab switching functionality
+  const tabButtons = document.querySelectorAll('.tab-button');
+  const tabPanels = document.querySelectorAll('.tab-panel');
+
+  tabButtons.forEach((button, index) => {
+    button.addEventListener('click', () => {
+      // Remove active state from all tabs
+      tabButtons.forEach(btn => {
+        btn.classList.remove('border-blue-600', 'text-blue-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+      });
+
+      // Hide all panels
+      tabPanels.forEach(panel => {
+        panel.classList.add('hidden');
+      });
+
+      // Activate clicked tab
+      button.classList.remove('border-transparent', 'text-gray-500');
+      button.classList.add('border-blue-600', 'text-blue-600');
+
+      // Show corresponding panel
+      tabPanels[index].classList.remove('hidden');
+    });
+  });
+</script>

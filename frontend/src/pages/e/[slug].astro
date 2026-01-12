@@ -1,0 +1,16 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import PublicExam from '../../components/exams/PublicExam';
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect('/');
+}
+---
+
+<Layout title="Examen">
+  <PublicExam client:load slug={slug} />
+</Layout>

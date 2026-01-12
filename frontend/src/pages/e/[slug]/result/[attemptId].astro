@@ -1,0 +1,16 @@
+---
+import Layout from '../../../../layouts/Layout.astro';
+import ExamResults from '../../../../components/exams/ExamResults';
+
+export const prerender = false;
+
+const { slug, attemptId } = Astro.params;
+
+if (!slug || !attemptId) {
+  return Astro.redirect('/');
+}
+---
+
+<Layout title="Resultados del Examen">
+  <ExamResults client:load attemptId={attemptId} />
+</Layout>

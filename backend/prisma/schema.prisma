@@ -8,17 +8,21 @@ datasource db {
 }
 
 model User {
-  id              String         @id @default(cuid())
-  email           String         @unique
-  password        String
-  name            String
-  role            UserRole       @default(ADMIN)
-  isActive        Boolean        @default(true)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  lastLogin       DateTime?
-  createdForms    Form[]         @relation("FormCreator")
-  sharedForms     FormShare[]
+  id           String        @id @default(cuid())
+  email        String        @unique
+  password     String
+  name         String
+  role         UserRole      @default(ADMIN)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  lastLogin    DateTime?
+  createdForms Form[]        @relation("FormCreator")
+  sharedForms  FormShare[]
+  createdExams Exam[]        @relation("ExamCreator")
+  sharedExams  ExamShare[]
+  examAttempts ExamAttempt[]
+
   @@map("users")
 }
 
@@ -35,7 +39,7 @@ model Form {
   isActive    Boolean       @default(true)
   isPublic    Boolean       @default(false)
   publicUrl   String?
-  templateId  String?       // ID de la plantilla a usar (nullable temporalmente)
+  templateId  String? // ID de la plantilla a usar (nullable temporalmente)
   createdById String
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -45,18 +49,20 @@ model Form {
   responses   Response[]
   pages       PublicPage[]
   sharedWith  FormShare[]
+
   @@map("forms")
 }
 
 model FormShare {
-  id          String   @id @default(cuid())
-  formId      String
-  userId      String
-  permission  SharePermission @default(VIEW)
-  sharedAt    DateTime @default(now())
-  sharedById  String?
-  form        Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String          @id @default(cuid())
+  formId     String
+  userId     String
+  permission SharePermission @default(VIEW)
+  sharedAt   DateTime        @default(now())
+  sharedById String?
+  form       Form            @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([formId, userId])
   @@map("form_shares")
 }
@@ -68,36 +74,37 @@ enum SharePermission {
 }
 
 model FormTemplate {
-  id          String   @id // ID único de la plantilla (ej: "modern", "academic", "corporate")
-  name        String   // Nombre de la plantilla
-  description String?  // Descripción de la plantilla
-  thumbnail   String?  // URL de imagen de vista previa
-  isActive    Boolean  @default(true)
-  
+  id          String  @id // ID único de la plantilla (ej: "modern", "academic", "corporate")
+  name        String // Nombre de la plantilla
+  description String? // Descripción de la plantilla
+  thumbnail   String? // URL de imagen de vista previa
+  isActive    Boolean @default(true)
+
   // Configuración de colores
-  primaryColor    String @default("#3B82F6")   // Color principal
-  secondaryColor  String @default("#10B981")   // Color secundario
-  accentColor     String @default("#F59E0B")   // Color de acento
-  backgroundColor String @default("#F9FAFB")   // Color de fondo
-  textColor       String @default("#111827")   // Color de texto
-  
+  primaryColor    String @default("#3B82F6") // Color principal
+  secondaryColor  String @default("#10B981") // Color secundario
+  accentColor     String @default("#F59E0B") // Color de acento
+  backgroundColor String @default("#F9FAFB") // Color de fondo
+  textColor       String @default("#111827") // Color de texto
+
   // Configuración de diseño
-  headerStyle     String @default("simple")    // "simple", "gradient", "image"
-  sectionStyle    String @default("card")      // "card", "bordered", "minimal"
-  buttonStyle     String @default("rounded")   // "rounded", "square", "pill"
-  inputStyle      String @default("outlined")  // "outlined", "filled", "underlined"
-  
+  headerStyle  String @default("simple") // "simple", "gradient", "image"
+  sectionStyle String @default("card") // "card", "bordered", "minimal"
+  buttonStyle  String @default("rounded") // "rounded", "square", "pill"
+  inputStyle   String @default("outlined") // "outlined", "filled", "underlined"
+
   // Configuración de tipografía
-  fontFamily      String @default("Inter")     // Familia de fuente
-  fontSize        String @default("base")      // "sm", "base", "lg"
-  
+  fontFamily String @default("Inter") // Familia de fuente
+  fontSize   String @default("base") // "sm", "base", "lg"
+
   // Configuración adicional (JSON)
-  customStyles    Json?  // Estilos personalizados adicionales
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  forms       Form[]
-  
+  customStyles Json? // Estilos personalizados adicionales
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  forms     Form[]
+  exams     Exam[]
+
   @@map("form_templates")
 }
 
@@ -111,49 +118,53 @@ model PublicPage {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   form        Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
   @@map("public_pages")
 }
 
 model FormVersion {
-  id          String     @id @default(cuid())
+  id          String    @id @default(cuid())
   formId      String
   version     Int
   title       String
   description String?
-  createdAt   DateTime   @default(now())
-  form        Form       @relation(fields: [formId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  form        Form      @relation(fields: [formId], references: [id], onDelete: Cascade)
   sections    Section[]
+
   @@unique([formId, version])
   @@map("form_versions")
 }
 
 model Section {
-  id              String      @id @default(cuid())
-  formVersionId   String
-  title           String
-  description     String?
-  order           Int
-  createdAt       DateTime    @default(now())
-  formVersion     FormVersion @relation(fields: [formVersionId], references: [id], onDelete: Cascade)
-  questions       Question[]
+  id            String      @id @default(cuid())
+  formVersionId String
+  title         String
+  description   String?
+  order         Int
+  createdAt     DateTime    @default(now())
+  formVersion   FormVersion @relation(fields: [formVersionId], references: [id], onDelete: Cascade)
+  questions     Question[]
+
   @@map("sections")
 }
 
 model Question {
-  id              String           @id @default(cuid())
-  sectionId       String
-  type            QuestionType
-  text            String
-  placeholder     String?
-  helpText        String?
-  isRequired      Boolean          @default(false)
-  allowedFileTypes String?         // Para FILE: "IMAGE", "PDF", "EXCEL" (separados por coma)
-  maxFileSize     Int?             // Tamaño máximo en MB (default: 10)
-  order           Int
-  createdAt       DateTime         @default(now())
-  section         Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  options         QuestionOption[]
-  answers         Answer[]
+  id               String           @id @default(cuid())
+  sectionId        String
+  type             QuestionType
+  text             String
+  placeholder      String?
+  helpText         String?
+  isRequired       Boolean          @default(false)
+  allowedFileTypes String? // Para FILE: "IMAGE", "PDF", "EXCEL" (separados por coma)
+  maxFileSize      Int? // Tamaño máximo en MB (default: 10)
+  order            Int
+  createdAt        DateTime         @default(now())
+  section          Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  options          QuestionOption[]
+  answers          Answer[]
+
   @@map("questions")
 }
 
@@ -167,50 +178,53 @@ enum QuestionType {
 }
 
 model QuestionOption {
-  id          String   @id @default(cuid())
-  questionId  String
-  text        String
-  order       Int
-  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  answers     Answer[]
+  id         String   @id @default(cuid())
+  questionId String
+  text       String
+  order      Int
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers    Answer[]
+
   @@map("question_options")
 }
 
 model Response {
-  id              String   @id @default(cuid())
-  formId          String
-  formVersionId   String?
-  responseNumber  Int      @default(autoincrement())
-  folio           String?  @unique
-  submittedAt     DateTime @default(now())
-  ipAddress       String?
-  userAgent       String?
-  email           String?
-  completedAt     DateTime?
-  isComplete      Boolean  @default(false)
-  form            Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
-  answers         Answer[]
-  @@map("responses")
+  id             String    @id @default(cuid())
+  formId         String
+  formVersionId  String?
+  responseNumber Int       @default(autoincrement())
+  folio          String?   @unique
+  submittedAt    DateTime  @default(now())
+  ipAddress      String?
+  userAgent      String?
+  email          String?
+  completedAt    DateTime?
+  isComplete     Boolean   @default(false)
+  form           Form      @relation(fields: [formId], references: [id], onDelete: Cascade)
+  answers        Answer[]
+
   @@index([formId, responseNumber])
   @@index([folio])
+  @@map("responses")
 }
 
 model Answer {
-  id              String          @id @default(cuid())
+  id              String           @id @default(cuid())
   responseId      String
   questionId      String
   textValue       String?
   fileUrl         String?
   fileName        String?
   fileSize        Int?
-  createdAt       DateTime        @default(now())
-  response        Response        @relation(fields: [responseId], references: [id], onDelete: Cascade)
-  question        Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now())
+  response        Response         @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question        Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
   selectedOptions QuestionOption[]
-  @@map("answers")
+
   @@unique([responseId, questionId])
   @@index([responseId])
   @@index([questionId])
+  @@map("answers")
 }
 
 model PlatformSettings {
@@ -221,5 +235,216 @@ model PlatformSettings {
   accentColor    String   @default("#3b82f6")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
   @@map("platform_settings")
+}
+
+// ==================== MODELOS DE EXÁMENES ====================
+
+model Exam {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  slug        String  @unique
+  isActive    Boolean @default(true)
+  isPublic    Boolean @default(false)
+  publicUrl   String?
+
+  // Configuración del examen
+  timeLimit        Int? // minutos (null = sin límite)
+  maxAttempts      Int             @default(1)
+  passingScore     Float           @default(60)
+  shuffleQuestions Boolean         @default(false)
+  shuffleOptions   Boolean         @default(false)
+  showResults      ShowResultsType @default(IMMEDIATE)
+  allowReview      Boolean         @default(true)
+  autoGrade        Boolean         @default(true) // Solo si todas son objetivas
+
+  // Relaciones
+  createdById String
+  templateId  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy    User          @relation("ExamCreator", fields: [createdById], references: [id])
+  template     FormTemplate? @relation(fields: [templateId], references: [id])
+  supportFiles ExamFile[]
+  versions     ExamVersion[]
+  attempts     ExamAttempt[]
+  sharedWith   ExamShare[]
+
+  @@map("exams")
+}
+
+enum ShowResultsType {
+  IMMEDIATE // Mostrar inmediatamente
+  AFTER_DEADLINE // Después de fecha límite
+  MANUAL // Solo cuando admin lo permita
+  NEVER // Nunca mostrar
+}
+
+model ExamFile {
+  id        String   @id @default(cuid())
+  examId    String
+  fileName  String
+  fileUrl   String
+  fileType  String // PDF, VIDEO, AUDIO, IMAGE, PRESENTATION
+  fileSize  Int
+  order     Int
+  createdAt DateTime @default(now())
+
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@map("exam_files")
+}
+
+model ExamVersion {
+  id          String   @id @default(cuid())
+  examId      String
+  version     Int
+  title       String
+  description String?
+  totalPoints Float    @default(100)
+  createdAt   DateTime @default(now())
+
+  exam     Exam          @relation(fields: [examId], references: [id], onDelete: Cascade)
+  sections ExamSection[]
+  attempts ExamAttempt[]
+
+  @@unique([examId, version])
+  @@map("exam_versions")
+}
+
+model ExamSection {
+  id            String   @id @default(cuid())
+  examVersionId String
+  title         String
+  description   String?
+  order         Int
+  createdAt     DateTime @default(now())
+
+  examVersion ExamVersion    @relation(fields: [examVersionId], references: [id], onDelete: Cascade)
+  questions   ExamQuestion[]
+
+  @@map("exam_sections")
+}
+
+model ExamQuestion {
+  id        String           @id @default(cuid())
+  sectionId String
+  type      ExamQuestionType
+  text      String
+  helpText  String?
+  points    Float            @default(1)
+  order     Int
+
+  // Respuestas correctas (JSON)
+  correctAnswer Json? // Estructura según tipo de pregunta
+
+  // Retroalimentación
+  feedback String? // Explicación de la respuesta
+
+  createdAt DateTime @default(now())
+
+  section ExamSection          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  options ExamQuestionOption[]
+  answers ExamAnswer[]
+
+  @@map("exam_questions")
+}
+
+enum ExamQuestionType {
+  TEXT // Respuesta corta
+  TEXTAREA // Respuesta larga (calificación manual)
+  RADIO // Opción única
+  CHECKBOX // Opción múltiple
+  TRUE_FALSE // Verdadero/Falso
+  MATCHING // Relacionar columnas
+  ORDERING // Ordenar elementos
+}
+
+model ExamQuestionOption {
+  id         String  @id @default(cuid())
+  questionId String
+  text       String
+  order      Int
+  isCorrect  Boolean @default(false) // Para RADIO, CHECKBOX, TRUE_FALSE
+
+  question ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  ExamAnswer[]
+
+  @@map("exam_question_options")
+}
+
+model ExamAttempt {
+  id            String  @id @default(cuid())
+  examId        String
+  examVersionId String?
+  attemptNumber Int
+
+  // Información del estudiante
+  studentName  String?
+  studentEmail String?
+  userId       String? // Si está registrado
+
+  // Control de tiempo
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  timeSpent   Int? // segundos
+
+  // Calificación
+  score      Float?
+  maxScore   Float    @default(100)
+  passed     Boolean?
+  autoGraded Boolean  @default(false)
+
+  // Metadata
+  ipAddress String?
+  userAgent String?
+
+  exam        Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  examVersion ExamVersion? @relation(fields: [examVersionId], references: [id])
+  user        User?        @relation(fields: [userId], references: [id])
+  answers     ExamAnswer[]
+
+  @@index([examId, attemptNumber])
+  @@map("exam_attempts")
+}
+
+model ExamAnswer {
+  id         String @id @default(cuid())
+  attemptId  String
+  questionId String
+
+  // Respuesta del estudiante
+  textValue String? // Para TEXT, TEXTAREA
+  jsonValue Json? // Para MATCHING, ORDERING
+
+  // Calificación
+  isCorrect    Boolean?
+  pointsEarned Float?
+  feedback     String?
+
+  createdAt DateTime @default(now())
+
+  attempt         ExamAttempt          @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question        ExamQuestion         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedOptions ExamQuestionOption[]
+
+  @@unique([attemptId, questionId])
+  @@map("exam_answers")
+}
+
+model ExamShare {
+  id         String          @id @default(cuid())
+  examId     String
+  userId     String
+  permission SharePermission @default(VIEW)
+  sharedAt   DateTime        @default(now())
+
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, userId])
+  @@map("exam_shares")
 }

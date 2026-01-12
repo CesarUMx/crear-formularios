@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import formRoutes from './routes/formRoutes.js';
+import examRoutes from './routes/examRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import settingsRoutes from './routes/settings.js';
 import fileRoutes from './routes/fileRoutes.js';
@@ -43,11 +44,12 @@ app.get('/health', (req, res) => {
 // API Info
 app.get('/api', (req, res) => {
   res.json({ 
-    message: 'API de Formularios',
+    message: 'API de Formularios y Exámenes',
     version: '1.0.0',
     endpoints: {
       auth: '/api/auth',
       forms: '/api/forms',
+      exams: '/api/exams',
       users: '/api/users',
       responses: '/api/responses'
     }
@@ -60,6 +62,7 @@ app.use('/uploads', express.static('uploads'));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/forms', formRoutes);
+app.use('/api/exams', examRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/files', fileRoutes);

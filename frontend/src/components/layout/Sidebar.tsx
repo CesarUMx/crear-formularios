@@ -11,7 +11,8 @@ import {
   ChevronLeft,
   LogOut,
   User,
-  Lock
+  Lock,
+  GraduationCap
 } from 'lucide-react';
 import { authService } from '../../lib/auth';
 import { ProfileModal, ChangePasswordModal } from '../users';
@@ -59,6 +60,12 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
       name: 'Formularios',
       icon: FileText,
       path: '/admin',
+      show: true
+    },
+    {
+      name: 'Exámenes',
+      icon: GraduationCap,
+      path: '/admin/exams',
       show: true
     },
     {
