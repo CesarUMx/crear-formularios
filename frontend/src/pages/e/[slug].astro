@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import PublicExam from '../../components/exams/PublicExam';
+import PublicExamSteps from '../../components/exams/PublicExamSteps';
 
 export const prerender = false;
 
@@ -11,6 +11,6 @@ if (!slug) {
 }
 ---
 
-<Layout title="Examen">
-  <PublicExam client:load slug={slug} />
+<Layout title="Examen Público">
+  <PublicExamSteps client:load slug={slug} />
 </Layout>

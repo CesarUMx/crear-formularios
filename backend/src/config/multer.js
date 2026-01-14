@@ -1,8 +1,25 @@
 import multer from 'multer';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
-// Configuración de almacenamiento en memoria (para procesar antes de guardar)
-const storage = multer.memoryStorage();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Configuración de almacenamiento en disco
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // Guardar en la carpeta uploads
+    cb(null, path.join(__dirname, '../../uploads'));
+  },
+  filename: (req, file, cb) => {
+    // Generar nombre único: timestamp-nombreoriginal
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    const nameWithoutExt = path.basename(file.originalname, ext);
+    cb(null, nameWithoutExt + '-' + uniqueSuffix + ext);
+  }
+});
 
 // Filtro de archivos
 const fileFilter = (req, file, cb) => {
@@ -14,19 +31,22 @@ const fileFilter = (req, file, cb) => {
     'image/png',
     'image/gif',
     'image/webp',
-    'image/bmp',
-    'image/tiff',
     // PDF
     'application/pdf',
     // Excel
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-    'application/vnd.ms-excel' // .xls
+    'application/vnd.ms-excel', // .xls
+    // Video MP4
+    'video/mp4',
+    // Audio MP3
+    'audio/mpeg',
+    'audio/mp3'
   ];
 
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Tipo de archivo no permitido. Solo se aceptan imágenes, PDF y Excel.'), false);
+    cb(new Error(`Tipo de archivo no permitido: ${file.mimetype}. Solo se aceptan: Imágenes (JPG, PNG, GIF, WebP), PDF, Excel (XLS, XLSX), Video MP4 y Audio MP3.`), false);
   }
 };
 
@@ -35,7 +55,7 @@ export const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 50 * 1024 * 1024, // Límite temporal de 50MB (se validará después según configuración)
+    fileSize: 100 * 1024 * 1024, // 100MB para videos y audios
     files: 1 // Solo 1 archivo por request
   }
 });

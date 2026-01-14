@@ -51,10 +51,10 @@ export default function ExamFilesManager({ examId, files, onFilesChange }: ExamF
     setError('');
     setSuccess('');
 
-    // Validar tamaño (máximo 50MB para archivos de apoyo)
-    const maxSize = 50 * 1024 * 1024;
+    // Validar tamaño (máximo 100MB para archivos de apoyo - videos/audios)
+    const maxSize = 100 * 1024 * 1024;
     if (selectedFile.size > maxSize) {
-      setError('El archivo excede el tamaño máximo de 50MB');
+      setError('El archivo excede el tamaño máximo de 100MB');
       return;
     }
 
@@ -67,40 +67,36 @@ export default function ExamFilesManager({ examId, files, onFilesChange }: ExamF
       setError('');
       setProgress(0);
 
-      // Simular upload con progreso (en producción, usar el servicio real)
+      // Subir archivo al servidor
       const formData = new FormData();
       formData.append('file', file);
 
-      // Aquí deberías implementar la subida real al servidor
-      // Por ahora, simularemos el progreso
-      const simulateUpload = () => {
-        return new Promise<{ url: string; type: string; size: number }>((resolve) => {
-          let currentProgress = 0;
-          const interval = setInterval(() => {
-            currentProgress += 10;
-            setProgress(currentProgress);
-            
-            if (currentProgress >= 100) {
-              clearInterval(interval);
-              // En producción, esto vendría del servidor
-              resolve({
-                url: URL.createObjectURL(file),
-                type: file.type,
-                size: file.size
-              });
-            }
-          }, 200);
-        });
-      };
+      const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api';
+      
+      // Obtener token de autenticación
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(`${API_URL}/exams/${examId}/files/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
 
-      const result = await simulateUpload();
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al subir el archivo');
+      }
 
-      // Guardar en el backend
+      const uploadResult = await response.json();
+
+      // Guardar referencia en el examen
       await examService.uploadSupportFile(examId, {
-        fileName: file.name,
-        fileUrl: result.url,
-        fileType: result.type,
-        fileSize: result.size
+        fileName: uploadResult.fileName || file.name,
+        fileUrl: uploadResult.fileUrl || uploadResult.url,
+        fileType: uploadResult.fileType || file.type,
+        fileSize: uploadResult.fileSize || file.size
       });
 
       setSuccess('Archivo subido exitosamente');

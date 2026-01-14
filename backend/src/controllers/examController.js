@@ -362,6 +362,10 @@ export const uploadSupportFile = async (req, res, next) => {
     const { id } = req.params;
     const { fileName, fileUrl, fileType, fileSize } = req.body;
 
+    console.log('=== uploadSupportFile ===');
+    console.log('fileUrl recibida:', fileUrl);
+    console.log('========================');
+
     const permission = await examService.checkExamPermission(id, req.user.id, req.user.role);
     if (permission !== 'FULL' && permission !== 'EDIT') {
       return res.status(403).json({ 

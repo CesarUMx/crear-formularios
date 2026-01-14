@@ -1,4 +1,5 @@
 import express from 'express';
+import { upload, handleMulterError } from '../config/multer.js';
 import {
   getExams,
   getExamById,
@@ -72,6 +73,30 @@ router.post('/:id/share', shareExam);
 router.delete('/:id/share/:userId', unshareExam);
 
 // Archivos de apoyo
+router.post('/:id/files/upload', upload.single('file'), handleMulterError, async (req, res, next) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: 'No se proporcionó ningún archivo' });
+    }
+
+    // Construir URL completa del backend
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const fileUrl = `${protocol}://${host}/uploads/${file.filename}`;
+    
+    res.json({
+      url: fileUrl,
+      fileUrl: fileUrl,
+      fileName: file.originalname,
+      fileType: file.mimetype,
+      fileSize: file.size
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post('/:id/files', uploadSupportFile);
 router.delete('/:id/files/:fileId', deleteSupportFile);
 
