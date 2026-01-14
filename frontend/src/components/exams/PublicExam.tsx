@@ -12,9 +12,10 @@ export default function PublicExam({ slug }: PublicExamProps) {
   const [exam, setExam] = useState<Exam | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showStartForm, setShowStartForm] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1); // 1: Material, 2: Términos, 3: Datos
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [starting, setStarting] = useState(false);
   const [pendingAttempt, setPendingAttempt] = useState<{
     id: string;
@@ -192,24 +193,73 @@ export default function PublicExam({ slug }: PublicExamProps) {
             </div>
           </div>
 
-          {/* Support Files */}
+          {/* Support Files - Mostrar prominentemente */}
           {exam.supportFiles && exam.supportFiles.length > 0 && (
             <div className="mb-8">
-              <h3 className="font-semibold text-gray-900 mb-3">Archivos de Apoyo</h3>
-              <div className="space-y-2">
-                {exam.supportFiles.map((file) => (
-                  <a
-                    key={file.id}
-                    href={file.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
-                  >
-                    <FileText className="w-5 h-5 text-gray-600" />
-                    <span className="text-gray-900">{file.fileName}</span>
-                    <span className="text-sm text-gray-500 ml-auto">{file.fileType}</span>
-                  </a>
-                ))}
+              <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <FileText className="w-6 h-6 text-blue-600" />
+                Material de Apoyo para el Examen
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Revisa el siguiente material antes de iniciar el examen:
+              </p>
+              <div className="space-y-3">
+                {exam.supportFiles.map((file) => {
+                  console.log('File URL from backend:', file.fileUrl);
+                  const isVideo = file.fileType.startsWith('video/');
+                  const isImage = file.fileType.startsWith('image/');
+                  const isPDF = file.fileType === 'application/pdf';
+                  
+                  return (
+                    <div key={file.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                      {/* Vista previa para videos */}
+                      {isVideo && (
+                        <div className="bg-black">
+                          <video 
+                            controls 
+                            className="w-full max-h-96"
+                            preload="metadata"
+                          >
+                            <source src={file.fileUrl} type={file.fileType} />
+                            Tu navegador no soporta la reproducción de video.
+                          </video>
+                        </div>
+                      )}
+                      
+                      {/* Vista previa para imágenes */}
+                      {isImage && (
+                        <div className="bg-gray-100">
+                          <img 
+                            src={file.fileUrl} 
+                            alt={file.fileName}
+                            className="w-full max-h-96 object-contain"
+                          />
+                        </div>
+                      )}
+                      
+                      {/* Información del archivo */}
+                      <div className="p-4 bg-white">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <FileText className="w-5 h-5 text-gray-600" />
+                            <div>
+                              <p className="font-medium text-gray-900">{file.fileName}</p>
+                              <p className="text-sm text-gray-500">{file.fileType}</p>
+                            </div>
+                          </div>
+                          <a
+                            href={file.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                          >
+                            Abrir en nueva pestaña
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -222,21 +272,26 @@ export default function PublicExam({ slug }: PublicExamProps) {
               {exam.timeLimit && (
                 <li>Tienes {exam.timeLimit} minutos para completar el examen</li>
               )}
-              <li>Puedes guardar tus respuestas y continuar después</li>
-              {exam.allowReview && (
-                <li>Podrás revisar tus respuestas antes de enviar</li>
-              )}
-              <li>Una vez enviado el examen, no podrás modificar tus respuestas</li>
+              <li>Puedes navegar entre preguntas usando los botones de navegación</li>
+              <li>Tus respuestas se guardan automáticamente</li>
+              <li>Asegúrate de enviar el examen al finalizar</li>
             </ul>
           </div>
 
           {/* Start Button */}
-          <button
-            onClick={() => setShowStartForm(true)}
-            className="w-full py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-lg transition"
-          >
-            Comenzar Examen
-          </button>
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-6">
+            <p className="text-center text-gray-700 mb-4 font-medium">
+              {exam.supportFiles && exam.supportFiles.length > 0 
+                ? '✅ Una vez que hayas revisado el material de apoyo, puedes iniciar el examen'
+                : 'Cuando estés listo, puedes iniciar el examen'}
+            </p>
+            <button
+              onClick={() => setShowStartForm(true)}
+              className="w-full py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-lg transition shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              🚀 Comenzar Examen
+            </button>
+          </div>
         </div>
       </div>
     );

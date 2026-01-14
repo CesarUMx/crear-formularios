@@ -36,14 +36,16 @@ if (!id) {
       <div class="mb-6 border-b border-gray-200">
         <nav class="-mb-px flex space-x-8">
           <button
-            id="tab-content"
-            class="tab-button border-b-2 border-blue-600 py-4 px-1 text-sm font-medium text-blue-600"
+            onclick="showTab('content')"
+            id="tab-content-btn"
+            class="border-b-2 border-blue-600 py-4 px-1 text-sm font-medium text-blue-600 transition-colors"
           >
             Contenido del Examen
           </button>
           <button
-            id="tab-files"
-            class="tab-button border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            onclick="showTab('files')"
+            id="tab-files-btn"
+            class="border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
           >
             Archivos de Apoyo
           </button>
@@ -51,11 +53,11 @@ if (!id) {
       </div>
 
       <!-- Tab Content -->
-      <div id="content-panel" class="tab-panel">
+      <div id="content-panel">
         <ExamEditorLoader client:load examId={id} />
       </div>
 
-      <div id="files-panel" class="tab-panel hidden">
+      <div id="files-panel" class="hidden">
         <div class="bg-white rounded-lg shadow-sm p-6">
           <ExamFilesManagerLoader client:load examId={id} />
         </div>
@@ -64,30 +66,38 @@ if (!id) {
   </ProtectedRoute>
 </AdminLayout>
 
-<script>
-  // Tab switching functionality
-  const tabButtons = document.querySelectorAll('.tab-button');
-  const tabPanels = document.querySelectorAll('.tab-panel');
+<script is:inline>
+  function showTab(tabName) {
+    // Obtener elementos
+    const contentPanel = document.getElementById('content-panel');
+    const filesPanel = document.getElementById('files-panel');
+    const contentBtn = document.getElementById('tab-content-btn');
+    const filesBtn = document.getElementById('tab-files-btn');
 
-  tabButtons.forEach((button, index) => {
-    button.addEventListener('click', () => {
-      // Remove active state from all tabs
-      tabButtons.forEach(btn => {
-        btn.classList.remove('border-blue-600', 'text-blue-600');
-        btn.classList.add('border-transparent', 'text-gray-500');
-      });
-
-      // Hide all panels
-      tabPanels.forEach(panel => {
-        panel.classList.add('hidden');
-      });
-
-      // Activate clicked tab
-      button.classList.remove('border-transparent', 'text-gray-500');
-      button.classList.add('border-blue-600', 'text-blue-600');
-
-      // Show corresponding panel
-      tabPanels[index].classList.remove('hidden');
-    });
-  });
+    if (tabName === 'content') {
+      // Mostrar contenido
+      contentPanel.classList.remove('hidden');
+      filesPanel.classList.add('hidden');
+      
+      // Activar botón de contenido
+      contentBtn.classList.remove('border-transparent', 'text-gray-500');
+      contentBtn.classList.add('border-blue-600', 'text-blue-600');
+      
+      // Desactivar botón de archivos
+      filesBtn.classList.remove('border-blue-600', 'text-blue-600');
+      filesBtn.classList.add('border-transparent', 'text-gray-500');
+    } else if (tabName === 'files') {
+      // Mostrar archivos
+      contentPanel.classList.add('hidden');
+      filesPanel.classList.remove('hidden');
+      
+      // Activar botón de archivos
+      filesBtn.classList.remove('border-transparent', 'text-gray-500');
+      filesBtn.classList.add('border-blue-600', 'text-blue-600');
+      
+      // Desactivar botón de contenido
+      contentBtn.classList.remove('border-blue-600', 'text-blue-600');
+      contentBtn.classList.add('border-transparent', 'text-gray-500');
+    }
+  }
 </script>

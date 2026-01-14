@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 import authRoutes from './routes/authRoutes.js';
 import formRoutes from './routes/formRoutes.js';
 import examRoutes from './routes/examRoutes.js';
@@ -19,14 +21,24 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Asegurar que existe la carpeta uploads
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('📁 Carpeta uploads creada');
+}
+
 // Trust proxy (necesario detrás de Nginx)
 app.set('trust proxy', 1);
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:4321',
-  credentials: true
+  credentials: true,
+  exposedHeaders: ['Content-Length', 'Content-Range', 'Accept-Ranges']
 }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json());
@@ -56,8 +68,18 @@ app.get('/api', (req, res) => {
   });
 });
 
-// Servir archivos estáticos (uploads)
-app.use('/uploads', express.static('uploads'));
+// Servir archivos estáticos (uploads) con CORS
+app.use('/uploads', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Range');
+  res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+}, express.static('uploads'));
 
 // Routes
 app.use('/api/auth', authRoutes);
