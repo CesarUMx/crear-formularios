@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { userService } from '../../lib/userService';
 import type { SystemUser } from '../../lib/types';
-import { Key, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { useColors } from '../../hooks/useColors';
+import { AlertCircle, Key, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import Modal from '../common/Modal';
 
 interface ResetPasswordModalProps {
@@ -12,12 +13,18 @@ interface ResetPasswordModalProps {
 }
 
 export default function ResetPasswordModal({ isOpen, user, onClose, onSuccess }: ResetPasswordModalProps) {
+  const colors = useColors();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Validar que user no sea null
+  if (!user) {
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,7 +189,8 @@ export default function ResetPasswordModal({ isOpen, user, onClose, onSuccess }:
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ backgroundColor: colors.primaryColor }}
+            className="flex-1 px-4 py-2.5 text-white rounded-lg hover:opacity-90 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Reseteando...' : 'Resetear Contraseña'}
           </button>

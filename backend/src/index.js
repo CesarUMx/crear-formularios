@@ -15,6 +15,11 @@ import shareRoutes from './routes/shareRoutes.js';
 import responseRoutes from './routes/responseRoutes.js';
 import templateRoutes from './routes/templateRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
+import aiExamRoutes from './routes/aiExamRoutes.js';
+import questionReportsRouter from './routes/questionReports.js';
+import progressRoutes from './routes/progressRoutes.js';
+import gradingRoutes from './routes/gradingRoutes.js';
+import { startAbandonedAttemptsCleanup } from './utils/cronJobs.js';
 
 dotenv.config();
 
@@ -25,7 +30,7 @@ const PORT = process.env.PORT || 3000;
 const uploadsDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
-  console.log('📁 Carpeta uploads creada');
+  console.log('Carpeta uploads creada');
 }
 
 // Trust proxy (necesario detrás de Nginx)
@@ -92,6 +97,10 @@ app.use('/api/share', shareRoutes);
 app.use('/api/responses', responseRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/ai-exams', aiExamRoutes);
+app.use('/api/question-reports', questionReportsRouter);
+app.use('/api/grading', gradingRoutes);
+app.use('/api', progressRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -107,7 +116,10 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔧 Prisma Studio: npx prisma studio`);
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
+  
+  // Iniciar cron jobs
+  startAbandonedAttemptsCleanup();
+  console.log('✅ Cron jobs iniciados');
 });

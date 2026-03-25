@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { examService } from '../../lib/examService';
 import type { 
   ExamQuestionType, 
@@ -7,6 +7,8 @@ import type {
   ShowResultsType 
 } from '../../lib/types';
 import { TemplateSelector } from '../templates';
+import { PageHeader } from '../common';
+import { useColors } from '../../hooks/useColors';
 import { 
   Plus, 
   Trash2, 
@@ -18,8 +20,10 @@ import {
   ChevronUp,
   Award,
   Clock,
-  Users
+  Users,
+  FileText
 } from 'lucide-react';
+import { useToast, ToastContainer } from '../common';
 
 interface ExamEditorProps {
   examId?: string;
@@ -56,6 +60,8 @@ const SHOW_RESULTS_OPTIONS: { value: ShowResultsType; label: string }[] = [
 ];
 
 export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
+  const colors = useColors();
+  const toast = useToast();
   const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
   const [templateId, setTemplateId] = useState(initialData?.templateId || 'modern');
@@ -132,7 +138,7 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
 
   const removeSection = (index: number) => {
     if (sections.length === 1) {
-      alert('Debe haber al menos una sección');
+      toast.warning('No se puede eliminar', 'Debe haber al menos una sección');
       return;
     }
     setSections(sections.filter((_, i) => i !== index));
@@ -163,7 +169,7 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
   const removeQuestion = (sectionIndex: number, questionIndex: number) => {
     const newSections = [...sections];
     if (newSections[sectionIndex].questions.length === 1) {
-      alert('Debe haber al menos una pregunta por sección');
+      toast.warning('No se puede eliminar', 'Debe haber al menos una pregunta por sección');
       return;
     }
     newSections[sectionIndex].questions.splice(questionIndex, 1);
@@ -199,7 +205,7 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
       question.options.splice(optionIndex, 1);
       setSections(newSections);
     } else {
-      alert('Debe haber al menos 2 opciones');
+      toast.warning('No se puede eliminar', 'Debe haber al menos 2 opciones');
     }
   };
 
@@ -281,12 +287,17 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
   const pointsValid = Math.abs(totalPoints - 100) < 0.01;
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-5xl mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-2xl font-bold mb-4">
-          {examId ? 'Editar Examen' : 'Crear Nuevo Examen'}
-        </h2>
+    <div className="max-w-5xl mx-auto space-y-6">
+      <PageHeader
+        icon={FileText}
+        title={examId ? "Editar Examen" : "Crear Nuevo Examen"}
+        description={examId ? "Modifica tu examen existente" : "Diseña tu examen agregando secciones y preguntas con puntos"}
+        primaryColor={colors.primaryColor}
+      />
+      
+      <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-sm p-6">
 
         {/* Información básica */}
         <div className="space-y-4">
@@ -442,7 +453,8 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
             <button
               type="button"
               onClick={adjustPointsTo100}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+              style={{ backgroundColor: colors.primaryColor }}
+              className="px-4 py-2 text-white rounded-lg hover:opacity-90 text-sm"
             >
               Ajustar a 100
             </button>
@@ -658,12 +670,17 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
         <button
           type="submit"
           disabled={loading || !pointsValid}
-          className="flex-1 py-3 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
+          style={{ backgroundColor: loading || !pointsValid ? '#9ca3af' : colors.primaryColor }}
+          className="flex-1 py-3 px-6 text-white rounded-lg hover:opacity-90 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
         >
           <Save className="w-5 h-5" />
           {loading ? 'Guardando...' : examId ? 'Actualizar Examen' : 'Crear Examen'}
         </button>
       </div>
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
     </form>
+    </div>
   );
 }

@@ -1,6 +1,5 @@
 import type { PlatformSettings } from './types';
-
-const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api';
+import { API_URL } from './config';
 
 // Configuración por defecto
 const DEFAULT_SETTINGS: PlatformSettings = {

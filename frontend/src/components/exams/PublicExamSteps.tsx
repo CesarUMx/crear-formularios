@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { examService } from '../../lib/examService';
+import { useColors } from '../../hooks/useColors';
 import type { Exam, ExamAttempt } from '../../lib/types';
 import { Clock, AlertCircle, CheckCircle, FileText, Award, ChevronRight, Play, Check } from 'lucide-react';
 import ResumeAttemptModal from './ResumeAttemptModal';
@@ -9,6 +10,7 @@ interface PublicExamStepsProps {
 }
 
 export default function PublicExamSteps({ slug }: PublicExamStepsProps) {
+  const colors = useColors();
   const [exam, setExam] = useState<Exam | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -154,21 +156,21 @@ export default function PublicExamSteps({ slug }: PublicExamStepsProps) {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             {exam.supportFiles && exam.supportFiles.length > 0 && (
-              <div className={`flex items-center gap-2 ${currentStep >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+              <div className={`flex items-center gap-2 ${currentStep >= 1 ? '' : 'text-gray-400'}`} style={currentStep >= 1 ? { color: colors.primaryColor } : {}}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 1 ? 'text-white' : 'bg-gray-200'}`} style={currentStep >= 1 ? { backgroundColor: colors.primaryColor } : {}}>
                   {currentStep > 1 ? <Check className="w-5 h-5" /> : '1'}
                 </div>
                 <span className="text-sm font-medium hidden sm:inline">Material</span>
               </div>
             )}
-            <div className={`flex items-center gap-2 ${currentStep >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+            <div className={`flex items-center gap-2 ${currentStep >= 2 ? '' : 'text-gray-400'}`} style={currentStep >= 2 ? { color: colors.primaryColor } : {}}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 2 ? 'text-white' : 'bg-gray-200'}`} style={currentStep >= 2 ? { backgroundColor: colors.primaryColor } : {}}>
                 {currentStep > 2 ? <Check className="w-5 h-5" /> : totalSteps === 2 ? '1' : '2'}
               </div>
               <span className="text-sm font-medium hidden sm:inline">Términos</span>
             </div>
-            <div className={`flex items-center gap-2 ${currentStep >= 3 ? 'text-blue-600' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+            <div className={`flex items-center gap-2 ${currentStep >= 3 ? '' : 'text-gray-400'}`} style={currentStep >= 3 ? { color: colors.primaryColor } : {}}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 3 ? 'text-white' : 'bg-gray-200'}`} style={currentStep >= 3 ? { backgroundColor: colors.primaryColor } : {}}>
                 {totalSteps === 2 ? '2' : '3'}
               </div>
               <span className="text-sm font-medium hidden sm:inline">Iniciar</span>
@@ -256,7 +258,8 @@ export default function PublicExamSteps({ slug }: PublicExamStepsProps) {
                             href={file.fileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                            style={{ backgroundColor: colors.primaryColor }}
+                            className="px-4 py-2 text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
                           >
                             Abrir
                           </a>
@@ -447,7 +450,8 @@ export default function PublicExamSteps({ slug }: PublicExamStepsProps) {
                   <button
                     type="submit"
                     disabled={starting || checkingAttempts}
-                    className="flex-1 py-4 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-xl hover:from-green-700 hover:to-blue-700 font-bold text-lg transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: colors.primaryColor }}
+                    className="flex-1 py-4 text-white rounded-xl hover:opacity-90 font-bold text-lg transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {checkingAttempts ? '⏳ Verificando...' : starting ? '🚀 Iniciando...' : '🎯 Iniciar Examen'}
                   </button>

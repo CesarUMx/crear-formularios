@@ -1,0 +1,11 @@
+---
+import StudentGradesView from '../../components/ai-exams/StudentGradesView';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+
+// Aquí deberías obtener el studentId de la sesión
+const studentId = 'student-id'; // Placeholder
+---
+
+<AdminLayout title="Mis Calificaciones">
+  <StudentGradesView client:load studentId={studentId} />
+</AdminLayout>

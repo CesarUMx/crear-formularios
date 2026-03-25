@@ -8,8 +8,6 @@ const prisma = new PrismaClient();
 
 async function createSuperAdmin() {
   try {
-    console.log('🔧 Creando Super Administrador...\n');
-
     const email = process.argv[2] || 'admin@mail.com';
     const password = process.argv[3] || 'Admin123456';
     const name = process.argv[4] || 'Super Admin';
@@ -20,7 +18,6 @@ async function createSuperAdmin() {
     });
 
     if (existing) {
-      console.log(`❌ Ya existe un usuario con el email: ${email}`);
       process.exit(1);
     }
 
@@ -37,12 +34,12 @@ async function createSuperAdmin() {
       }
     });
 
-    console.log('✅ Super Administrador creado exitosamente!\n');
-    console.log('📧 Email:', user.email);
-    console.log('🔑 Contraseña:', password);
-    console.log('👤 Nombre:', user.name);
-    console.log('🎭 Rol:', user.role);
-    console.log('\n⚠️  IMPORTANTE: Cambia la contraseña después del primer login\n');
+    console.log('Super Administrador creado exitosamente!\n');
+    console.log('Email:', user.email);
+    console.log('Contraseña:', password);
+    console.log('Nombre:', user.name);
+    console.log('Rol:', user.role);
+    console.log('IMPORTANTE: Cambia la contraseña después del primer login\n');
 
   } catch (error) {
     console.error('❌ Error:', error.message);

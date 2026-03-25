@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { examService } from '../../lib/examService';
+import { useColors } from '../../hooks/useColors';
 import type { Exam, ExamAttempt } from '../../lib/types';
 import { Clock, AlertCircle, CheckCircle, FileText, Award } from 'lucide-react';
 import ResumeAttemptModal from './ResumeAttemptModal';
@@ -9,6 +10,7 @@ interface PublicExamProps {
 }
 
 export default function PublicExam({ slug }: PublicExamProps) {
+  const colors = useColors();
   const [exam, setExam] = useState<Exam | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -24,6 +26,7 @@ export default function PublicExam({ slug }: PublicExamProps) {
   } | null>(null);
   const [checkingAttempts, setCheckingAttempts] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
+  const [showStartForm, setShowStartForm] = useState(false);
 
   useEffect(() => {
     loadExam();
@@ -251,7 +254,8 @@ export default function PublicExam({ slug }: PublicExamProps) {
                             href={file.fileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                            style={{ backgroundColor: colors.primaryColor }}
+                            className="px-4 py-2 text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
                           >
                             Abrir en nueva pestaña
                           </a>
@@ -287,7 +291,8 @@ export default function PublicExam({ slug }: PublicExamProps) {
             </p>
             <button
               onClick={() => setShowStartForm(true)}
-              className="w-full py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-lg transition shadow-lg hover:shadow-xl transform hover:scale-105"
+              style={{ backgroundColor: colors.primaryColor }}
+              className="w-full py-4 text-white rounded-lg hover:opacity-90 font-semibold text-lg transition shadow-lg hover:shadow-xl transform hover:scale-105"
             >
               🚀 Comenzar Examen
             </button>
@@ -346,7 +351,8 @@ export default function PublicExam({ slug }: PublicExamProps) {
             <button
               type="submit"
               disabled={starting || checkingAttempts}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold transition disabled:opacity-50"
+              style={{ backgroundColor: colors.primaryColor }}
+              className="w-full py-3 text-white rounded-lg hover:opacity-90 font-semibold transition disabled:opacity-50"
             >
               {checkingAttempts ? 'Verificando...' : starting ? 'Iniciando...' : 'Iniciar Examen'}
             </button>

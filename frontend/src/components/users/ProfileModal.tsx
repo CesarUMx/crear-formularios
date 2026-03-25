@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { authService, type User } from '../../lib/auth';
 import { User as UserIcon, Mail, Save, AlertCircle, CheckCircle } from 'lucide-react';
 import Modal from '../common/Modal';
+import { useColors } from '../../hooks/useColors';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface ProfileModalProps {
 }
 
 export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
+  const colors = useColors();
   const [user, setUser] = useState<User | null>(null);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -186,7 +188,8 @@ export default function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            style={{ backgroundColor: colors.primaryColor }}
+            className="flex-1 px-4 py-2.5 text-white rounded-lg hover:opacity-90 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             <Save className="w-4 h-4" />
             {loading ? 'Guardando...' : 'Guardar Cambios'}

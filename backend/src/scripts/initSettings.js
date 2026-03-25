@@ -9,7 +9,6 @@ const prisma = new PrismaClient();
  * Script para inicializar la configuración de la plataforma
  */
 async function initSettings() {
-  console.log('⚙️ Iniciando configuración de la plataforma...');
 
   try {
     // Verificar si ya existe configuración
@@ -25,15 +24,14 @@ async function initSettings() {
         }
       });
       
-      console.log('✅ Configuración de plataforma creada exitosamente');
     } else {
-      console.log('ℹ️ Configuración de plataforma ya existe, omitiendo...');
+      console.log('Configuración de plataforma ya existe, omitiendo...');
     }
 
-    console.log('🎉 Inicialización de configuración completada');
+    console.log('Inicialización de configuración completada');
     
   } catch (error) {
-    console.error('❌ Error al inicializar la configuración:', error);
+    console.error('Error al inicializar la configuración:', error);
   } finally {
     await prisma.$disconnect();
   }

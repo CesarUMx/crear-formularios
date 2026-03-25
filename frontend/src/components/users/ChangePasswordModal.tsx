@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { authService } from '../../lib/auth';
 import { Lock, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 import Modal from '../common/Modal';
+import { useColors } from '../../hooks/useColors';
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface ChangePasswordModalProps {
 }
 
 export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProps) {
+  const colors = useColors();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -202,7 +204,8 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ backgroundColor: colors.primaryColor }}
+            className="flex-1 px-4 py-2.5 text-white rounded-lg hover:opacity-90 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Cambiando...' : 'Cambiar Contraseña'}
           </button>

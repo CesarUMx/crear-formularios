@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { examService } from '../../lib/examService';
 import type { ExamAttemptResult } from '../../lib/types';
+import { useToast, ToastContainer, PageHeader } from '../common';
+import { useColors } from '../../hooks/useColors';
 import { 
   CheckCircle, 
   XCircle, 
@@ -19,11 +21,13 @@ interface ExamResultsProps {
 }
 
 export default function ExamResults({ attemptId }: ExamResultsProps) {
+  const colors = useColors();
   const [result, setResult] = useState<ExamAttemptResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAnswers, setShowAnswers] = useState(false);
   const [expandedSections, setExpandedSections] = useState<number[]>([]);
+  const toast = useToast();
 
   useEffect(() => {
     loadResult();

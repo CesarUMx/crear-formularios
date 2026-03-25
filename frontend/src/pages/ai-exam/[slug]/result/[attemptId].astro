@@ -1,0 +1,16 @@
+---
+import Layout from '../../../../layouts/Layout.astro';
+import { AIExamResult } from '../../../../components/ai-exams';
+
+const { attemptId } = Astro.params;
+
+if (!attemptId) {
+  return Astro.redirect('/');
+}
+---
+
+<Layout title="Resultado del Examen">
+  <div class="min-h-screen bg-gray-50 py-8">
+    <AIExamResult client:load attemptId={attemptId} />
+  </div>
+</Layout>

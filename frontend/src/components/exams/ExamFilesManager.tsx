@@ -15,6 +15,7 @@ import {
   Download,
   Eye
 } from 'lucide-react';
+import { useToast, ToastContainer, DeleteDialog, useDialog } from '../common';
 
 interface ExamFile {
   id: string;
@@ -32,6 +33,11 @@ interface ExamFilesManagerProps {
 
 export default function ExamFilesManager({ examId, files, onFilesChange }: ExamFilesManagerProps) {
   const [uploading, setUploading] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  const toast = useToast();
+  const deleteDialog = useDialog();
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -102,25 +108,39 @@ export default function ExamFilesManager({ examId, files, onFilesChange }: ExamF
       setSuccess('Archivo subido exitosamente');
       setProgress(0);
       onFilesChange();
+      toast.success('Archivo subido', `"${file.name}" fue subido correctamente`);
 
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al subir archivo');
+      toast.error('Error al subir archivo', err instanceof Error ? err.message : 'Ocurrió un error inesperado');
     } finally {
       setUploading(false);
     }
   };
 
-  const handleDeleteFile = async (fileId: string, fileName: string) => {
-    if (!confirm(`¿Estás seguro de eliminar "${fileName}"?`)) return;
+  const handleDeleteClick = (fileId: string, fileName: string) => {
+    setFileToDelete({ id: fileId, name: fileName });
+    deleteDialog.open();
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!fileToDelete) return;
+    
+    setDeleteLoading(true);
     try {
-      await examService.deleteSupportFile(examId, fileId);
+      await examService.deleteSupportFile(examId, fileToDelete.id);
       setSuccess('Archivo eliminado exitosamente');
+      const updatedFiles = files.filter(f => f.id !== fileToDelete.id);
       onFilesChange();
-      setTimeout(() => setSuccess(''), 3000);
+      toast.success('Archivo eliminado', `"${fileToDelete.name}" fue eliminado correctamente`);
+      deleteDialog.close();
+      setFileToDelete(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al eliminar archivo');
+      toast.error('Error al eliminar archivo', err instanceof Error ? err.message : 'Ocurrió un error inesperado');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -243,7 +263,7 @@ export default function ExamFilesManager({ examId, files, onFilesChange }: ExamF
                   </a>
 
                   <button
-                    onClick={() => handleDeleteFile(file.id, file.fileName)}
+                    onClick={() => handleDeleteClick(file.id, file.fileName)}
                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
                     title="Eliminar"
                   >
@@ -261,6 +281,18 @@ export default function ExamFilesManager({ examId, files, onFilesChange }: ExamF
           No hay archivos de apoyo. Los archivos que subas estarán disponibles para los estudiantes al tomar el examen.
         </div>
       )}
+
+      {/* Delete Dialog */}
+      <DeleteDialog
+        isOpen={deleteDialog.isOpen}
+        onClose={deleteDialog.close}
+        onConfirm={handleDeleteConfirm}
+        itemName={fileToDelete?.name || ''}
+        loading={deleteLoading}
+      />
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
     </div>
   );
 }

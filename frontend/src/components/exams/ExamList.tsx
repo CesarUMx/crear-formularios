@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { examService } from '../../lib/examService';
 import type { Exam } from '../../lib/types';
+import { useToast, ToastContainer, DeleteDialog, useDialog, PageHeader, EmptyState } from '../common';
+import { useColors } from '../../hooks/useColors';
 import { 
   Plus, 
   FileText, 
@@ -27,6 +29,12 @@ export default function ExamList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copiedExamId, setCopiedExamId] = useState<string | null>(null);
+  const [examToDelete, setExamToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  const toast = useToast();
+  const deleteDialog = useDialog();
+  const colors = useColors();
 
   useEffect(() => {
     loadExams();
@@ -49,8 +57,15 @@ export default function ExamList() {
     try {
       await examService.toggleExamActive(id, !currentStatus);
       await loadExams();
+      toast.success(
+        currentStatus ? 'Examen desactivado' : 'Examen activado',
+        'El estado del examen se actualizó correctamente'
+      );
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al cambiar estado');
+      toast.error(
+        'Error al cambiar estado',
+        err instanceof Error ? err.message : 'Ocurrió un error inesperado'
+      );
     }
   };
 
@@ -58,19 +73,40 @@ export default function ExamList() {
     try {
       await examService.toggleExamPublish(id, !currentStatus);
       await loadExams();
+      toast.success(
+        currentStatus ? 'Examen privado' : 'Examen público',
+        'La visibilidad del examen se actualizó correctamente'
+      );
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al cambiar visibilidad');
+      toast.error(
+        'Error al cambiar visibilidad',
+        err instanceof Error ? err.message : 'Ocurrió un error inesperado'
+      );
     }
   };
 
-  const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`¿Estás seguro de eliminar "${title}"?`)) return;
+  const handleDeleteClick = (id: string, title: string) => {
+    setExamToDelete({ id, title });
+    deleteDialog.open();
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!examToDelete) return;
+    
+    setDeleteLoading(true);
     try {
-      await examService.deleteExam(id);
+      await examService.deleteExam(examToDelete.id);
       await loadExams();
+      toast.success('Examen eliminado', `"${examToDelete.title}" fue eliminado correctamente`);
+      deleteDialog.close();
+      setExamToDelete(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar examen');
+      toast.error(
+        'Error al eliminar examen',
+        err instanceof Error ? err.message : 'Ocurrió un error inesperado'
+      );
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -85,8 +121,9 @@ export default function ExamList() {
       await navigator.clipboard.writeText(url);
       setCopiedExamId(exam.id);
       setTimeout(() => setCopiedExamId(null), 2000);
+      toast.success('Enlace copiado', 'El enlace público fue copiado al portapapeles');
     } catch (err) {
-      alert('Error al copiar enlace');
+      toast.error('Error al copiar enlace', 'No se pudo copiar el enlace al portapapeles');
     }
   };
 
@@ -118,48 +155,32 @@ export default function ExamList() {
     );
   }
 
-  if (exams.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          No hay exámenes creados
-        </h3>
-        <p className="text-gray-600 mb-6">
-          Crea tu primer examen para comenzar
-        </p>
-        <a
-          href="/admin/exams/new"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-        >
-          <Plus className="w-5 h-5" />
-          Crear Examen
-        </a>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Mis Exámenes</h2>
-          <p className="text-gray-600 mt-1">
-            {exams.length} {exams.length === 1 ? 'examen' : 'exámenes'}
-          </p>
-        </div>
-        <a
-          href="/admin/exams/new"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-        >
-          <Plus className="w-5 h-5" />
-          Nuevo Examen
-        </a>
-      </div>
+      <PageHeader
+        icon={FileText}
+        title="Exámenes"
+        description="Crea y gestiona tus exámenes"
+        buttonText={exams.length > 0 ? "Nuevo Examen" : undefined}
+        onButtonClick={exams.length > 0 ? () => window.location.href = '/admin/exams/new' : undefined}
+        buttonIcon={Plus}
+        primaryColor={colors.primaryColor}
+      />
 
-      {/* Exam Cards */}
-      <div className="grid gap-4">
+      {/* Lista de exámenes */}
+      {exams.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="No hay exámenes creados"
+          description="Crea tu primer examen para comenzar"
+          buttonText="Crear Examen"
+          onButtonClick={() => window.location.href = '/admin/exams/new'}
+          buttonIcon={Plus}
+          primaryColor={colors.primaryColor}
+        />
+      ) : (
+        <div className="grid gap-4">
         {exams.map((exam) => (
           <div
             key={exam.id}
@@ -322,7 +343,7 @@ export default function ExamList() {
 
                   {/* Delete */}
                   <button
-                    onClick={() => handleDelete(exam.id, exam.title)}
+                    onClick={() => handleDeleteClick(exam.id, exam.title)}
                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     title="Eliminar"
                   >
@@ -334,6 +355,19 @@ export default function ExamList() {
           </div>
         ))}
       </div>
+      )}
+
+      {/* Delete Dialog */}
+      <DeleteDialog
+        isOpen={deleteDialog.isOpen}
+        onClose={deleteDialog.close}
+        onConfirm={handleDeleteConfirm}
+        itemName={examToDelete?.title || ''}
+        loading={deleteLoading}
+      />
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
     </div>
   );
 }

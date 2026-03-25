@@ -196,16 +196,14 @@ export const sendWelcomeEmail = async (userEmail, userName, password) => {
 
     const info = await transporter.sendMail(mailOptions);
     
-    console.log('✅ Email de bienvenida enviado:', info.messageId);
-    
     // Si estás usando ethereal.email, muestra el link para ver el email
     if (process.env.NODE_ENV !== 'production') {
-      console.log('📧 Ver email en:', nodemailer.getTestMessageUrl(info));
+      console.log('Ver email en:', nodemailer.getTestMessageUrl(info));
     }
     
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('❌ Error al enviar email:', error);
+    console.error('Error al enviar email:', error);
     return { success: false, error: error.message };
   }
 };
@@ -341,15 +339,9 @@ export const sendPasswordResetEmail = async (userEmail, userName, newPassword) =
 
     const info = await transporter.sendMail(mailOptions);
     
-    console.log('✅ Email de reseteo enviado:', info.messageId);
-    
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('📧 Ver email en:', nodemailer.getTestMessageUrl(info));
-    }
-    
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('❌ Error al enviar email:', error);
+    console.error('Error al enviar email:', error);
     return { success: false, error: error.message };
   }
 };

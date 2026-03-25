@@ -8,20 +8,21 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
-  password     String
-  name         String
-  role         UserRole      @default(ADMIN)
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  lastLogin    DateTime?
-  createdForms Form[]        @relation("FormCreator")
-  sharedForms  FormShare[]
-  createdExams Exam[]        @relation("ExamCreator")
-  sharedExams  ExamShare[]
-  examAttempts ExamAttempt[]
+  id             String        @id @default(cuid())
+  email          String        @unique
+  password       String
+  name           String
+  role           UserRole      @default(ADMIN)
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  lastLogin      DateTime?
+  createdForms   Form[]        @relation("FormCreator")
+  sharedForms    FormShare[]
+  createdExams   Exam[]        @relation("ExamCreator")
+  sharedExams    ExamShare[]
+  examAttempts   ExamAttempt[]
+  createdAIExams AIExam[]      @relation("AIExamCreator")
 
   @@map("users")
 }
@@ -230,13 +231,42 @@ model Answer {
 model PlatformSettings {
   id             String   @id @default(cuid())
   logo           String?
-  primaryColor   String   @default("#2563eb")
-  secondaryColor String   @default("#1e40af")
-  accentColor    String   @default("#3b82f6")
+  primaryColor   String   @default("#3B82F6")
+  secondaryColor String   @default("#10B981")
+  accentColor    String   @default("#F59E0B")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@map("platform_settings")
+}
+
+model QuestionReport {
+  id             String   @id @default(cuid())
+  examId         String
+  attemptId      String
+  questionId     String
+  questionText   String
+  userAnswer     String
+  correctAnswer  String
+  reason         String
+  status         ReportStatus @default(PENDING)
+  reviewedAt     DateTime?
+  reviewedBy     String?
+  reviewNotes    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  exam           AIExam   @relation(fields: [examId], references: [id], onDelete: Cascade)
+  attempt        AIExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@map("question_reports")
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  ACCEPTED
+  REJECTED
 }
 
 // ==================== MODELOS DE EXÁMENES ====================
@@ -447,4 +477,215 @@ model ExamShare {
 
   @@unique([examId, userId])
   @@map("exam_shares")
+}
+
+// ==================== MODELOS DE EXÁMENES CON IA ====================
+
+model AIExam {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  slug        String  @unique
+  
+  // Configuración de acceso
+  isPublic     Boolean           @default(false) // true = público, false = privado
+  isActive     Boolean           @default(false) // false = borrador, true = publicado
+  accessType   AIExamAccessType  @default(PUBLIC) // PUBLIC o PRIVATE
+  publicUrl    String?
+  
+  // Configuración del examen
+  instructions     String? // Instrucciones para el estudiante
+  timeLimit        Int? // minutos (null = sin límite)
+  maxAttempts      Int              @default(1)
+  passingScore     Float            @default(60)
+  shuffleQuestions Boolean          @default(true) // Aleatorizar preguntas del pool
+  shuffleOptions   Boolean          @default(true) // Aleatorizar opciones
+  showResults      ShowResultsType  @default(IMMEDIATE)
+  allowReview      Boolean          @default(true)
+  
+  // Configuración del pool de preguntas
+  totalQuestionsInPool Int @default(0) // Total de preguntas generadas
+  questionsPerAttempt  Int @default(10) // Cuántas preguntas mostrar por intento
+  
+  // Generación con IA
+  aiGenerated      Boolean  @default(false)
+  aiModel          String?  @default("gpt-4") // "gpt-4", "gpt-3.5-turbo", "gemini-pro"
+  sourceDocument   String? // URL del PDF/documento fuente
+  generationPrompt String? // Prompt usado para generar
+  validated        Boolean  @default(false) // Si el profesor validó las preguntas
+  
+  // Relaciones
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  createdBy User              @relation("AIExamCreator", fields: [createdById], references: [id])
+  sections  AIExamSection[]
+  attempts  AIExamAttempt[]
+  students  AIExamStudent[]
+  reports   QuestionReport[]
+  
+  @@map("ai_exams")
+}
+
+enum AIExamAccessType {
+  PUBLIC  // Cualquiera con el link (requiere nombre y email)
+  PRIVATE // Solo estudiantes autorizados (requiere login)
+}
+
+model AIExamSection {
+  id          String   @id @default(cuid())
+  aiExamId    String
+  title       String
+  description String?
+  order       Int
+  createdAt   DateTime @default(now())
+  
+  aiExam    AIExam         @relation(fields: [aiExamId], references: [id], onDelete: Cascade)
+  questions AIExamQuestion[]
+  
+  @@map("ai_exam_sections")
+}
+
+model AIExamQuestion {
+  id        String @id @default(cuid())
+  sectionId String
+  text      String
+  helpText  String?
+  points    Float  @default(1)
+  order     Int
+  
+  // Todas las preguntas son de opción múltiple (RADIO)
+  type ExamQuestionType @default(RADIO)
+  
+  // Retroalimentación
+  feedback String? // Explicación de la respuesta correcta
+  
+  // Metadata para diferentes tipos de preguntas (JSON)
+  // Contiene: type, pairs, blanks, items, expectedAnswer, keywords, rubric, etc.
+  metadata Json?
+  
+  // Generación con IA
+  aiGenerated Boolean @default(false)
+  validated   Boolean @default(false) // Si el profesor validó esta pregunta
+  
+  createdAt DateTime @default(now())
+  
+  section AIExamSection       @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  options AIExamOption[]
+  answers AIExamResponse[]
+  
+  @@map("ai_exam_questions")
+}
+
+model AIExamOption {
+  id         String  @id @default(cuid())
+  questionId String
+  text       String
+  order      Int
+  isCorrect  Boolean @default(false)
+  
+  question  AIExamQuestion   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  responses AIExamResponse[]
+  
+  @@map("ai_exam_options")
+}
+
+model AIExamAttempt {
+  id            String  @id @default(cuid())
+  aiExamId      String
+  attemptNumber Int
+  
+  // Información del estudiante
+  studentName  String? // Para exámenes públicos
+  studentEmail String? // Para exámenes públicos
+  studentId    String? // Para exámenes privados (referencia a AIExamStudent)
+  
+  // Preguntas seleccionadas para este intento (IDs de preguntas)
+  selectedQuestions Json // Array de IDs de preguntas mostradas
+  
+  // Control de tiempo
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  timeSpent   Int? // segundos
+  
+  // Calificación
+  score        Float?
+  maxScore     Float    @default(100)
+  passed       Boolean?
+  totalCorrect Int?
+  totalQuestions Int?
+  
+  // Sistema de calificación manual
+  requiresManualGrading Boolean @default(false)
+  isGraded             Boolean @default(false)
+  autoScore            Float?  // Puntos de preguntas automáticas
+  manualScore          Float?  // Puntos de preguntas manuales
+  gradedBy             String? // ID del docente que calificó
+  gradedAt             DateTime? // Fecha de calificación
+  
+  // Metadata
+  ipAddress String?
+  userAgent String?
+  sessionToken String? // Token único para identificar al estudiante en exámenes públicos
+  
+  aiExam    AIExam             @relation(fields: [aiExamId], references: [id], onDelete: Cascade)
+  student   AIExamStudent?     @relation(fields: [studentId], references: [id])
+  responses AIExamResponse[]
+  reports   QuestionReport[]
+  
+  @@index([aiExamId, attemptNumber])
+  @@index([sessionToken]) // Índice para búsquedas rápidas por sessionToken
+  @@map("ai_exam_attempts")
+}
+
+model AIExamResponse {
+  id         String @id @default(cuid())
+  attemptId  String
+  questionId String
+  
+  // Respuesta del estudiante
+  selectedOptionId String? // Para preguntas de opción múltiple
+  textAnswer       String? // Para preguntas abiertas (essay, short_answer, fill_blank)
+  
+  // Calificación
+  isCorrect    Boolean?
+  pointsEarned Float?
+  
+  // Calificación manual
+  requiresManualGrading Boolean @default(false)
+  isGraded             Boolean @default(false)
+  manualScore          Float?
+  feedback             String? // Retroalimentación del docente
+  
+  createdAt DateTime @default(now())
+  
+  attempt        AIExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question       AIExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedOption AIExamOption?  @relation(fields: [selectedOptionId], references: [id])
+  
+  @@unique([attemptId, questionId])
+  @@map("ai_exam_responses")
+}
+
+// Modelo para estudiantes de exámenes privados
+model AIExamStudent {
+  id       String @id @default(cuid())
+  aiExamId String
+  
+  // Credenciales
+  name     String
+  email    String
+  password String // Hash de la contraseña
+  
+  // Control
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  aiExam   AIExam          @relation(fields: [aiExamId], references: [id], onDelete: Cascade)
+  attempts AIExamAttempt[]
+  
+  @@unique([aiExamId, email]) // Email único por examen
+  @@map("ai_exam_students")
 }

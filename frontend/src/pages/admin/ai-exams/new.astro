@@ -1,0 +1,13 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../../components/auth/ProtectedRoute';
+import { AIExamGenerator } from '../../../components/ai-exams';
+---
+
+<AdminLayout title="Crear Examen con IA" currentPath="/admin/ai-exams">
+  <ProtectedRoute client:load>
+    <div class="max-w-7xl mx-auto">
+      <AIExamGenerator client:load />
+    </div>
+  </ProtectedRoute>
+</AdminLayout>

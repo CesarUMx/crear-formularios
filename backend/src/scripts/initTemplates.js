@@ -9,11 +9,8 @@ const prisma = new PrismaClient();
  * Script para inicializar las plantillas de formularios
  */
 async function initTemplates() {
-  console.log('🚀 Iniciando carga de plantillas de formularios...');
-
   try {
     // Crear plantillas de formularios
-    console.log('🎨 Creando plantillas de formularios...');
     
     // Plantilla Modern (default)
     const modernExists = await prisma.formTemplate.findUnique({
@@ -40,11 +37,7 @@ async function initTemplates() {
           fontSize: 'base'
         }
       });
-      
-      console.log('✅ Plantilla Modern creada exitosamente');
-    } else {
-      console.log('ℹ️ Plantilla Modern ya existe, omitiendo...');
-    }
+    } 
     
     // Plantilla Academic
     const academicExists = await prisma.formTemplate.findUnique({
@@ -71,11 +64,7 @@ async function initTemplates() {
           fontSize: 'base'
         }
       });
-      
-      console.log('✅ Plantilla Academic creada exitosamente');
-    } else {
-      console.log('ℹ️ Plantilla Academic ya existe, omitiendo...');
-    }
+    } 
     
     // Plantilla Corporate
     const corporateExists = await prisma.formTemplate.findUnique({
@@ -102,16 +91,12 @@ async function initTemplates() {
           fontSize: 'sm'
         }
       });
-      
-      console.log('✅ Plantilla Corporate creada exitosamente');
-    } else {
-      console.log('ℹ️ Plantilla Corporate ya existe, omitiendo...');
     }
 
-    console.log('🎉 Inicialización de plantillas completada exitosamente');
+    console.log('Inicialización de plantillas completada exitosamente');
     
   } catch (error) {
-    console.error('❌ Error al inicializar las plantillas:', error);
+    console.error('Error al inicializar las plantillas:', error);
   } finally {
     await prisma.$disconnect();
   }

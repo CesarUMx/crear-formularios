@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { examService } from '../../lib/examService';
 import type { ExamAttempt, ExamSection, ExamQuestion } from '../../lib/types';
+import { useToast, ToastContainer, Dialog, useDialog } from '../common';
+import { useColors } from '../../hooks/useColors';
 import { 
   Clock, 
   AlertCircle, 
@@ -25,6 +27,7 @@ const formatTime = (seconds: number) => {
 };
 
 export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps) {
+  const colors = useColors();
   const [attempt, setAttempt] = useState<ExamAttempt | null>(initialAttempt || null);
   const [loading, setLoading] = useState(!initialAttempt);
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
@@ -37,6 +40,11 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
   const [submitting, setSubmitting] = useState(false);
   const [warningShown5Min, setWarningShown5Min] = useState(false);
   const [warningShown1Min, setWarningShown1Min] = useState(false);
+  
+  const toast = useToast();
+  const submitDialog = useDialog();
+  const unansweredDialog = useDialog();
+  const [unansweredCount, setUnansweredCount] = useState(0);
 
   const loadAttempt = useCallback(async () => {
     try {
@@ -73,19 +81,20 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
 
       // Advertencia 5 minutos
       if (remainingSeconds <= 300 && remainingSeconds > 299 && !warningShown5Min) {
-        alert('⏰ Quedan 5 minutos para terminar el examen');
+        toast.warning('⏰ Tiempo restante', 'Quedan 5 minutos para terminar el examen', 10000);
         setWarningShown5Min(true);
       }
 
       // Advertencia 1 minuto
       if (remainingSeconds <= 60 && remainingSeconds > 59 && !warningShown1Min) {
-        alert('⚠️ ¡Queda 1 minuto! El examen se enviará automáticamente');
+        toast.warning('⚠️ ¡Último minuto!', 'El examen se enviará automáticamente cuando termine el tiempo', 15000);
         setWarningShown1Min(true);
       }
 
       if (remaining === 0) {
         // Auto-submit
-        alert('El tiempo ha terminado. El examen se enviará automáticamente.');
+        toast.error('Tiempo agotado', 'El examen se enviará automáticamente', 0);
+        handleAutoSubmit();
       }
     }, 1000);
 
@@ -228,33 +237,42 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
   };
 
   const handleAutoSubmit = async () => {
-    alert('El tiempo ha terminado. El examen se enviará automáticamente.');
-    await handleSubmit();
-  };
-
-  const handleSubmit = async () => {
-    const unanswered = getTotalQuestions() - getAnsweredCount();
-    
-    if (unanswered > 0) {
-      if (!confirm(`Tienes ${unanswered} preguntas sin responder. ¿Deseas enviar el examen de todas formas?`)) {
-        return;
-      }
-    }
-
-    if (!confirm('¿Estás seguro de enviar el examen? No podrás modificar tus respuestas después.')) {
-      return;
-    }
-
     try {
       setSubmitting(true);
       await saveCurrentAnswer();
+      await examService.submitAttempt(attemptId);
+      window.location.href = `/e/${attempt?.exam?.slug}/result/${attemptId}`;
+    } catch (err) {
+      toast.error('Error al enviar examen', err instanceof Error ? err.message : 'Ocurrió un error');
+      setSubmitting(false);
+    }
+  };
+
+  const handleSubmitClick = () => {
+    const unanswered = getTotalQuestions() - getAnsweredCount();
+    
+    if (unanswered > 0) {
+      setUnansweredCount(unanswered);
+      unansweredDialog.open();
+    } else {
+      submitDialog.open();
+    }
+  };
+
+  const handleSubmitConfirm = async () => {
+    try {
+      setSubmitting(true);
+      unansweredDialog.close();
+      submitDialog.close();
+      await saveCurrentAnswer();
       
-      const result = await examService.submitAttempt(attemptId);
+      await examService.submitAttempt(attemptId);
       
       // Redirigir a resultados
-      window.location.href = `/e/${exam.slug}/result/${attemptId}`;
+      window.location.href = `/e/${attempt?.exam?.slug}/result/${attemptId}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al enviar examen');
+      toast.error('Error al enviar examen', err instanceof Error ? err.message : 'Ocurrió un error');
       setSubmitting(false);
     }
   };
@@ -323,8 +341,11 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
           <div className="mt-4">
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(getCurrentQuestionNumber() / getTotalQuestions()) * 100}%` }}
+                className="h-2 rounded-full transition-all duration-300"
+                style={{ 
+                  backgroundColor: colors.primaryColor,
+                  width: `${(getCurrentQuestionNumber() / getTotalQuestions()) * 100}%`
+                }}
               />
             </div>
           </div>
@@ -495,16 +516,18 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
             {!isLastQuestion ? (
               <button
                 onClick={goToNextQuestion}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                style={{ backgroundColor: colors.primaryColor }}
+                className="flex items-center gap-2 px-6 py-3 text-white rounded-lg hover:opacity-90 transition"
               >
                 Siguiente
                 <ChevronRight className="w-5 h-5" />
               </button>
             ) : (
               <button
-                onClick={handleSubmit}
+                onClick={handleSubmitClick}
                 disabled={submitting}
-                className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                style={{ backgroundColor: colors.primaryColor }}
+                className="flex items-center gap-2 px-6 py-3 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
               >
                 <Send className="w-5 h-5" />
                 {submitting ? 'Enviando...' : 'Enviar Examen'}
@@ -536,6 +559,37 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
             </div>
           </div>
         )}
+
+      {/* Dialog para preguntas sin responder */}
+      <Dialog
+        isOpen={unansweredDialog.isOpen}
+        onClose={unansweredDialog.close}
+        onConfirm={() => {
+          unansweredDialog.close();
+          submitDialog.open();
+        }}
+        title="Preguntas sin responder"
+        message={`Tienes ${unansweredCount} pregunta(s) sin responder. ¿Deseas continuar y enviar el examen de todas formas?`}
+        type="warning"
+        confirmText="Continuar"
+        cancelText="Revisar"
+      />
+
+      {/* Dialog de confirmación final */}
+      <Dialog
+        isOpen={submitDialog.isOpen}
+        onClose={submitDialog.close}
+        onConfirm={handleSubmitConfirm}
+        title="Enviar Examen"
+        message="¿Estás seguro de enviar el examen? No podrás modificar tus respuestas después de enviarlo."
+        type="warning"
+        confirmText="Enviar Examen"
+        cancelText="Cancelar"
+        loading={submitting}
+      />
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
       </div>
     </div>
   );

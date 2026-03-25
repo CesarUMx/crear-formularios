@@ -12,18 +12,22 @@ import {
   LogOut,
   User,
   Lock,
-  GraduationCap
+  GraduationCap,
+  Brain
 } from 'lucide-react';
 import { authService } from '../../lib/auth';
+import { Dialog, useDialog } from '../common';
 import { ProfileModal, ChangePasswordModal } from '../users';
 
 interface SidebarProps {
   currentPath?: string;
+  onToggle?: (isOpen: boolean) => void;
 }
 
-export default function Sidebar({ currentPath = '' }: SidebarProps) {
+export default function Sidebar({ currentPath = '', onToggle }: SidebarProps) {
   // Usar useEffect para manejar el estado en el cliente después del renderizado inicial
   const [isOpen, setIsOpen] = useState(false); // Iniciar cerrado para evitar discrepancias
+  const logoutDialog = useDialog();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showConfigMenu, setShowConfigMenu] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -37,6 +41,11 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
     setUser(authService.getUser());
     setIsSuperAdmin(authService.isSuperAdmin());
   }, []);
+
+  // Notificar cambios de estado al parent
+  useEffect(() => {
+    onToggle?.(isOpen);
+  }, [isOpen, onToggle]);
 
   // Cerrar menú de configuración al hacer click fuera
   useEffect(() => {
@@ -69,6 +78,12 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
       show: true
     },
     {
+      name: 'Exámenes IA',
+      icon: Brain,
+      path: '/admin/ai-exams',
+      show: true
+    },
+    {
       name: 'Gestión de Usuarios',
       icon: Users,
       path: '/admin/users',
@@ -89,10 +104,12 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
     }
   ];
 
-  const handleLogout = () => {
-    if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
-      authService.logout();
-    }
+  const handleLogoutClick = () => {
+    logoutDialog.open();
+  };
+
+  const handleLogoutConfirm = () => {
+    authService.logout();
   };
 
   return (
@@ -108,7 +125,7 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
       {/* Overlay para mobile */}
       {isMobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+          className="lg:hidden fixed inset-0 bg-gray-800/80 z-30"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
@@ -253,7 +270,7 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
 
           {/* Botón de Cerrar Sesión */}
           <button
-            onClick={handleLogout}
+            onClick={handleLogoutClick}
             className={`
               w-full flex items-center gap-3 px-3 py-3 rounded-lg
               text-gray-300 hover:bg-red-600 hover:text-white transition-all
@@ -272,9 +289,21 @@ export default function Sidebar({ currentPath = '' }: SidebarProps) {
         isOpen={showProfileModal} 
         onClose={() => setShowProfileModal(false)} 
       />
-      <ChangePasswordModal 
-        isOpen={showPasswordModal} 
-        onClose={() => setShowPasswordModal(false)} 
+      <ChangePasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+      />
+
+      {/* Logout Confirmation Dialog */}
+      <Dialog
+        isOpen={logoutDialog.isOpen}
+        onClose={logoutDialog.close}
+        onConfirm={handleLogoutConfirm}
+        title="Cerrar Sesión"
+        message="¿Estás seguro de que deseas cerrar sesión?"
+        type="warning"
+        confirmText="Cerrar Sesión"
+        cancelText="Cancelar"
       />
     </>
   );

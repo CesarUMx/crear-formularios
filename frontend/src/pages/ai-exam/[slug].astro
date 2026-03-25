@@ -1,0 +1,17 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import AIExamTaker from '../../components/ai-exams/AIExamTaker';
+
+const { slug } = Astro.params;
+
+// Validar que slug existe
+if (!slug) {
+  return Astro.redirect('/');
+}
+---
+
+<Layout title="Examen">
+  <div class="min-h-screen bg-gray-50 py-8">
+    <AIExamTaker client:load slug={slug as string} />
+  </div>
+</Layout>

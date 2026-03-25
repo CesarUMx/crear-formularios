@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { platformSettingsService } from '../../lib/platformSettings';
 import type { PlatformSettings } from '../../lib/types';
+import { PageHeader } from '../common';
+import { useColors } from '../../hooks/useColors';
 import { 
   Upload, 
   RefreshCw, 
@@ -8,10 +10,12 @@ import {
   AlertCircle, 
   CheckCircle,
   Palette,
+  Settings,
   Image as ImageIcon
 } from 'lucide-react';
 
 export default function PlatformCustomization() {
+  const colors = useColors();
   const [settings, setSettings] = useState<PlatformSettings>({
     primaryColor: '#2563eb',
     secondaryColor: '#1e40af',
@@ -168,11 +172,12 @@ export default function PlatformCustomization() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Personalización de la Plataforma</h2>
-        <p className="text-gray-600 mt-1">Personaliza el logo y los colores de tu plataforma</p>
-      </div>
+      <PageHeader
+        icon={Settings}
+        title="Configuración"
+        description="Personaliza la apariencia de tu plataforma"
+        primaryColor={colors.primaryColor}
+      />
 
       {/* Mensaje de estado */}
       {message && (
