@@ -50,7 +50,7 @@ router.get('/public/:slug', async (req, res) => {
       return res.status(404).json({ error: 'Formulario no encontrado' });
     }
 
-    res.json({
+    return res.json({
       id: form.id,
       title: form.title,
       description: form.description,
@@ -61,7 +61,7 @@ router.get('/public/:slug', async (req, res) => {
 
   } catch (error) {
     console.error('Error al obtener formulario público:', error);
-    res.status(500).json({ error: 'Error al cargar formulario' });
+    return res.status(500).json({ error: 'Error al cargar formulario' });
   }
 });
 

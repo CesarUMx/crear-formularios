@@ -16,10 +16,10 @@ router.get('/', requireAuth, async (req, res) => {
       orderBy: { name: 'asc' }
     });
 
-    res.json(templates);
+    return res.json(templates);
   } catch (error) {
     console.error('Error al obtener plantillas:', error);
-    res.status(500).json({ error: 'Error al cargar plantillas' });
+    return res.status(500).json({ error: 'Error al cargar plantillas' });
   }
 });
 
@@ -39,10 +39,10 @@ router.get('/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Plantilla no encontrada' });
     }
 
-    res.json(template);
+    return res.json(template);
   } catch (error) {
     console.error('Error al obtener plantilla:', error);
-    res.status(500).json({ error: 'Error al cargar plantilla' });
+    return res.status(500).json({ error: 'Error al cargar plantilla' });
   }
 });
 
@@ -62,10 +62,10 @@ router.get('/public/:id', async (req, res) => {
       return res.status(404).json({ error: 'Plantilla no encontrada' });
     }
 
-    res.json(template);
+    return res.json(template);
   } catch (error) {
     console.error('Error al obtener plantilla pública:', error);
-    res.status(500).json({ error: 'Error al cargar plantilla' });
+    return res.status(500).json({ error: 'Error al cargar plantilla' });
   }
 });
 

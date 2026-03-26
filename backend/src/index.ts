@@ -51,7 +51,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {
-  res.json({ 
+  return res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
     service: 'Formulario API'
@@ -60,7 +60,7 @@ app.get('/health', (req: Request, res: Response) => {
 
 // API Info
 app.get('/api', (req: Request, res: Response) => {
-  res.json({ 
+  return res.json({ 
     message: 'API de Formularios y Exámenes',
     version: '1.0.0',
     endpoints: {
@@ -104,13 +104,13 @@ app.use('/api', progressRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
-  res.status(404).json({ error: 'Endpoint no encontrado' });
+  return res.status(404).json({ error: 'Endpoint no encontrado' });
 });
 
 // Error handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Error:', err);
-  res.status(err.status || 500).json({
+  return res.status(err.status || 500).json({
     error: err.message || 'Error interno del servidor'
   });
 });

@@ -9,9 +9,9 @@ import * as examGradingService from '../services/examGradingService.js';
 export const getExams = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const exams = await examService.getUserExams(String(req.user!.id), req.user!.role);
-    res.json(exams);
+    return res.json(exams);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -37,9 +37,9 @@ export const getExamById = async (req: Request, res: Response, next: NextFunctio
       });
     }
 
-    res.json(exam);
+    return res.json(exam);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -58,9 +58,9 @@ export const getExamBySlug = async (req: Request, res: Response, next: NextFunct
       });
     }
 
-    res.json(exam);
+    return res.json(exam);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -140,12 +140,12 @@ export const createExam = async (req: Request, res: Response, next: NextFunction
       sections
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Examen creado exitosamente',
       exam
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -196,12 +196,12 @@ export const updateExam = async (req: Request, res: Response, next: NextFunction
       sections
     });
 
-    res.json({
+    return res.json({
       message: 'Examen actualizado exitosamente (nueva versión creada)',
       exam
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -221,11 +221,11 @@ export const deleteExam = async (req: Request, res: Response, next: NextFunction
 
     await examService.deleteExam(String(id));
 
-    res.json({
+    return res.json({
       message: 'Examen eliminado exitosamente'
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -246,12 +246,12 @@ export const toggleExamPublish = async (req: Request, res: Response, next: NextF
 
     const exam = await examService.toggleExamPublish(String(id), isPublic);
 
-    res.json({
+    return res.json({
       message: `Examen ${isPublic ? 'publicado' : 'despublicado'} exitosamente`,
       exam
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -272,12 +272,12 @@ export const toggleExamActive = async (req: Request, res: Response, next: NextFu
 
     const exam = await examService.toggleExamActive(String(id), isActive);
 
-    res.json({
+    return res.json({
       message: `Examen ${isActive ? 'activado' : 'desactivado'} exitosamente`,
       exam
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -310,12 +310,12 @@ export const shareExam = async (req: Request, res: Response, next: NextFunction)
 
     const share = await examService.shareExam(String(id), userId, permission);
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Examen compartido exitosamente',
       share
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -335,11 +335,11 @@ export const unshareExam = async (req: Request, res: Response, next: NextFunctio
 
     await examService.unshareExam(String(id), String(userId));
 
-    res.json({
+    return res.json({
       message: 'Acceso removido exitosamente'
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -369,12 +369,12 @@ export const uploadSupportFile = async (req: Request, res: Response, next: NextF
       fileSize
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Archivo subido exitosamente',
       file
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -394,11 +394,11 @@ export const deleteSupportFile = async (req: Request, res: Response, next: NextF
 
     await examService.deleteSupportFile(String(fileId));
 
-    res.json({
+    return res.json({
       message: 'Archivo eliminado exitosamente'
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -416,9 +416,9 @@ export const checkCanTakeExam = async (req: Request, res: Response, next: NextFu
       req.ip || ''
     );
 
-    res.json(result);
+    return res.json(result);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -443,7 +443,7 @@ export const startAttempt = async (req: Request, res: Response, next: NextFuncti
       req.get('user-agent') || ''
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Examen iniciado exitosamente',
       attempt
     });
@@ -451,7 +451,7 @@ export const startAttempt = async (req: Request, res: Response, next: NextFuncti
     if (error.message.includes('límite')) {
       return res.status(403).json({ error: error.message });
     }
-    next(error);
+    return next(error);
   }
 };
 
@@ -460,7 +460,7 @@ export const startAttempt = async (req: Request, res: Response, next: NextFuncti
  */
 export const saveAnswer = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { attemptId } = req.params;
+    const { attemptId: _attemptId } = req.params;
     const { questionId, textValue, selectedOptionIds, jsonValue } = req.body;
 
     console.log('=== SaveAnswer Debug ===');
@@ -483,14 +483,14 @@ export const saveAnswer = async (req: Request, res: Response, next: NextFunction
       jsonValue
     });
 
-    res.json({
+    return res.json({
       message: 'Respuesta guardada exitosamente'
     });
   } catch (error: any) {
     if (error.message.includes('tiempo')) {
       return res.status(403).json({ error: error.message });
     }
-    next(error);
+    return next(error);
   }
 };
 
@@ -499,16 +499,16 @@ export const saveAnswer = async (req: Request, res: Response, next: NextFunction
  */
 export const submitAttempt = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { attemptId } = req.params;
+    const { attemptId: _attemptId } = req.params;
 
     const result = await examAttemptService.submitExamAttempt(String(attemptId));
 
-    res.json({
+    return res.json({
       message: 'Examen enviado exitosamente',
       ...result
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -517,17 +517,17 @@ export const submitAttempt = async (req: Request, res: Response, next: NextFunct
  */
 export const getAttemptResult = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { attemptId } = req.params;
+    const { attemptId: _attemptId } = req.params;
     console.log('=== getAttemptResult ===');
     console.log('attemptId:', attemptId);
 
     const result = await examAttemptService.getAttemptResult(String(attemptId));
     console.log('Result retrieved successfully');
 
-    res.json(result);
+    return res.json(result);
   } catch (error) {
     console.error('Error in getAttemptResult:', error);
-    next(error);
+    return next(error);
   }
 };
 
@@ -547,9 +547,9 @@ export const getExamAttempts = async (req: Request, res: Response, next: NextFun
 
     const attempts = await examAttemptService.getExamAttempts(String(id));
 
-    res.json(attempts);
+    return res.json(attempts);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -587,9 +587,9 @@ export const getAttemptById = async (req: Request, res: Response, next: NextFunc
       });
     }
 
-    res.json(attempt);
+    return res.json(attempt);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -620,12 +620,12 @@ export const gradeQuestionManually = async (req: Request, res: Response, next: N
       feedback
     );
 
-    res.json({
+    return res.json({
       message: 'Pregunta calificada exitosamente',
       ...result
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -645,8 +645,8 @@ export const getExamStats = async (req: Request, res: Response, next: NextFuncti
 
     const stats = await examGradingService.getExamStats(String(id));
 
-    res.json(stats);
+    return res.json(stats);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };

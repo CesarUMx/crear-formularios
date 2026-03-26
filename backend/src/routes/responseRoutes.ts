@@ -85,7 +85,7 @@ router.post('/', async (req, res) => {
       }
     });
 
-    res.json({
+    return res.json({
       id: response.id,
       folio: response.folio,
       submittedAt: response.submittedAt,
@@ -95,7 +95,7 @@ router.post('/', async (req, res) => {
 
   } catch (error) {
     console.error('Error al guardar respuesta:', error);
-    res.status(500).json({ error: 'Error al guardar respuesta' });
+    return res.status(500).json({ error: 'Error al guardar respuesta' });
   }
 });
 
@@ -142,11 +142,11 @@ router.get('/verify/:folio', async (req, res) => {
     };
     
     console.log('Enviando respuesta:', result);
-    res.json(result);
+    return res.json(result);
     
   } catch (error) {
     console.error('Error al verificar respuesta:', error);
-    res.status(500).json({ error: 'Error al verificar respuesta' });
+    return res.status(500).json({ error: 'Error al verificar respuesta' });
   }
 });
 

@@ -1,4 +1,4 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import * as userService from '../services/userService.js';
 
 /**
@@ -7,9 +7,9 @@ import * as userService from '../services/userService.js';
 export const getUsers = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const users = await userService.getAllUsers();
-    res.json(users);
+    return res.json(users);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -27,9 +27,9 @@ export const getUserById = async (req: Request, res: Response, next: NextFunctio
       });
     }
 
-    res.json(user);
+    return res.json(user);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -66,7 +66,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
       role
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Usuario creado exitosamente',
       user
     });
@@ -74,7 +74,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
     if (error.message === 'El email ya está registrado') {
       return res.status(409).json({ error: error.message });
     }
-    next(error);
+    return next(error);
   }
 };
 
@@ -106,12 +106,12 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
       isActive
     });
 
-    res.json({
+    return res.json({
       message: 'Usuario actualizado exitosamente',
       user
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -137,11 +137,11 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 
     await userService.resetUserPassword(String(id), newPassword);
 
-    res.json({
+    return res.json({
       message: 'Contraseña actualizada exitosamente'
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -161,14 +161,14 @@ export const deleteUser = async (req: Request, res: Response, next: NextFunction
 
     await userService.deleteUser(String(id));
 
-    res.json({
+    return res.json({
       message: 'Usuario eliminado exitosamente'
     });
   } catch (error: any) {
     if (error.message === 'No se puede eliminar el último Super Administrador') {
       return res.status(403).json({ error: error.message });
     }
-    next(error);
+    return next(error);
   }
 };
 
@@ -189,7 +189,7 @@ export const toggleUserStatus = async (req: Request, res: Response, next: NextFu
 
     const user = await userService.toggleUserStatus(String(id), isActive);
 
-    res.json({
+    return res.json({
       message: `Usuario ${isActive ? 'activado' : 'desactivado'} exitosamente`,
       user
     });
@@ -197,7 +197,7 @@ export const toggleUserStatus = async (req: Request, res: Response, next: NextFu
     if (error.message === 'No se puede desactivar el último Super Administrador activo') {
       return res.status(403).json({ error: error.message });
     }
-    next(error);
+    return next(error);
   }
 };
 
@@ -207,8 +207,8 @@ export const toggleUserStatus = async (req: Request, res: Response, next: NextFu
 export const getUserStats = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const stats = await userService.getUserStats();
-    res.json(stats);
+    return res.json(stats);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };

@@ -1,6 +1,6 @@
 /// <reference path="../types/express.d.ts" />
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
 import multer from 'multer';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -61,14 +61,14 @@ function shuffleArray<T>(array: T[]): T[] {
  * GET /api/ai-exams
  * Obtener todos los exámenes del profesor
  */
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, async (_req, res) => {
   try {
     const userId = req.user!.id;
     const exams = await aiExamService.getAIExamsByCreator(userId);
-    res.json(exams);
+    return res.json(exams);
   } catch (error: any) {
     console.error('Error al obtener exámenes:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al obtener exámenes',
     });
   }
@@ -78,7 +78,7 @@ router.get('/', requireAuth, async (req, res) => {
  * POST /api/ai-exams
  * Crear un nuevo examen
  */
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, async (_req, res) => {
   try {
     const userId = req.user!.id;
     const {
@@ -104,10 +104,10 @@ router.post('/', requireAuth, async (req, res) => {
       createdById: userId,
     });
 
-    res.status(201).json(aiExam);
+    return res.status(201).json(aiExam);
   } catch (error: any) {
     console.error('Error al crear examen:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al crear examen',
     });
   }
@@ -117,7 +117,7 @@ router.post('/', requireAuth, async (req, res) => {
  * GET /api/ai-exams/:id
  * Obtener un examen específico
  */
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', requireAuth, async (_req, res) => {
   try {
     const id = String(req.params.id);
     const exam = await aiExamService.getAIExamById(id);
@@ -126,10 +126,10 @@ router.get('/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Examen no encontrado' });
     }
 
-    res.json(exam);
+    return res.json(exam);
   } catch (error: any) {
     console.error('Error al obtener examen:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al obtener examen',
     });
   }
@@ -139,7 +139,7 @@ router.get('/:id', requireAuth, async (req, res) => {
  * PUT /api/ai-exams/:id
  * Actualizar un examen
  */
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requireAuth, async (_req, res) => {
   try {
     const id = String(req.params.id);
     const {
@@ -166,10 +166,10 @@ router.put('/:id', requireAuth, async (req, res) => {
       isActive: isActive !== undefined ? isActive : undefined,
     });
 
-    res.json(exam);
+    return res.json(exam);
   } catch (error: any) {
     console.error('Error al actualizar examen:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al actualizar examen',
     });
   }
@@ -179,14 +179,14 @@ router.put('/:id', requireAuth, async (req, res) => {
  * DELETE /api/ai-exams/:id
  * Eliminar un examen
  */
-router.delete('/:id', requireAuth, async (req, res) => {
+router.delete('/:id', requireAuth, async (_req, res) => {
   try {
     const id = String(req.params.id);
     await aiExamService.deleteAIExam(id);
-    res.json({ message: 'Examen eliminado correctamente' });
+    return res.json({ message: 'Examen eliminado correctamente' });
   } catch (error: any) {
     console.error('Error al eliminar examen:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al eliminar examen',
     });
   }
@@ -196,15 +196,15 @@ router.delete('/:id', requireAuth, async (req, res) => {
  * POST /api/ai-exams/:id/publish
  * Publicar un examen
  */
-router.post('/:id/publish', requireAuth, async (req, res) => {
+router.post('/:id/publish', requireAuth, async (_req, res) => {
   try {
     const id = String(req.params.id);
     const updated = await aiExamService.publishAIExam(id);
 
-    res.json(updated);
+    return res.json(updated);
   } catch (error: any) {
     console.error('Error al publicar examen:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al publicar examen',
     });
   }
@@ -474,14 +474,14 @@ router.post(
 
       setTimeout(() => progressTracker.delete(jobId), 3000);
 
-      res.json({
+      return res.json({
         jobId,
         questions: savedQuestions,
         totalGenerated: savedQuestions.length,
       });
     } catch (error: any) {
       console.error('Error al generar preguntas:', error);
-      res.status(500).json({
+      return res.status(500).json({
         error: error.message || 'Error al generar preguntas',
       });
     }
@@ -492,15 +492,15 @@ router.post(
  * GET /api/ai-exams/:id/results
  * Obtener resultados de un examen
  */
-router.get('/:id/results', requireAuth, async (req, res) => {
+router.get('/:id/results', requireAuth, async (_req, res) => {
   try {
     const id = String(req.params.id);
     const results = await aiExamService.getExamResults(id);
 
-    res.json(results);
+    return res.json(results);
   } catch (error: any) {
     console.error('Error al obtener resultados:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al obtener resultados',
     });
   }
@@ -527,7 +527,7 @@ router.get('/public/:slug', async (req, res) => {
     }
 
     // Devolver solo información básica (sin preguntas)
-    res.json({
+    return res.json({
       id: exam.id,
       title: exam.title,
       description: exam.description,
@@ -540,7 +540,7 @@ router.get('/public/:slug', async (req, res) => {
     });
   } catch (error: any) {
     console.error('Error al obtener examen público:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al obtener examen',
     });
   }
@@ -578,14 +578,14 @@ router.post('/login', async (req, res) => {
     }
 
     // Retornar información del estudiante
-    res.json({
+    return res.json({
       studentId: student.id,
       name: student.name,
       email: student.email,
     });
   } catch (error: any) {
     console.error('Error en login:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al iniciar sesión',
     });
   }
@@ -747,7 +747,7 @@ return {
       };
     });
 
-    res.json({
+    return res.json({
       attempt: {
         id: attempt.id,
         attemptNumber: attempt.attemptNumber,
@@ -761,7 +761,7 @@ return {
     });
   } catch (error: any) {
     console.error('Error al iniciar intento:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al iniciar intento',
     });
   }
@@ -950,7 +950,7 @@ router.post('/attempts/:attemptId/submit', async (req, res) => {
       },
     });
 
-    res.json({
+    return res.json({
       ...completedAttempt,
       requiresManualGrading: hasManualQuestions,
       message: hasManualQuestions 
@@ -959,7 +959,7 @@ router.post('/attempts/:attemptId/submit', async (req, res) => {
     });
   } catch (error: any) {
     console.error('Error al enviar respuestas:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al enviar respuestas',
     });
   }
@@ -1075,7 +1075,7 @@ router.post('/questions/:questionId/regenerate', async (req, res) => {
       },
     });
 
-    res.json(updatedQuestion);
+    return res.json(updatedQuestion);
   } catch (error: any) {
     console.error('❌ Error al regenerar pregunta:', error);
     console.error('Stack trace:', error.stack);
@@ -1090,7 +1090,7 @@ router.post('/questions/:questionId/regenerate', async (req, res) => {
       errorMessage = error.message;
     }
     
-    res.status(500).json({
+    return res.status(500).json({
       error: errorMessage,
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });
@@ -1144,13 +1144,13 @@ router.get('/attempts/:attemptId/result', async (req, res) => {
       };
     });
 
-    res.json({
+    return res.json({
       ...attempt,
       responses: responsesWithShuffling,
     });
   } catch (error: any) {
     console.error('Error al obtener resultado:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al obtener resultado',
     });
   }
@@ -1160,7 +1160,7 @@ router.get('/attempts/:attemptId/result', async (req, res) => {
  * POST /api/ai-exams/:id/students
  * Agregar estudiantes a un examen privado
  */
-router.post('/:id/students', requireAuth, async (req, res) => {
+router.post('/:id/students', requireAuth, async (_req, res) => {
   try {
     const id = String(req.params.id);
     const { students } = req.body;
@@ -1170,10 +1170,10 @@ router.post('/:id/students', requireAuth, async (req, res) => {
     }
 
     const createdStudents = await aiExamService.addStudentsToPrivateExam(id, students);
-    res.json({ students: createdStudents, count: createdStudents.length });
+    return res.json({ students: createdStudents, count: createdStudents.length });
   } catch (error: any) {
     console.error('Error al agregar estudiantes:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al agregar estudiantes',
     });
   }
@@ -1183,7 +1183,7 @@ router.post('/:id/students', requireAuth, async (req, res) => {
  * POST /api/ai-exams/:id/send-invitation
  * Enviar invitación por email a un estudiante
  */
-router.post('/:id/send-invitation', requireAuth, async (req, res) => {
+router.post('/:id/send-invitation', requireAuth, async (_req, res) => {
   try {
     const id = String(req.params.id);
     const { studentId } = req.body;
@@ -1224,13 +1224,13 @@ router.post('/:id/send-invitation', requireAuth, async (req, res) => {
       '[La contraseña que se te proporcionó al registrarte]'
     );
 
-    res.json({ 
+    return res.json({ 
       message: 'Invitación enviada exitosamente',
       sentTo: student.email 
     });
   } catch (error: any) {
     console.error('Error al enviar invitación:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al enviar invitación',
     });
   }
@@ -1240,7 +1240,7 @@ router.post('/:id/send-invitation', requireAuth, async (req, res) => {
  * GET /api/ai-exams/:id/students
  * Obtener lista de estudiantes autorizados
  */
-router.get('/:id/students', requireAuth, async (req, res) => {
+router.get('/:id/students', requireAuth, async (_req, res) => {
   try {
     const id = String(req.params.id);
 
@@ -1262,10 +1262,10 @@ router.get('/:id/students', requireAuth, async (req, res) => {
       },
     });
 
-    res.json(students);
+    return res.json(students);
   } catch (error: any) {
     console.error('Error al obtener estudiantes:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al obtener estudiantes',
     });
   }
@@ -1275,7 +1275,7 @@ router.get('/:id/students', requireAuth, async (req, res) => {
  * DELETE /api/ai-exams/:id/students/:studentId
  * Eliminar un estudiante autorizado
  */
-router.delete('/:id/students/:studentId', requireAuth, async (req, res) => {
+router.delete('/:id/students/:studentId', requireAuth, async (_req, res) => {
   try {
     const studentId = String(req.params.studentId);
 
@@ -1308,10 +1308,10 @@ router.delete('/:id/students/:studentId', requireAuth, async (req, res) => {
       where: { id: studentId },
     });
 
-    res.json({ message: 'Estudiante eliminado correctamente' });
+    return res.json({ message: 'Estudiante eliminado correctamente' });
   } catch (error: any) {
     console.error('Error al eliminar estudiante:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al eliminar estudiante',
     });
   }

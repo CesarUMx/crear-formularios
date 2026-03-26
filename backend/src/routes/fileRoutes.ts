@@ -64,7 +64,7 @@ router.post('/upload', upload.single('file'), handleMulterError, async (req, res
     const savedFile = await fileService.saveFile(processedFile, formId, responseId);
 
     // Responder con información del archivo
-    res.json({
+    return res.json({
       success: true,
       file: {
         url: savedFile.fileUrl,
@@ -78,7 +78,7 @@ router.post('/upload', upload.single('file'), handleMulterError, async (req, res
 
   } catch (error: any) {
     console.error('Error al subir archivo:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: error.message || 'Error al procesar el archivo' 
     });
   }
@@ -95,14 +95,14 @@ router.delete('/:formId/:responseId/:filename', async (req, res) => {
 
     await fileService.deleteFile(fileUrl);
 
-    res.json({ 
+    return res.json({ 
       success: true, 
       message: 'Archivo eliminado correctamente' 
     });
 
   } catch (error) {
     console.error('Error al eliminar archivo:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Error al eliminar el archivo' 
     });
   }
@@ -123,11 +123,11 @@ router.get('/info/:formId/:responseId/:filename', async (req, res) => {
       return res.status(404).json({ error: 'Archivo no encontrado' });
     }
 
-    res.json(info);
+    return res.json(info);
 
   } catch (error) {
     console.error('Error al obtener información del archivo:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Error al obtener información del archivo' 
     });
   }

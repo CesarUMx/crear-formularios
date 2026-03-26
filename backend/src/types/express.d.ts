@@ -5,6 +5,10 @@ declare global {
     interface Request {
       user?: User;
       file?: Express.Multer.File;
+      body: any;
+      params: any;
+      query: any;
+      headers: any;
     }
   }
 }

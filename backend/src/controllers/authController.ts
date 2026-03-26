@@ -1,4 +1,4 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/authService.js';
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
@@ -27,7 +27,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
     const result = await authService.register({ email, password, name, role });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Usuario registrado exitosamente',
       ...result
     });
@@ -35,7 +35,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     if (error.message === 'El email ya está registrado') {
       return res.status(409).json({ error: error.message });
     }
-    next(error);
+    return next(error);
   }
 };
 
@@ -51,7 +51,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 
     const result = await authService.login(email, password);
 
-    res.json({
+    return res.json({
       message: 'Login exitoso',
       ...result
     });
@@ -60,16 +60,16 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         error.message.includes('desactivado')) {
       return res.status(401).json({ error: error.message });
     }
-    next(error);
+    return next(error);
   }
 };
 
 export const getProfile = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const profile = await authService.getProfile(String(req.user!.id));
-    res.json(profile);
+    return res.json(profile);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -85,7 +85,7 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
 
     const user = await authService.updateProfile(String(req.user!.id), { name, email });
 
-    res.json({
+    return res.json({
       message: 'Perfil actualizado exitosamente',
       user
     });
@@ -93,7 +93,7 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
     if (error.message === 'El email ya está en uso') {
       return res.status(409).json({ error: error.message });
     }
-    next(error);
+    return next(error);
   }
 };
 
@@ -119,19 +119,19 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
       newPassword
     );
 
-    res.json(result);
+    return res.json(result);
   } catch (error: any) {
     if (error.message === 'Contraseña actual incorrecta') {
       return res.status(401).json({ error: error.message });
     }
-    next(error);
+    return next(error);
   }
 };
 
-export const logout = async (req: Request, res: Response) => {
+export const logout = async (_req: Request, res: Response) => {
   // En JWT no hay logout del lado del servidor
   // El cliente debe eliminar el token
-  res.json({ 
+  return res.json({ 
     message: 'Logout exitoso. Elimina el token del cliente.' 
   });
 };

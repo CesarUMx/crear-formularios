@@ -1,4 +1,4 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import * as formService from '../services/formService.js';
 import * as permissionService from '../services/permissionService.js';
 
@@ -8,9 +8,9 @@ import * as permissionService from '../services/permissionService.js';
 export const getForms = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const forms = await formService.getUserForms(String(req.user!.id), req.user!.role);
-    res.json(forms);
+    return res.json(forms);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -37,9 +37,9 @@ export const getFormById = async (req: Request, res: Response, next: NextFunctio
       });
     }
 
-    res.json(form);
+    return res.json(form);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -90,12 +90,12 @@ export const createForm = async (req: Request, res: Response, next: NextFunction
       sections
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Formulario creado exitosamente',
       form
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -129,12 +129,12 @@ export const updateForm = async (req: Request, res: Response, next: NextFunction
       sections
     });
 
-    res.json({
+    return res.json({
       message: 'Formulario actualizado exitosamente (nueva versión creada)',
       form
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -155,11 +155,11 @@ export const deleteForm = async (req: Request, res: Response, next: NextFunction
 
     await formService.deleteForm(String(id));
 
-    res.json({
+    return res.json({
       message: 'Formulario eliminado exitosamente'
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -181,12 +181,12 @@ export const toggleFormStatus = async (req: Request, res: Response, next: NextFu
 
     const form = await formService.toggleFormStatus(String(id), isActive);
 
-    res.json({
+    return res.json({
       message: `Formulario ${isActive ? 'activado' : 'desactivado'} exitosamente`,
       form
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -221,7 +221,7 @@ export const shareForm = async (req: Request, res: Response, next: NextFunction)
 
     const share = await formService.shareForm(String(id), userId, permission);
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'Formulario compartido exitosamente',
       share
     });
@@ -231,7 +231,7 @@ export const shareForm = async (req: Request, res: Response, next: NextFunction)
         error: 'El formulario ya está compartido con este usuario' 
       });
     }
-    next(error);
+    return next(error);
   }
 };
 
@@ -252,11 +252,11 @@ export const unshareForm = async (req: Request, res: Response, next: NextFunctio
 
     await formService.unshareForm(String(id), String(userId));
 
-    res.json({
+    return res.json({
       message: 'Acceso removido exitosamente'
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
@@ -284,11 +284,11 @@ export const updateSharePermission = async (req: Request, res: Response, next: N
 
     const share = await formService.updateSharePermission(String(id), String(userId), permission);
 
-    res.json({
+    return res.json({
       message: 'Permisos actualizados exitosamente',
       share
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };

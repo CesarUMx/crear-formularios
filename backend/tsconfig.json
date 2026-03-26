@@ -20,20 +20,20 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     
-    /* Type Checking - RELAXED FOR INITIAL MIGRATION */
-    "strict": false,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
-    "strictFunctionTypes": false,
-    "strictBindCallApply": false,
-    "strictPropertyInitialization": false,
-    "noImplicitThis": false,
+    /* Type Checking - STRICT MODE ENABLED */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
     "alwaysStrict": true,
     
     /* Additional Checks */
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noImplicitReturns": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     
     /* Advanced */

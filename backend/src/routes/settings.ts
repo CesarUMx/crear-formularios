@@ -11,10 +11,10 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const settings = await settingsService.getSettings();
-    res.json(settings);
+    return res.json(settings);
   } catch (error) {
     console.error('Error al obtener configuración:', error);
-    res.status(500).json({ error: 'Error al obtener configuración' });
+    return res.status(500).json({ error: 'Error al obtener configuración' });
   }
 });
 
@@ -30,14 +30,14 @@ router.get('/colors', async (req, res) => {
     const settings = await settingsService.getSettings();
     
     // Devolver solo los colores
-    res.json({
+    return res.json({
       primaryColor: settings.primaryColor,
       secondaryColor: settings.secondaryColor,
       accentColor: settings.accentColor
     });
   } catch (error) {
     console.error('Error al obtener colores:', error);
-    res.status(500).json({ error: 'Error al obtener colores' });
+    return res.status(500).json({ error: 'Error al obtener colores' });
   }
 });
 
@@ -73,10 +73,10 @@ router.put('/', requireAuth, requireSuperAdmin, async (req, res) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     
-    res.json(settings);
+    return res.json(settings);
   } catch (error) {
     console.error('Error al actualizar configuración:', error);
-    res.status(500).json({ error: 'Error al actualizar configuración' });
+    return res.status(500).json({ error: 'Error al actualizar configuración' });
   }
 });
 
@@ -93,10 +93,10 @@ router.post('/reset', requireAuth, requireSuperAdmin, async (req, res) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     
-    res.json(settings);
+    return res.json(settings);
   } catch (error) {
     console.error('Error al resetear configuración:', error);
-    res.status(500).json({ error: 'Error al resetear configuración' });
+    return res.status(500).json({ error: 'Error al resetear configuración' });
   }
 });
 

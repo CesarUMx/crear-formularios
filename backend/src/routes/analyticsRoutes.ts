@@ -61,11 +61,11 @@ router.get('/forms/:formId/responses/:responseId', requireAuth, async (req, res)
       return res.status(404).json({ error: 'Respuesta no encontrada' });
     }
     
-    res.json(response);
+    return res.json(response);
     
   } catch (error) {
     console.error('Error al obtener respuesta:', error);
-    res.status(500).json({ error: 'Error al obtener respuesta' });
+    return res.status(500).json({ error: 'Error al obtener respuesta' });
   }
 });
 
@@ -114,7 +114,7 @@ router.get('/forms/:formId/responses', requireAuth, async (req, res) => {
       take: limitNum
     });
     
-    res.json({
+    return res.json({
       data: responses,
       pagination: {
         total: totalResponses,
@@ -126,7 +126,7 @@ router.get('/forms/:formId/responses', requireAuth, async (req, res) => {
     
   } catch (error) {
     console.error('Error al obtener respuestas:', error);
-    res.status(500).json({ error: 'Error al obtener respuestas' });
+    return res.status(500).json({ error: 'Error al obtener respuestas' });
   }
 });
 
@@ -269,7 +269,7 @@ router.get('/forms/:formId/statistics', requireAuth, async (req, res) => {
       statistics.push(questionStats);
     }
     
-    res.json({
+    return res.json({
       formId,
       formTitle: form.title,
       statistics
@@ -277,7 +277,7 @@ router.get('/forms/:formId/statistics', requireAuth, async (req, res) => {
     
   } catch (error) {
     console.error('Error al obtener estadísticas:', error);
-    res.status(500).json({ error: 'Error al obtener estadísticas' });
+    return res.status(500).json({ error: 'Error al obtener estadísticas' });
   }
 });
 
@@ -412,10 +412,10 @@ router.get('/forms/:formId/export', requireAuth, async (req, res) => {
       // Enviar como archivo CSV
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename=${form.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_responses.csv`);
-      res.send(csv);
+      return res.send(csv);
     } else {
       // Si no es CSV, enviar como JSON
-      res.json({
+      return res.json({
         formTitle: form.title,
         data: exportData
       });
@@ -423,7 +423,7 @@ router.get('/forms/:formId/export', requireAuth, async (req, res) => {
     
   } catch (error) {
     console.error('Error al exportar respuestas:', error);
-    res.status(500).json({ error: 'Error al exportar respuestas' });
+    return res.status(500).json({ error: 'Error al exportar respuestas' });
   }
 });
 

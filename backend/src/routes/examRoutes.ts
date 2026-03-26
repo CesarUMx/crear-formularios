@@ -84,7 +84,7 @@ router.post('/:id/files/upload', upload.single('file'), handleMulterError, async
     const host = req.get('host');
     const fileUrl = `${protocol}://${host}/uploads/${file.filename}`;
     
-    res.json({
+    return res.json({
       url: fileUrl,
       fileUrl: fileUrl,
       fileName: file.originalname,
@@ -92,7 +92,7 @@ router.post('/:id/files/upload', upload.single('file'), handleMulterError, async
       fileSize: file.size
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

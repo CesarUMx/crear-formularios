@@ -32,11 +32,11 @@ router.post('/:formId', requireAuth, async (req, res) => {
     }
 
     const share = await shareService.shareForm(formId, userId, permission, sharedById);
-    res.json(share);
+    return res.json(share);
 
   } catch (error: any) {
     console.error('Error al compartir formulario:', error);
-    res.status(500).json({ error: error.message || 'Error al compartir formulario' });
+    return res.status(500).json({ error: error.message || 'Error al compartir formulario' });
   }
 });
 
@@ -56,11 +56,11 @@ router.get('/:formId', requireAuth, async (req, res) => {
     }
 
     const shares = await shareService.getFormShares(formId);
-    res.json(shares);
+    return res.json(shares);
 
   } catch (error) {
     console.error('Error al obtener compartidos:', error);
-    res.status(500).json({ error: 'Error al obtener compartidos' });
+    return res.status(500).json({ error: 'Error al obtener compartidos' });
   }
 });
 
@@ -81,11 +81,11 @@ router.delete('/:formId/:userId', requireAuth, async (req, res) => {
     }
 
     const result = await shareService.removeFormShare(formId, userId);
-    res.json(result);
+    return res.json(result);
 
   } catch (error: any) {
     console.error('Error al eliminar acceso:', error);
-    res.status(500).json({ error: error.message || 'Error al eliminar acceso' });
+    return res.status(500).json({ error: error.message || 'Error al eliminar acceso' });
   }
 });
 
@@ -111,11 +111,11 @@ router.put('/:formId/:userId', requireAuth, async (req, res) => {
     }
 
     const share = await shareService.updateFormSharePermission(formId, userId, permission);
-    res.json(share);
+    return res.json(share);
 
   } catch (error: any) {
     console.error('Error al actualizar permiso:', error);
-    res.status(500).json({ error: error.message || 'Error al actualizar permiso' });
+    return res.status(500).json({ error: error.message || 'Error al actualizar permiso' });
   }
 });
 
@@ -135,11 +135,11 @@ router.get('/:formId/available-users', requireAuth, async (req, res) => {
     }
 
     const users = await shareService.getAvailableUsers(formId);
-    res.json(users);
+    return res.json(users);
 
   } catch (error) {
     console.error('Error al obtener usuarios disponibles:', error);
-    res.status(500).json({ error: 'Error al obtener usuarios disponibles' });
+    return res.status(500).json({ error: 'Error al obtener usuarios disponibles' });
   }
 });
 

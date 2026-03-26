@@ -52,10 +52,10 @@ router.post('/', async (req, res) => {
       },
     });
 
-    res.status(201).json(report);
+    return res.status(201).json(report);
   } catch (error) {
     console.error('Error al crear reporte:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Error al crear el reporte',
       details: error instanceof Error ? error.message : 'Error desconocido'
     });
@@ -89,10 +89,10 @@ router.get('/exam/:examId', async (req, res) => {
       }
     });
 
-    res.json(reports);
+    return res.json(reports);
   } catch (error) {
     console.error('Error al obtener reportes:', error);
-    res.status(500).json({ error: 'Error al obtener reportes' });
+    return res.status(500).json({ error: 'Error al obtener reportes' });
   }
 });
 
@@ -112,10 +112,10 @@ router.patch('/:reportId', async (req, res) => {
       },
     });
 
-    res.json(report);
+    return res.json(report);
   } catch (error) {
     console.error('Error al actualizar reporte:', error);
-    res.status(500).json({ error: 'Error al actualizar reporte' });
+    return res.status(500).json({ error: 'Error al actualizar reporte' });
   }
 });
 
@@ -128,10 +128,10 @@ router.delete('/:reportId', async (req, res) => {
       where: { id: reportId },
     });
 
-    res.json({ message: 'Reporte eliminado exitosamente' });
+    return res.json({ message: 'Reporte eliminado exitosamente' });
   } catch (error) {
     console.error('Error al eliminar reporte:', error);
-    res.status(500).json({ error: 'Error al eliminar reporte' });
+    return res.status(500).json({ error: 'Error al eliminar reporte' });
   }
 });
 

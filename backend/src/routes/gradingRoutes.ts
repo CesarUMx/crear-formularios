@@ -51,10 +51,10 @@ router.get('/pending', async (req, res) => {
       },
     });
 
-    res.json(pendingAttempts);
+    return res.json(pendingAttempts);
   } catch (error: any) {
     console.error('Error al obtener intentos pendientes:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al obtener intentos pendientes',
     });
   }
@@ -96,10 +96,10 @@ router.get('/attempt/:attemptId', async (req, res) => {
       return res.status(404).json({ error: 'Intento no encontrado' });
     }
 
-    res.json(attempt);
+    return res.json(attempt);
   } catch (error: any) {
     console.error('Error al obtener intento:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al obtener intento',
     });
   }
@@ -181,13 +181,13 @@ router.post('/response/:responseId', async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       ...updatedResponse,
       attemptFullyGraded: allGraded,
     });
   } catch (error: any) {
     console.error('Error al calificar respuesta:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al calificar respuesta',
     });
   }
@@ -249,10 +249,10 @@ router.post('/attempt/:attemptId/complete', async (req, res) => {
       },
     });
 
-    res.json(updatedAttempt);
+    return res.json(updatedAttempt);
   } catch (error: any) {
     console.error('Error al completar calificación:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al completar calificación',
     });
   }
@@ -296,10 +296,10 @@ router.get('/student/:studentId/grades', async (req, res) => {
       },
     });
 
-    res.json(attempts);
+    return res.json(attempts);
   } catch (error: any) {
     console.error('Error al obtener calificaciones:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Error al obtener calificaciones',
     });
   }
