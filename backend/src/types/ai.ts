@@ -2,7 +2,7 @@
  * AI Exam Generation Types
  */
 
-import { QuestionType, Question } from './exam.js';
+import { QuestionType } from'./exam.js';
 
 /**
  * Parameters for AI question generation

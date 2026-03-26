@@ -85,7 +85,7 @@ export const gradeExamAttempt = async (attemptId: string): Promise<GradeExamResu
       exam: {
         include: {
           versions: {
-            where: { id: attemptBasic.examVersionId },
+            where: { id: attemptBasic.examVersionId ?? undefined },
             include: {
               sections: {
                 include: {
@@ -117,7 +117,9 @@ export const gradeExamAttempt = async (attemptId: string): Promise<GradeExamResu
     throw new Error('Intento no encontrado');
   }
 
-  if (!attempt.exam.autoGrade) {
+  const exam = attempt.exam as typeof attempt.exam & { autoGrade: boolean; passingScore: number };
+
+  if (!exam.autoGrade) {
     throw new Error('Este examen requiere calificación manual');
   }
 
@@ -140,7 +142,7 @@ export const gradeExamAttempt = async (attemptId: string): Promise<GradeExamResu
     totalScore += result.pointsEarned;
   }
 
-  const passed = totalScore >= attempt.exam.passingScore;
+  const passed = totalScore >= exam.passingScore;
 
   await prisma.examAttempt.update({
     where: { id: attemptId },

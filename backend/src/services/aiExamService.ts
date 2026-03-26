@@ -1,6 +1,5 @@
-import { PrismaClient, Prisma, AIExamAccessType } from '@prisma/client';
+import { PrismaClient, AIExamAccessType } from '@prisma/client';
 import { openAIService, GeneratedQuestion } from './openaiService.js';
-import { pdfService } from './pdfService.js';
 import { generateChart, validateChartConfig } from './chartGenerator.js';
 import bcrypt from 'bcryptjs';
 import { ChartConfig, ChartType } from '../types/chart.js';
@@ -94,7 +93,7 @@ class AIExamService {
     const dataPoints = numbers.length >= 3 ? numbers.slice(0, 6) : [45, 67, 89, 52, 73, 61];
     
     // Generar labels
-    const labels = question.options?.map((opt, idx) => opt.text.substring(0, 15)) || 
+    const labels = question.options?.map((opt, _idx) => opt.text.substring(0, 15)) || 
                    ['Categoría A', 'Categoría B', 'Categoría C', 'Categoría D'];
     
     // Determinar tipo de gráfico basado en el texto
@@ -261,7 +260,7 @@ class AIExamService {
       }
 
       // Filtrar opciones válidas (que tengan text definido y no vacío)
-      const validOptions = question.options.filter(opt => opt && opt.text && opt.text.trim() !== '');
+      const validOptions = question.options?.filter(opt => opt && opt.text && opt.text.trim() !== '') || [];
       
       if (validOptions.length < 2) {
         console.warn(`Pregunta ${i + 1} tiene menos de 2 opciones válidas, saltando...`);

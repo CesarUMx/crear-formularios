@@ -31,16 +31,6 @@ const upload = multer({
 });
 
 // Utilidades
-function _generateSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .substring(0, 50) + '-' + Date.now().toString(36);
-}
-
 function selectRandomQuestions<T>(questions: T[], count: number): T[] {
   const shuffled = [...questions].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(count, shuffled.length));
@@ -254,7 +244,6 @@ router.post(
 
       // Generar preguntas con OpenAI
       const numQuestions = parseInt(numberOfQuestions) || 10;
-      const _diff = difficulty || 'medium';
       const topicText = topic || 'general';
       const types = questionTypes ? JSON.parse(questionTypes) : ['multiple_choice'];
 

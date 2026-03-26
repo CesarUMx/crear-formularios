@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma, ExamQuestionType, ShowResultsType } from '@prisma/client';
+import { PrismaClient, ExamQuestionType, ShowResultsType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 

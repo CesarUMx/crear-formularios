@@ -125,6 +125,11 @@ export const startExamAttempt = async (
     }
   });
 
+  // Verificar que examVersion exista
+  if (!attempt.examVersion) {
+    throw new Error('No se encontró la versión del examen para este intento');
+  }
+
   // Mezclar preguntas si está habilitado
   if (exam.shuffleQuestions) {
     attempt.examVersion.sections.forEach(section => {
@@ -429,7 +434,7 @@ export const getAttemptResult = async (attemptId: string) => {
   };
 
   // Si se permite revisión, incluir detalles de las respuestas
-  if (attempt.exam.allowReview) {
+  if (attempt.exam.allowReview && attempt.examVersion) {
     result.sections = attempt.examVersion.sections.map(section => ({
       title: section.title,
       description: section.description,

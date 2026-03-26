@@ -164,7 +164,7 @@ router.post('/response/:responseId', async (req, res) => {
 
     if (allGraded) {
       // Calcular puntuación final
-      const scoreData = calculateAttemptScore(allResponses);
+      const scoreData = calculateAttemptScore(allResponses as any);
 
       // Actualizar el intento
       await prisma.aIExamAttempt.update({
@@ -226,7 +226,7 @@ router.post('/attempt/:attemptId/complete', async (req, res) => {
     }
 
     // Calcular puntuación final
-    const scoreData = calculateAttemptScore(attempt.responses);
+    const scoreData = calculateAttemptScore(attempt.responses as any);
 
     // Actualizar el intento
     const updatedAttempt = await prisma.aIExamAttempt.update({
