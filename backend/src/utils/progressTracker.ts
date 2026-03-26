@@ -11,6 +11,7 @@ interface ProgressUpdate {
   step?: string;
   currentQuestion?: number;
   totalQuestions?: number;
+  done?: boolean;
 }
 
 class ProgressTracker {
