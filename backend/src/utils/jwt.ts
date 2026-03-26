@@ -4,14 +4,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'tu-secreto-super-seguro-cambiar-en
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 interface User {
-  id: number;
+  id: string | number;
   email: string;
   role: string;
   name?: string;
 }
 
 interface TokenPayload extends JwtPayload {
-  id: number;
+  id: string | number;
   email: string;
   role: string;
   name?: string;

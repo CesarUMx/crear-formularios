@@ -6,7 +6,7 @@ import { JwtPayload } from 'jsonwebtoken';
  */
 export interface AuthRequest extends Request {
   user?: {
-    id: number;
+    id: string | number;
     email: string;
     role: string;
     name?: string;
@@ -18,7 +18,7 @@ export interface AuthRequest extends Request {
  * User data structure
  */
 export interface User {
-  id: number;
+  id: string | number;
   email: string;
   role: string;
   name?: string;
