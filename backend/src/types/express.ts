@@ -9,8 +9,19 @@ export interface AuthRequest extends Request {
     id: number;
     email: string;
     role: string;
+    name?: string;
     permissions?: string[];
   };
+}
+
+/**
+ * User data structure
+ */
+export interface User {
+  id: number;
+  email: string;
+  role: string;
+  name?: string;
 }
 
 /**
