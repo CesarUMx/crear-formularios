@@ -1,4 +1,4 @@
-import { PrismaClient, Form, Prisma, QuestionType } from '@prisma/client';
+import { PrismaClient, Form, Prisma, QuestionType, SharePermission } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -327,6 +327,63 @@ export const updateForm = async (formId: string, data: UpdateFormData) => {
 export const deleteForm = async (formId: string): Promise<Form> => {
   return await prisma.form.delete({
     where: { id: formId }
+  });
+};
+
+/**
+ * Activar/Desactivar formulario
+ */
+export const toggleFormStatus = async (formId: string, isActive: boolean) => {
+  return await prisma.form.update({
+    where: { id: formId },
+    data: { isActive }
+  });
+};
+
+/**
+ * Compartir formulario con otro usuario
+ */
+export const shareForm = async (formId: string, userId: string, permission: SharePermission) => {
+  return await prisma.formShare.create({
+    data: {
+      formId,
+      userId,
+      permission
+    },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true }
+      }
+    }
+  });
+};
+
+/**
+ * Remover acceso compartido
+ */
+export const unshareForm = async (formId: string, userId: string) => {
+  return await prisma.formShare.delete({
+    where: {
+      formId_userId: {
+        formId,
+        userId
+      }
+    }
+  });
+};
+
+/**
+ * Actualizar permisos de compartido
+ */
+export const updateSharePermission = async (formId: string, userId: string, permission: SharePermission) => {
+  return await prisma.formShare.update({
+    where: {
+      formId_userId: {
+        formId,
+        userId
+      }
+    },
+    data: { permission }
   });
 };
 
