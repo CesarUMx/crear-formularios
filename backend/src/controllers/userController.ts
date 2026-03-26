@@ -1,11 +1,10 @@
 import { Response, NextFunction } from 'express';
 import * as userService from '../services/userService.js';
-import { AuthRequest } from '../types/express.js';
 
 /**
  * Obtener todos los usuarios
  */
-export const getUsers = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getUsers = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const users = await userService.getAllUsers();
     res.json(users);
@@ -17,7 +16,7 @@ export const getUsers = async (req: AuthRequest, res: Response, next: NextFuncti
 /**
  * Obtener un usuario por ID
  */
-export const getUserById = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getUserById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const user = await userService.getUserById(String(id));
@@ -37,7 +36,7 @@ export const getUserById = async (req: AuthRequest, res: Response, next: NextFun
 /**
  * Crear un nuevo usuario
  */
-export const createUser = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const createUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, name, password, role } = req.body;
 
@@ -82,7 +81,7 @@ export const createUser = async (req: AuthRequest, res: Response, next: NextFunc
 /**
  * Actualizar un usuario
  */
-export const updateUser = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const updateUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { name, role, isActive } = req.body;
@@ -119,7 +118,7 @@ export const updateUser = async (req: AuthRequest, res: Response, next: NextFunc
 /**
  * Resetear contraseña de un usuario
  */
-export const resetPassword = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { newPassword } = req.body;
@@ -149,7 +148,7 @@ export const resetPassword = async (req: AuthRequest, res: Response, next: NextF
 /**
  * Eliminar un usuario
  */
-export const deleteUser = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 
@@ -176,7 +175,7 @@ export const deleteUser = async (req: AuthRequest, res: Response, next: NextFunc
 /**
  * Activar/Desactivar usuario
  */
-export const toggleUserStatus = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const toggleUserStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { isActive } = req.body;
@@ -205,7 +204,7 @@ export const toggleUserStatus = async (req: AuthRequest, res: Response, next: Ne
 /**
  * Obtener estadísticas de usuarios
  */
-export const getUserStats = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getUserStats = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const stats = await userService.getUserStats();
     res.json(stats);

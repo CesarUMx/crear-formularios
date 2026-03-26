@@ -2,12 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import * as examService from '../services/examService.js';
 import * as examAttemptService from '../services/examAttemptService.js';
 import * as examGradingService from '../services/examGradingService.js';
-import { AuthRequest } from '../types/express.js';
 
 /**
  * Obtener todos los exámenes del usuario
  */
-export const getExams = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getExams = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const exams = await examService.getUserExams(String(req.user!.id), req.user!.role);
     res.json(exams);
@@ -19,7 +18,7 @@ export const getExams = async (req: AuthRequest, res: Response, next: NextFuncti
 /**
  * Obtener un examen por ID
  */
-export const getExamById = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getExamById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 
@@ -68,7 +67,7 @@ export const getExamBySlug = async (req: Request, res: Response, next: NextFunct
 /**
  * Crear un nuevo examen
  */
-export const createExam = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const createExam = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { 
       title, 
@@ -153,7 +152,7 @@ export const createExam = async (req: AuthRequest, res: Response, next: NextFunc
 /**
  * Actualizar un examen (crea nueva versión)
  */
-export const updateExam = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const updateExam = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { 
@@ -209,7 +208,7 @@ export const updateExam = async (req: AuthRequest, res: Response, next: NextFunc
 /**
  * Eliminar un examen
  */
-export const deleteExam = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const deleteExam = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 
@@ -233,7 +232,7 @@ export const deleteExam = async (req: AuthRequest, res: Response, next: NextFunc
 /**
  * Publicar/despublicar examen
  */
-export const toggleExamPublish = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const toggleExamPublish = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { isPublic } = req.body;
@@ -259,7 +258,7 @@ export const toggleExamPublish = async (req: AuthRequest, res: Response, next: N
 /**
  * Activar/desactivar examen
  */
-export const toggleExamActive = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const toggleExamActive = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { isActive } = req.body;
@@ -285,7 +284,7 @@ export const toggleExamActive = async (req: AuthRequest, res: Response, next: Ne
 /**
  * Compartir examen
  */
-export const shareExam = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const shareExam = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { userId, permission } = req.body;
@@ -323,7 +322,7 @@ export const shareExam = async (req: AuthRequest, res: Response, next: NextFunct
 /**
  * Remover acceso compartido
  */
-export const unshareExam = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const unshareExam = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id, userId } = req.params;
 
@@ -347,7 +346,7 @@ export const unshareExam = async (req: AuthRequest, res: Response, next: NextFun
 /**
  * Subir archivo de apoyo
  */
-export const uploadSupportFile = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const uploadSupportFile = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { fileName, fileUrl, fileType, fileSize } = req.body;
@@ -382,7 +381,7 @@ export const uploadSupportFile = async (req: AuthRequest, res: Response, next: N
 /**
  * Eliminar archivo de apoyo
  */
-export const deleteSupportFile = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const deleteSupportFile = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id, fileId } = req.params;
 
@@ -535,7 +534,7 @@ export const getAttemptResult = async (req: Request, res: Response, next: NextFu
 /**
  * Obtener todos los intentos de un examen (admin)
  */
-export const getExamAttempts = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getExamAttempts = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 
@@ -558,7 +557,7 @@ export const getExamAttempts = async (req: AuthRequest, res: Response, next: Nex
  * Obtener un intento específico
  * Puede ser usado públicamente (durante el examen) o por admin
  */
-export const getAttemptById = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getAttemptById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id, attemptId } = req.params;
     const actualAttemptId = attemptId || id; // Soporta ambas rutas
@@ -597,7 +596,7 @@ export const getAttemptById = async (req: AuthRequest, res: Response, next: Next
 /**
  * Calificar pregunta manualmente
  */
-export const gradeQuestionManually = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const gradeQuestionManually = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id, attemptId, answerId } = req.params;
     const { pointsEarned, feedback } = req.body;
@@ -633,7 +632,7 @@ export const gradeQuestionManually = async (req: AuthRequest, res: Response, nex
 /**
  * Obtener estadísticas del examen
  */
-export const getExamStats = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getExamStats = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 

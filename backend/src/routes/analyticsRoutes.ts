@@ -1,6 +1,9 @@
-import express from 'express';
+/// <reference path="../types/express.d.ts" />
+
+import express, { Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { requireAuth, requireSuperAdmin } from '../middleware/auth.js';
+import '../types/express.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();

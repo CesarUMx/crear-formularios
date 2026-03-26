@@ -1,12 +1,11 @@
 import { Response, NextFunction } from 'express';
 import * as formService from '../services/formService.js';
 import * as permissionService from '../services/permissionService.js';
-import { AuthRequest } from '../types/express.js';
 
 /**
  * Obtener todos los formularios del usuario
  */
-export const getForms = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getForms = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const forms = await formService.getUserForms(String(req.user!.id), req.user!.role);
     res.json(forms);
@@ -18,7 +17,7 @@ export const getForms = async (req: AuthRequest, res: Response, next: NextFuncti
 /**
  * Obtener un formulario por ID
  */
-export const getFormById = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getFormById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 
@@ -47,7 +46,7 @@ export const getFormById = async (req: AuthRequest, res: Response, next: NextFun
 /**
  * Crear un nuevo formulario
  */
-export const createForm = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const createForm = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { title, description, sections, templateId } = req.body;
 
@@ -103,7 +102,7 @@ export const createForm = async (req: AuthRequest, res: Response, next: NextFunc
 /**
  * Actualizar un formulario (crea nueva versión)
  */
-export const updateForm = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const updateForm = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { title, description, templateId, sections } = req.body;
@@ -142,7 +141,7 @@ export const updateForm = async (req: AuthRequest, res: Response, next: NextFunc
 /**
  * Eliminar un formulario
  */
-export const deleteForm = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const deleteForm = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
 
@@ -167,7 +166,7 @@ export const deleteForm = async (req: AuthRequest, res: Response, next: NextFunc
 /**
  * Activar/Desactivar formulario
  */
-export const toggleFormStatus = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const toggleFormStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { isActive } = req.body;
@@ -194,7 +193,7 @@ export const toggleFormStatus = async (req: AuthRequest, res: Response, next: Ne
 /**
  * Compartir formulario
  */
-export const shareForm = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const shareForm = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { userId, permission } = req.body;
@@ -239,7 +238,7 @@ export const shareForm = async (req: AuthRequest, res: Response, next: NextFunct
 /**
  * Remover acceso compartido
  */
-export const unshareForm = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const unshareForm = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id, userId } = req.params;
 
@@ -264,7 +263,7 @@ export const unshareForm = async (req: AuthRequest, res: Response, next: NextFun
 /**
  * Actualizar permisos de compartido
  */
-export const updateSharePermission = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const updateSharePermission = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id, userId } = req.params;
     const { permission } = req.body;

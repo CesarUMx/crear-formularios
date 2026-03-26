@@ -1,5 +1,5 @@
 import { PrismaClient, Prisma, AIExamAccessType } from '@prisma/client';
-import { openAIService } from './openaiService.js';
+import { openAIService, GeneratedQuestion } from './openaiService.js';
 import { pdfService } from './pdfService.js';
 import { generateChart, validateChartConfig } from './chartGenerator.js';
 import bcrypt from 'bcryptjs';
@@ -33,11 +33,12 @@ interface UpdateAIExamData {
   title?: string;
   description?: string;
   instructions?: string;
-  timeLimit?: number;
+  timeLimit?: number | null;
   isActive?: boolean;
   maxAttempts?: number;
   passingScore?: number;
   questionsPerAttempt?: number;
+  accessType?: AIExamAccessType;
 }
 
 interface Student {
@@ -76,14 +77,6 @@ interface QuestionForStudent {
     id: string;
     text: string;
   }[];
-}
-
-interface GeneratedQuestion {
-  text: string;
-  type: string;
-  options: Array<{ text: string; isCorrect: boolean }>;
-  feedback?: string;
-  metadata?: any;
 }
 
 // ==================== CLASE ====================
@@ -214,17 +207,17 @@ class AIExamService {
 
       // Preparar metadata
       let metadata: any = question.metadata || {};
-      console.log(`🔍 Pregunta ${i + 1} - Tipo: ${question.type}, Metadata existente:`, JSON.stringify(metadata, null, 2));
+      console.log(`Pregunta ${i + 1} - Tipo: ${question.type}, Metadata existente:`, JSON.stringify(metadata, null, 2));
 
       // Si es pregunta de interpretación de datos, generar gráfico
       if (question.type === 'data_interpretation') {
-        console.log(`📊 Detectada pregunta de interpretación de datos ${i + 1}`);
+        console.log(`Detectada pregunta de interpretación de datos ${i + 1}`);
 
         let chartConfig = question.metadata?.chartConfig;
 
         // Si OpenAI no generó chartConfig, crear uno automáticamente
         if (!chartConfig) {
-          console.warn(`⚠️ OpenAI no generó chartConfig, creando uno automáticamente...`);
+          console.warn(`OpenAI no generó chartConfig, creando uno automáticamente...`);
           
           // Generar chartConfig básico basado en la pregunta
           chartConfig = this.generateDefaultChartConfig(question);
@@ -235,17 +228,17 @@ class AIExamService {
             chartConfig
           };
           
-          console.log(`✅ chartConfig generado automáticamente:`, JSON.stringify(chartConfig, null, 2));
+          console.log(`chartConfig generado automáticamente:`, JSON.stringify(chartConfig, null, 2));
         } else {
-          console.log(`✅ chartConfig encontrado en pregunta ${i + 1}:`, JSON.stringify(chartConfig, null, 2));
+          console.log(`chartConfig encontrado en pregunta ${i + 1}:`, JSON.stringify(chartConfig, null, 2));
         }
 
         // Generar el gráfico
         try {
           // Validar configuración del gráfico
           if (validateChartConfig(chartConfig)) {
-            console.log(`✅ Configuración de gráfico validada para pregunta ${i + 1}`);
-            console.log(`📊 Generando gráfico para pregunta ${i + 1}...`);
+            console.log(`Configuración de gráfico validada para pregunta ${i + 1}`);
+            console.log(`Generando gráfico para pregunta ${i + 1}...`);
 
             // Generar gráfico en base64
             const chartImage = await generateChart(chartConfig);
@@ -257,12 +250,12 @@ class AIExamService {
               questionType: 'data_interpretation'
             };
 
-            console.log(`✅ Gráfico generado exitosamente para pregunta ${i + 1} (${chartImage.length} caracteres)`);
+            console.log(`Gráfico generado exitosamente para pregunta ${i + 1} (${chartImage.length} caracteres)`);
           } else {
-            console.warn(`⚠️ Configuración de gráfico inválida para pregunta ${i + 1}:`, chartConfig);
+            console.warn(`Configuración de gráfico inválida para pregunta ${i + 1}:`, chartConfig);
           }
         } catch (error: any) {
-          console.error(`❌ Error al generar gráfico para pregunta ${i + 1}:`, error.message);
+          console.error(`Error al generar gráfico para pregunta ${i + 1}:`, error.message);
           console.error('Stack trace:', error.stack);
         }
       }
@@ -271,7 +264,7 @@ class AIExamService {
       const validOptions = question.options.filter(opt => opt && opt.text && opt.text.trim() !== '');
       
       if (validOptions.length < 2) {
-        console.warn(`⚠️ Pregunta ${i + 1} tiene menos de 2 opciones válidas, saltando...`);
+        console.warn(`Pregunta ${i + 1} tiene menos de 2 opciones válidas, saltando...`);
         continue;
       }
 

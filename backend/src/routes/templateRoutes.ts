@@ -29,7 +29,7 @@ router.get('/', requireAuth, async (req, res) => {
  */
 router.get('/:id', requireAuth, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     const template = await prisma.formTemplate.findUnique({
       where: { id }
@@ -52,7 +52,7 @@ router.get('/:id', requireAuth, async (req, res) => {
  */
 router.get('/public/:id', async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     const template = await prisma.formTemplate.findUnique({
       where: { id, isActive: true }

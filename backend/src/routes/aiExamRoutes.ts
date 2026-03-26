@@ -1,4 +1,6 @@
-import { Router } from 'express';
+/// <reference path="../types/express.d.ts" />
+
+import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -8,6 +10,7 @@ import { pdfService } from '../services/pdfService.js';
 import { aiExamService } from '../services/aiExamService.js';
 import { progressTracker } from '../utils/progressTracker.js';
 import { generateChart, validateChartConfig } from '../services/chartGenerator.js';
+import '../types/express.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -676,25 +679,25 @@ router.post('/:id/attempts', async (req, res) => {
 
       // Aleatorizar columna derecha en matching
       if (questionType === 'matching' && (q.metadata as any)?.pairs) {
-        const pairs = [...(q.metadata as any).pairs];
+        const pairs = [...((q.metadata as any).pairs as any[])];
         const rightColumn = pairs.map((p: any) => p.right);
         const shuffledRight = shuffleArray(rightColumn);
         
         metadata = {
-          ...q.metadata,
+          ...(q.metadata as any),
           shuffledRightColumn: shuffledRight,
-        };
+        } as any;
       }
 
       // Aleatorizar orden inicial en ordering
       if (questionType === 'ordering' && (q.metadata as any)?.items) {
-        const items = [...(q.metadata as any).items];
+        const items = [...((q.metadata as any).items as any[])];
         const shuffledItems = shuffleArray(items);
         
         metadata = {
-          ...q.metadata,
+          ...(q.metadata as any),
           shuffledItems: shuffledItems,
-        };
+        } as any;
       }
 
 return {
@@ -848,13 +851,13 @@ router.post('/attempts/:attemptId/submit', async (req, res) => {
       }
 
       // Obtener metadata de aleatorización guardada en selectedQuestions
-      const savedQuestion = attempt.selectedQuestions.find((sq: any) => sq.id === response.questionId);
+      const savedQuestion = (attempt.selectedQuestions as any[]).find((sq: any) => sq.id === response.questionId);
       const questionWithShuffling = {
         ...question,
         metadata: savedQuestion?.metadata || question.metadata,
       };
 
-      const questionType = question.metadata?.questionType || 'multiple_choice';
+      const questionType = (question.metadata as any)?.questionType || 'multiple_choice';
       const needsManualGrading = requiresManualGrading(questionType);
 
       console.log(`\n📝 Calificando pregunta ${responses.indexOf(response) + 1}/${responses.length}`);
@@ -872,7 +875,7 @@ router.post('/attempts/:attemptId/submit', async (req, res) => {
       }
 
       // Calificar automáticamente si es posible
-      const gradeResult = gradeAutomatically(questionWithShuffling, response);
+      const gradeResult = gradeAutomatically(questionWithShuffling as any, response);
       
       console.log(`   Resultado: ${gradeResult.isCorrect ? '✅ CORRECTA' : '❌ INCORRECTA'}`);
       console.log(`   Puntos: ${gradeResult.pointsEarned}/${question.points}`);
@@ -1005,16 +1008,16 @@ router.post('/questions/:questionId/regenerate', async (req, res) => {
     });
 
     // Obtener el tipo de pregunta desde metadata o asumir multiple_choice
-    const questionType = question.metadata?.questionType || 'multiple_choice';
+    const questionType = (question.metadata as any)?.questionType || 'multiple_choice';
 
     // Regenerar la pregunta usando OpenAI manteniendo el tipo
     const newQuestion = await openAIService.regenerateQuestion(
       question.text,
       pdfContent,
-      aiExam.difficulty || 'medium',
+      (aiExam as any).difficulty || 'medium',
       questionType,
       allQuestions.map(q => q.text)
-    );
+    ) as any;
 
     if (!newQuestion || !newQuestion.text) {
       throw new Error('La IA no generó una pregunta válida');
@@ -1130,7 +1133,7 @@ router.get('/attempts/:attemptId/result', async (req, res) => {
 
     // Agregar metadata de aleatorización a cada respuesta
     const responsesWithShuffling = attempt.responses.map(response => {
-      const savedQuestion = attempt.selectedQuestions.find((sq: any) => sq.id === response.questionId);
+      const savedQuestion = (attempt.selectedQuestions as any[]).find((sq: any) => sq.id === response.questionId);
       
       return {
         ...response,
@@ -1191,7 +1194,7 @@ router.post('/:id/send-invitation', requireAuth, async (req, res) => {
 
     // Obtener información del examen
     const exam = await prisma.aIExam.findUnique({
-      where: { id },
+      where: { id: String(id) },
     });
 
     if (!exam) {
@@ -1274,12 +1277,15 @@ router.get('/:id/students', requireAuth, async (req, res) => {
  */
 router.delete('/:id/students/:studentId', requireAuth, async (req, res) => {
   try {
-    const { studentId } = req.params;
+    const studentId = String(req.params.studentId);
 
     // Verificar si tiene intentos
     const student = await prisma.aIExamStudent.findUnique({
       where: { id: studentId },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        email: true,
         _count: {
           select: {
             attempts: true,
@@ -1292,9 +1298,9 @@ router.delete('/:id/students/:studentId', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Estudiante no encontrado' });
     }
 
-    if (student._count.attempts > 0) {
+    if ((student._count as any).attempts > 0) {
       return res.status(400).json({
-        error: `No se puede eliminar porque ya tiene ${student._count.attempts} intento(s) realizado(s)`,
+        error: `No se puede eliminar porque ya tiene ${(student._count as any).attempts} intento(s) realizado(s)`,
       });
     }
 

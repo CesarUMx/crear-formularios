@@ -1,8 +1,7 @@
 import { Response, NextFunction } from 'express';
 import * as authService from '../services/authService.js';
-import { AuthRequest } from '../types/express.js';
 
-export const register = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password, name, role } = req.body;
 
@@ -40,7 +39,7 @@ export const register = async (req: AuthRequest, res: Response, next: NextFuncti
   }
 };
 
-export const login = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
 
@@ -65,7 +64,7 @@ export const login = async (req: AuthRequest, res: Response, next: NextFunction)
   }
 };
 
-export const getProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getProfile = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const profile = await authService.getProfile(String(req.user!.id));
     res.json(profile);
@@ -74,7 +73,7 @@ export const getProfile = async (req: AuthRequest, res: Response, next: NextFunc
   }
 };
 
-export const updateProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const updateProfile = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, email } = req.body;
 
@@ -98,7 +97,7 @@ export const updateProfile = async (req: AuthRequest, res: Response, next: NextF
   }
 };
 
-export const changePassword = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const changePassword = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
@@ -129,7 +128,7 @@ export const changePassword = async (req: AuthRequest, res: Response, next: Next
   }
 };
 
-export const logout = async (req: AuthRequest, res: Response) => {
+export const logout = async (req: Request, res: Response) => {
   // En JWT no hay logout del lado del servidor
   // El cliente debe eliminar el token
   res.json({ 

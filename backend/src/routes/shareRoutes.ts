@@ -1,6 +1,9 @@
-import express from 'express';
+/// <reference path="../types/express.d.ts" />
+
+import express, { Request, Response, NextFunction } from 'express';
 import * as shareService from '../services/shareService.js';
 import { requireAuth } from '../middleware/auth.js';
+import '../types/express.js';
 
 const router = express.Router();
 
@@ -67,7 +70,8 @@ router.get('/:formId', requireAuth, async (req, res) => {
  */
 router.delete('/:formId/:userId', requireAuth, async (req, res) => {
   try {
-    const { formId, userId } = req.params;
+    const formId = String(req.params.formId);
+    const userId = String(req.params.userId);
     const requesterId = req.user!.id;
 
     // Verificar que el usuario actual tiene permisos para eliminar

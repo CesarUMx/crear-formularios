@@ -2,19 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/jwt.js';
 
 /**
- * Extended Express Request with authenticated user
- */
-export interface AuthRequest extends Request {
-  user?: {
-    id: string | number;
-    email: string;
-    role: string;
-    name?: string;
-    permissions?: string[];
-  };
-}
-
-/**
  * Middleware para requerir autenticación
  * Verifica el token JWT en el header Authorization
  */
@@ -38,7 +25,7 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
     }
 
     // Extender la request con los datos del usuario
-    (req as AuthRequest).user = {
+    req.user = {
       id: decoded.id,
       email: decoded.email,
       role: decoded.role,
@@ -58,7 +45,7 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
  * Debe usarse después de requireAuth
  */
 export const requireSuperAdmin = (req: Request, res: Response, next: NextFunction): void | Response => {
-  const authReq = req as AuthRequest;
+  const authReq = req as Request;
   
   if (!authReq.user) {
     return res.status(401).json({ 
@@ -88,7 +75,7 @@ export const optionalAuth = (req: Request, res: Response, next: NextFunction): v
       const decoded = verifyToken(token);
       
       if (decoded) {
-        (req as AuthRequest).user = {
+        req.user = {
           id: decoded.id,
           email: decoded.email,
           role: decoded.role,

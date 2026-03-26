@@ -18,7 +18,7 @@ const MANUAL_GRADING_TYPES = [
 const AUTO_GRADING_TYPES = [
   'multiple_choice',
   'true_false',
-  'fill_blank', // ✅ Calificación automática con validación flexible
+  'fill_blank', // Calificación automática con validación flexible
   'matching',
   'ordering',
   'image_question',
@@ -127,7 +127,7 @@ function validateFillBlankAnswer(userAnswer: any, correctAnswer: any): boolean {
   const normalizedUser = normalize(userStr);
   const normalizedCorrect = normalize(correctStr);
   
-  console.log('🔍 Fill blank validation:', {
+  console.log('Fill blank validation:', {
     userAnswer,
     correctAnswer,
     normalizedUser,
@@ -145,7 +145,7 @@ function validateFillBlankAnswer(userAnswer: any, correctAnswer: any): boolean {
  * correctPairs es un array de objetos [{ left: 'Item 1', right: 'Match A' }, ...]
  * shuffledRightColumn es un array con la columna derecha mezclada ['Match B', 'Match A', ...]
  * 
- * ✅ ACTUALIZADO: Ahora valida correctamente considerando que la columna derecha
+ * ACTUALIZADO: Ahora valida correctamente considerando que la columna derecha
  * está mezclada. El estudiante ve las letras basadas en shuffledRightColumn.
  */
 function validateMatchingAnswer(
@@ -154,15 +154,15 @@ function validateMatchingAnswer(
   shuffledRightColumn: string[] | null = null
 ): boolean {
   if (!userAnswers || !correctPairs) {
-    console.log('❌ Matching validation failed: missing data', { userAnswers, correctPairs });
+    console.log('Matching validation failed: missing data', { userAnswers, correctPairs });
     return false;
   }
   if (!Array.isArray(userAnswers)) {
-    console.log('❌ Matching validation failed: userAnswers not array', { userAnswers });
+    console.log('Matching validation failed: userAnswers not array', { userAnswers });
     return false;
   }
   if (userAnswers.length !== correctPairs.length) {
-    console.log('❌ Matching validation failed: length mismatch', { 
+    console.log('Matching validation failed: length mismatch', { 
       userLength: userAnswers.length, 
       correctLength: correctPairs.length 
     });
@@ -172,7 +172,7 @@ function validateMatchingAnswer(
   // Si no hay columna mezclada, usar la columna original (orden de correctPairs)
   const rightColumn = shuffledRightColumn || correctPairs.map(p => p.right);
   
-  console.log('🔍 Matching validation:', {
+  console.log('Matching validation:', {
     userAnswers,
     correctPairs,
     shuffledRightColumn,
@@ -202,7 +202,7 @@ function validateMatchingAnswer(
  * items es un array de objetos [{ text: '...', correctOrder: 1 }]
  * shuffledItems es un array con los items mezclados que vio el estudiante
  * 
- * ✅ ACTUALIZADO: Debe usar shuffledItems para validar correctamente.
+ * ACTUALIZADO: Debe usar shuffledItems para validar correctamente.
  * userOrder[position] es el índice del item en shuffledItems que el usuario puso en esa posición.
  * shuffledItems[userOrder[position]] debe tener correctOrder === position
  */
@@ -218,7 +218,7 @@ function validateOrderingAnswer(
   // Usar shuffledItems si está disponible, sino usar items
   const itemsToValidate = shuffledItems || items;
   
-  console.log('🔍 Ordering validation:', {
+  console.log('Ordering validation:', {
     userOrder,
     itemsToValidate,
     shuffledItems
@@ -263,17 +263,17 @@ function gradeAutomatically(question: Question, userAnswer: UserAnswer): Grading
       // Validación flexible para completar espacios
       const blanks = question.metadata?.blanks || [];
       
-      console.log('🔍 Fill_blank - userAnswer completo:', userAnswer);
-      console.log('🔍 Fill_blank - userAnswer.userAnswer:', userAnswer.userAnswer);
-      console.log('🔍 Fill_blank - userAnswer.textAnswer:', userAnswer.textAnswer);
+      console.log('Fill_blank - userAnswer completo:', userAnswer);
+      console.log('Fill_blank - userAnswer.userAnswer:', userAnswer.userAnswer);
+      console.log('Fill_blank - userAnswer.textAnswer:', userAnswer.textAnswer);
       
       // Usar userAnswer.userAnswer (antes de guardar) o userAnswer.textAnswer (después de guardar)
       const blankString = userAnswer.userAnswer || userAnswer.textAnswer;
-      console.log('🔍 Fill_blank - blankString:', blankString);
+      console.log('Fill_blank - blankString:', blankString);
       
       const userAnswers = blankString ? JSON.parse(blankString) : {};
-      console.log('🔍 Fill_blank - userAnswers parseado:', userAnswers);
-      console.log('🔍 Fill_blank - blanks metadata:', blanks);
+      console.log('Fill_blank - userAnswers parseado:', userAnswers);
+      console.log('Fill_blank - blanks metadata:', blanks);
       
       const allCorrect = blanks.every((blank, index) => {
         const isCorrect = validateFillBlankAnswer(userAnswers[index], blank.correctAnswer);
@@ -281,7 +281,7 @@ function gradeAutomatically(question: Question, userAnswer: UserAnswer): Grading
         return isCorrect;
       });
       
-      console.log('🔍 Fill_blank - resultado final:', allCorrect);
+      console.log('Fill_blank - resultado final:', allCorrect);
       
       return {
         isCorrect: allCorrect,
@@ -292,17 +292,17 @@ function gradeAutomatically(question: Question, userAnswer: UserAnswer): Grading
       const correctPairs = question.metadata?.pairs || [];
       const shuffledRightColumn = question.metadata?.shuffledRightColumn || null;
       
-      console.log('🔍 Matching - userAnswer completo:', userAnswer);
-      console.log('🔍 Matching - userAnswer.userAnswer:', userAnswer.userAnswer);
-      console.log('🔍 Matching - userAnswer.textAnswer:', userAnswer.textAnswer);
+      console.log('Matching - userAnswer completo:', userAnswer);
+      console.log('Matching - userAnswer.userAnswer:', userAnswer.userAnswer);
+      console.log('Matching - userAnswer.textAnswer:', userAnswer.textAnswer);
       
       // Usar userAnswer.userAnswer (antes de guardar) o userAnswer.textAnswer (después de guardar)
       const answerString = userAnswer.userAnswer || userAnswer.textAnswer;
-      console.log('🔍 Matching - answerString:', answerString);
+      console.log('Matching - answerString:', answerString);
       
       const userPairs = answerString ? JSON.parse(answerString) : [];
       
-      console.log('🔍 Matching - userPairs parseado:', userPairs);
+      console.log('Matching - userPairs parseado:', userPairs);
       console.log('🔍 Matching - userPairs length:', userPairs.length);
       console.log('🔍 Matching - userPairs es array:', Array.isArray(userPairs));
       
