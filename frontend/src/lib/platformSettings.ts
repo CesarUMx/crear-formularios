@@ -122,7 +122,7 @@ class PlatformSettingsService {
     
     // Convertir a objeto PlatformSettings
     const platformSettings: PlatformSettings = {
-      logo: settings.logo || DEFAULT_SETTINGS.logo,
+      logo: settings.logoUrl || DEFAULT_SETTINGS.logo,
       primaryColor: settings.primaryColor || DEFAULT_SETTINGS.primaryColor,
       secondaryColor: settings.secondaryColor || DEFAULT_SETTINGS.secondaryColor,
       accentColor: settings.accentColor || DEFAULT_SETTINGS.accentColor

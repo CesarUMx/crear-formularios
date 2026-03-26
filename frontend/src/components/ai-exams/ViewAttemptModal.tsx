@@ -187,12 +187,25 @@ export default function ViewAttemptModal({ isOpen, attemptId, onClose }: ViewAtt
                           {index + 1}. {response.question.text}
                         </p>
                         
+                        {/* Gráfico para data_interpretation (entre pregunta y opciones) */}
+                        {response.question.metadata?.questionType === 'data_interpretation' && response.question.metadata?.chartImage && (
+                          <div className="my-4 flex justify-center">
+                            <div className="w-full max-w-2xl p-4 bg-gray-50 rounded-lg border border-gray-200">
+                              <img 
+                                src={response.question.metadata.chartImage} 
+                                alt="Gráfico de datos" 
+                                className="w-full h-auto rounded-lg"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        
                         {/* Renderizado según tipo de pregunta */}
                         {(() => {
                           const questionType = response.question.metadata?.questionType || 'multiple_choice';
                           
-                          // Opción múltiple / Verdadero-Falso
-                          if (questionType === 'multiple_choice' || questionType === 'true_false') {
+                          // Opción múltiple / Verdadero-Falso / Interpretación de Datos
+                          if (questionType === 'multiple_choice' || questionType === 'true_false' || questionType === 'data_interpretation') {
                             return (
                               <div className="space-y-2 ml-2">
                                 {response.question.options?.map((option) => (

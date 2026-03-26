@@ -9,7 +9,9 @@ import {
   Lightbulb,
   Wrench,
   Image as ImageIcon,
-  BarChart3
+  BarChart3,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 
 interface BaseQuestion {
@@ -67,19 +69,9 @@ interface ProblemSolvingQuestion extends BaseQuestion {
   };
 }
 
-interface ImageQuestion extends BaseQuestion {
-  type: 'image_question';
-  imageDescription: string;
-  options: { text: string; isCorrect: boolean }[];
-}
-
 interface DataInterpretationQuestion extends BaseQuestion {
   type: 'data_interpretation';
-  dataDescription: string;
-  questions: {
-    text: string;
-    options: { text: string; isCorrect: boolean }[];
-  }[];
+  options: { text: string; isCorrect: boolean }[];
 }
 
 type Question = 
@@ -92,7 +84,6 @@ type Question =
   | EssayQuestion
   | CaseAnalysisQuestion
   | ProblemSolvingQuestion
-  | ImageQuestion
   | DataInterpretationQuestion;
 
 interface QuestionRendererProps {
@@ -123,7 +114,6 @@ export default function QuestionRenderer({
       essay: BookOpen,
       case_analysis: Lightbulb,
       problem_solving: Wrench,
-      image_question: ImageIcon,
       data_interpretation: BarChart3,
     };
     const Icon = icons[question.type] || CheckSquare;
@@ -141,7 +131,6 @@ export default function QuestionRenderer({
       essay: 'Ensayo',
       case_analysis: 'Análisis de Caso',
       problem_solving: 'Resolución de Problemas',
-      image_question: 'Pregunta con Imagen',
       data_interpretation: 'Interpretación de Datos',
     };
     return names[question.type] || 'Pregunta';
@@ -480,98 +469,46 @@ export default function QuestionRenderer({
           </div>
         );
 
-      case 'image_question':
-        return (
-          <div className="space-y-4">
-            <div className="p-4 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg">
-              <div className="flex items-center gap-3 text-gray-600">
-                <ImageIcon className="w-8 h-8" />
-                <div>
-                  <p className="font-semibold">Descripción de la imagen:</p>
-                  <p className="text-sm mt-1">{(question as ImageQuestion).imageDescription}</p>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {(question as ImageQuestion).options.map((option, idx) => (
-                <label
-                  key={idx}
-                  className={`
-                    flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition
-                    ${mode === 'exam' 
-                      ? userAnswer === idx 
-                        ? 'border-blue-500 bg-blue-50' 
-                        : 'border-gray-200 hover:border-blue-300'
-                      : mode === 'review'
-                      ? option.isCorrect
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200'
-                      : 'border-gray-200'
-                    }
-                  `}
-                >
-                  <input
-                    type="radio"
-                    name={`question-${questionNumber}`}
-                    checked={userAnswer === idx}
-                    onChange={() => onAnswerChange?.(idx)}
-                    disabled={mode !== 'exam'}
-                    className="mt-1"
-                  />
-                  <span className="flex-1">{option.text}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        );
-
       case 'data_interpretation':
+        // Las preguntas de interpretación de datos ahora son de opción múltiple simple
+        // El gráfico se renderiza automáticamente antes del QuestionRenderer
         return (
-          <div className="space-y-4">
-            <div className="p-4 bg-cyan-50 border border-cyan-200 rounded-lg">
-              <div className="flex items-start gap-3">
-                <BarChart3 className="w-6 h-6 text-cyan-600 flex-shrink-0 mt-1" />
-                <div>
-                  <p className="font-semibold text-cyan-800 mb-2">Datos a analizar:</p>
-                  <p className="text-sm text-gray-700 whitespace-pre-line">
-                    {(question as DataInterpretationQuestion).dataDescription}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-4">
-              {(question as DataInterpretationQuestion).questions.map((q, qIdx) => (
-                <div key={qIdx} className="space-y-3">
-                  <p className="font-medium text-gray-800">{qIdx + 1}. {q.text}</p>
-                  <div className="space-y-2 ml-4">
-                    {q.options.map((option, oIdx) => (
-                      <label
-                        key={oIdx}
-                        className={`
-                          flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition
-                          ${mode === 'exam' 
-                            ? 'border-gray-200 hover:border-blue-300'
-                            : mode === 'review'
-                            ? option.isCorrect
-                              ? 'border-green-500 bg-green-50'
-                              : 'border-gray-200'
-                            : 'border-gray-200'
-                          }
-                        `}
-                      >
-                        <input
-                          type="radio"
-                          name={`question-${questionNumber}-${qIdx}`}
-                          disabled={mode !== 'exam'}
-                          className="mt-1"
-                        />
-                        <span className="flex-1 text-sm">{option.text}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="space-y-3">
+            {(question as DataInterpretationQuestion).options?.map((option, idx) => (
+              <label
+                key={idx}
+                className={`
+                  flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition
+                  ${mode === 'exam' 
+                    ? 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                    : mode === 'review'
+                    ? option.isCorrect
+                      ? 'border-green-500 bg-green-50'
+                      : userAnswer === idx
+                      ? 'border-red-500 bg-red-50'
+                      : 'border-gray-200'
+                    : 'border-gray-200'
+                  }
+                  ${userAnswer === idx && mode === 'exam' ? 'border-blue-500 bg-blue-50' : ''}
+                `}
+              >
+                <input
+                  type="radio"
+                  name={`question-${questionNumber}`}
+                  checked={userAnswer === idx}
+                  onChange={() => mode === 'exam' && onAnswerChange?.(idx)}
+                  disabled={mode !== 'exam'}
+                  className="mt-1 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="flex-1 text-sm text-gray-700">{option.text}</span>
+                {mode === 'review' && option.isCorrect && (
+                  <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                )}
+                {mode === 'review' && !option.isCorrect && userAnswer === idx && (
+                  <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                )}
+              </label>
+            ))}
           </div>
         );
 
@@ -597,6 +534,19 @@ export default function QuestionRenderer({
           <h3 className="text-lg font-semibold text-gray-900">{question.text}</h3>
         </div>
       </div>
+
+      {/* Gráfico para data_interpretation (entre pregunta y opciones) */}
+      {question.type === 'data_interpretation' && (question as any).chartImage && (
+        <div className="my-6 flex justify-center">
+          <div className="w-full max-w-2xl p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <img 
+              src={(question as any).chartImage} 
+              alt="Gráfico de datos" 
+              className="w-full h-auto rounded-lg"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="mt-4">

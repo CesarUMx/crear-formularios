@@ -1,11 +1,47 @@
 import { PrismaClient } from '@prisma/client';
 import { openAIService } from './openaiService.js';
 import { pdfService } from './pdfService.js';
+import { generateChart, validateChartConfig } from './chartGenerator.js';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 class AIExamService {
+  /**
+   * Generar chartConfig por defecto para preguntas de interpretación de datos
+   */
+  generateDefaultChartConfig(question) {
+    // Extraer números del texto de la pregunta y opciones
+    const allText = question.text + ' ' + (question.options?.map(o => o.text).join(' ') || '');
+    const numbers = allText.match(/\d+/g)?.map(Number) || [];
+    
+    // Generar datos aleatorios si no hay números en el texto
+    const dataPoints = numbers.length >= 3 ? numbers.slice(0, 6) : [45, 67, 89, 52, 73, 61];
+    
+    // Generar labels
+    const labels = question.options?.map((opt, idx) => opt.text.substring(0, 15)) || 
+                   ['Categoría A', 'Categoría B', 'Categoría C', 'Categoría D'];
+    
+    // Determinar tipo de gráfico basado en el texto
+    let chartType = 'bar';
+    const lowerText = question.text.toLowerCase();
+    if (lowerText.includes('tendencia') || lowerText.includes('tiempo') || lowerText.includes('mes') || lowerText.includes('año')) {
+      chartType = 'line';
+    } else if (lowerText.includes('porcentaje') || lowerText.includes('distribución') || lowerText.includes('proporción')) {
+      chartType = 'pie';
+    }
+    
+    return {
+      type: chartType,
+      labels: labels.slice(0, dataPoints.length),
+      datasets: [{
+        label: 'Datos',
+        data: dataPoints
+      }],
+      title: question.text.substring(0, 50) + (question.text.length > 50 ? '...' : '')
+    };
+  }
+
   /**
    * Crear un nuevo examen con IA
    */
@@ -84,6 +120,69 @@ class AIExamService {
     for (let i = 0; i < questions.length; i++) {
       const question = questions[i];
 
+      // Preparar metadata
+      let metadata = question.metadata || {};
+      console.log(`🔍 Pregunta ${i + 1} - Tipo: ${question.type}, Metadata existente:`, JSON.stringify(metadata, null, 2));
+
+      // Si es pregunta de interpretación de datos, generar gráfico
+      if (question.type === 'data_interpretation') {
+        console.log(`📊 Detectada pregunta de interpretación de datos ${i + 1}`);
+
+        let chartConfig = question.metadata?.chartConfig;
+
+        // Si OpenAI no generó chartConfig, crear uno automáticamente
+        if (!chartConfig) {
+          console.warn(`⚠️ OpenAI no generó chartConfig, creando uno automáticamente...`);
+          
+          // Generar chartConfig básico basado en la pregunta
+          chartConfig = this.generateDefaultChartConfig(question);
+          
+          metadata = {
+            ...metadata,
+            questionType: 'data_interpretation',
+            chartConfig
+          };
+          
+          console.log(`✅ chartConfig generado automáticamente:`, JSON.stringify(chartConfig, null, 2));
+        } else {
+          console.log(`✅ chartConfig encontrado en pregunta ${i + 1}:`, JSON.stringify(chartConfig, null, 2));
+        }
+
+        // Generar el gráfico
+        try {
+          // Validar configuración del gráfico
+          if (validateChartConfig(chartConfig)) {
+            console.log(`✅ Configuración de gráfico validada para pregunta ${i + 1}`);
+            console.log(`📊 Generando gráfico para pregunta ${i + 1}...`);
+
+            // Generar gráfico en base64
+            const chartImage = await generateChart(chartConfig);
+
+            // Agregar imagen al metadata
+            metadata = {
+              ...metadata,
+              chartImage,
+              questionType: 'data_interpretation'
+            };
+
+            console.log(`✅ Gráfico generado exitosamente para pregunta ${i + 1} (${chartImage.length} caracteres)`);
+          } else {
+            console.warn(`⚠️ Configuración de gráfico inválida para pregunta ${i + 1}:`, chartConfig);
+          }
+        } catch (error) {
+          console.error(`❌ Error al generar gráfico para pregunta ${i + 1}:`, error.message);
+          console.error('Stack trace:', error.stack);
+        }
+      }
+
+      // Filtrar opciones válidas (que tengan text definido y no vacío)
+      const validOptions = question.options.filter(opt => opt && opt.text && opt.text.trim() !== '');
+      
+      if (validOptions.length < 2) {
+        console.warn(`⚠️ Pregunta ${i + 1} tiene menos de 2 opciones válidas, saltando...`);
+        continue;
+      }
+
       const savedQuestion = await prisma.aIExamQuestion.create({
         data: {
           sectionId: section.id,
@@ -93,8 +192,9 @@ class AIExamService {
           order: i + 1,
           aiGenerated: true,
           validated: false,
+          metadata: Object.keys(metadata).length > 0 ? metadata : null,
           options: {
-            create: question.options.map((opt, optIndex) => ({
+            create: validOptions.map((opt, optIndex) => ({
               text: opt.text,
               isCorrect: opt.isCorrect,
               order: optIndex + 1,

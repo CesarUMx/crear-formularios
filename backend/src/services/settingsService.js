@@ -35,7 +35,7 @@ export const updateSettings = async (data) => {
     settings = await prisma.platformSettings.update({
       where: { id: settings.id },
       data: {
-        logo: data.logo,
+        logoUrl: data.logo,
         primaryColor: data.primaryColor,
         secondaryColor: data.secondaryColor,
         accentColor: data.accentColor
@@ -45,7 +45,7 @@ export const updateSettings = async (data) => {
     // Crear nueva
     settings = await prisma.platformSettings.create({
       data: {
-        logo: data.logo,
+        logoUrl: data.logo,
         primaryColor: data.primaryColor,
         secondaryColor: data.secondaryColor,
         accentColor: data.accentColor
@@ -66,7 +66,7 @@ export const resetSettings = async () => {
     return await prisma.platformSettings.update({
       where: { id: settings.id },
       data: {
-        logo: null,
+        logoUrl: null,
         primaryColor: '#2563eb',
         secondaryColor: '#1e40af',
         accentColor: '#3b82f6'

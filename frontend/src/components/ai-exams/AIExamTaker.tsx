@@ -400,7 +400,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
         
         // ✅ Usar el tipo de pregunta para determinar el formato
         // Para preguntas de opción múltiple y verdadero/falso, enviar selectedOptionId
-        if (questionType === 'multiple_choice' || questionType === 'true_false' || questionType === 'image_question' || questionType === 'data_interpretation') {
+        if (questionType === 'multiple_choice' || questionType === 'true_false' || questionType === 'data_interpretation') {
           const response = {
             questionId: q.id,
             selectedOptionId: String(answer), // Convertir a string por si es número
@@ -723,14 +723,15 @@ export default function AIExamTaker({ slug }: { slug: string }) {
             });
 
             return (
-              <QuestionRenderer
-                key={question.id}
-                question={transformedQuestion as any}
-                questionNumber={index + 1}
-                mode="exam"
-                userAnswer={responses[question.id]}
-                onAnswerChange={(answer) => handleResponseChange(question.id, answer)}
-              />
+              <div key={question.id}>
+                <QuestionRenderer
+                  question={transformedQuestion as any}
+                  questionNumber={index + 1}
+                  mode="exam"
+                  userAnswer={responses[question.id]}
+                  onAnswerChange={(answer) => handleResponseChange(question.id, answer)}
+                />
+              </div>
             );
           })}
         </div>

@@ -66,18 +66,6 @@ export default function QuestionTypeSelector({ onConfirm, onCancel }: QuestionTy
       enabled: false,
     },
     {
-      id: 'image_question',
-      name: 'Pregunta con Imagen',
-      description: 'Pregunta con descripción de imagen o diagrama',
-      icon: ImageIcon,
-      enabled: false,
-    },
-    // Tipos de preguntas abiertas removidos (requieren calificación manual):
-    // - short_answer (Respuesta Corta)
-    // - essay (Pregunta de Ensayo)
-    // - case_analysis (Análisis de Caso)
-    // - problem_solving (Resolución de Problemas)
-    {
       id: 'data_interpretation',
       name: 'Interpretación de Datos',
       description: 'Analizar tabla o gráfica descrita en texto',
