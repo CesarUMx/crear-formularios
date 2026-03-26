@@ -464,7 +464,7 @@ export const saveAnswer = async (req: Request, res: Response, next: NextFunction
     const { questionId, textValue, selectedOptionIds, jsonValue } = req.body;
 
     console.log('=== SaveAnswer Debug ===');
-    console.log('attemptId:', attemptId);
+    console.log('attemptId:', _attemptId);
     console.log('questionId:', questionId);
     console.log('questionId type:', typeof questionId);
     console.log('textValue:', textValue);
@@ -477,7 +477,7 @@ export const saveAnswer = async (req: Request, res: Response, next: NextFunction
       });
     }
 
-    await examAttemptService.saveAnswer(String(attemptId), String(questionId), {
+    await examAttemptService.saveAnswer(String(_attemptId), String(questionId), {
       textValue,
       selectedOptionIds,
       jsonValue
@@ -501,7 +501,7 @@ export const submitAttempt = async (req: Request, res: Response, next: NextFunct
   try {
     const { attemptId: _attemptId } = req.params;
 
-    const result = await examAttemptService.submitExamAttempt(String(attemptId));
+    const result = await examAttemptService.submitExamAttempt(String(_attemptId));
 
     return res.json({
       message: 'Examen enviado exitosamente',
@@ -519,9 +519,9 @@ export const getAttemptResult = async (req: Request, res: Response, next: NextFu
   try {
     const { attemptId: _attemptId } = req.params;
     console.log('=== getAttemptResult ===');
-    console.log('attemptId:', attemptId);
+    console.log('attemptId:', _attemptId);
 
-    const result = await examAttemptService.getAttemptResult(String(attemptId));
+    const result = await examAttemptService.getAttemptResult(String(_attemptId));
     console.log('Result retrieved successfully');
 
     return res.json(result);
@@ -598,7 +598,7 @@ export const getAttemptById = async (req: Request, res: Response, next: NextFunc
  */
 export const gradeQuestionManually = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id, attemptId, answerId } = req.params;
+    const { id, attemptId: _attemptId, answerId } = req.params;
     const { pointsEarned, feedback } = req.body;
 
     const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);

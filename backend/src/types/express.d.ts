@@ -1,9 +1,14 @@
-import { User } from '@prisma/client';
+import { User, UserRole } from '@prisma/client';
 
 declare global {
   namespace Express {
     interface Request {
-      user?: User;
+      user?: {
+        id: string;
+        email: string;
+        role: UserRole;
+        name: string;
+      };
       file?: Express.Multer.File;
       body: any;
       params: any;
@@ -12,5 +17,7 @@ declare global {
     }
   }
 }
+
+export {};
 
 export {};

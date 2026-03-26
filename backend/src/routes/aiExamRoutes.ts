@@ -21,7 +21,7 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     if (file.mimetype === 'application/pdf') {
       cb(null, true);
     } else {
@@ -31,7 +31,7 @@ const upload = multer({
 });
 
 // Utilidades
-function generateSlug(title: string): string {
+function _generateSlug(title: string): string {
   return title
     .toLowerCase()
     .normalize('NFD')
@@ -61,7 +61,7 @@ function shuffleArray<T>(array: T[]): T[] {
  * GET /api/ai-exams
  * Obtener todos los exámenes del profesor
  */
-router.get('/', requireAuth, async (_req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
     const userId = req.user!.id;
     const exams = await aiExamService.getAIExamsByCreator(userId);
@@ -78,7 +78,7 @@ router.get('/', requireAuth, async (_req, res) => {
  * POST /api/ai-exams
  * Crear un nuevo examen
  */
-router.post('/', requireAuth, async (_req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   try {
     const userId = req.user!.id;
     const {
@@ -96,7 +96,7 @@ router.post('/', requireAuth, async (_req, res) => {
       title,
       description,
       instructions,
-      timeLimit: timeLimit ? parseInt(timeLimit) : null,
+      timeLimit: timeLimit ? parseInt(timeLimit) : undefined,
       maxAttempts: maxAttempts ? parseInt(maxAttempts) : 1,
       passingScore: passingScore ? parseFloat(passingScore) : 60,
       accessType: accessType || 'PUBLIC',
@@ -117,7 +117,7 @@ router.post('/', requireAuth, async (_req, res) => {
  * GET /api/ai-exams/:id
  * Obtener un examen específico
  */
-router.get('/:id', requireAuth, async (_req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
   try {
     const id = String(req.params.id);
     const exam = await aiExamService.getAIExamById(id);
@@ -139,7 +139,7 @@ router.get('/:id', requireAuth, async (_req, res) => {
  * PUT /api/ai-exams/:id
  * Actualizar un examen
  */
-router.put('/:id', requireAuth, async (_req, res) => {
+router.put('/:id', requireAuth, async (req, res) => {
   try {
     const id = String(req.params.id);
     const {
@@ -179,7 +179,7 @@ router.put('/:id', requireAuth, async (_req, res) => {
  * DELETE /api/ai-exams/:id
  * Eliminar un examen
  */
-router.delete('/:id', requireAuth, async (_req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const id = String(req.params.id);
     await aiExamService.deleteAIExam(id);
@@ -196,7 +196,7 @@ router.delete('/:id', requireAuth, async (_req, res) => {
  * POST /api/ai-exams/:id/publish
  * Publicar un examen
  */
-router.post('/:id/publish', requireAuth, async (_req, res) => {
+router.post('/:id/publish', requireAuth, async (req, res) => {
   try {
     const id = String(req.params.id);
     const updated = await aiExamService.publishAIExam(id);
@@ -254,7 +254,7 @@ router.post(
 
       // Generar preguntas con OpenAI
       const numQuestions = parseInt(numberOfQuestions) || 10;
-      const diff = difficulty || 'medium';
+      const _diff = difficulty || 'medium';
       const topicText = topic || 'general';
       const types = questionTypes ? JSON.parse(questionTypes) : ['multiple_choice'];
 
@@ -492,7 +492,7 @@ router.post(
  * GET /api/ai-exams/:id/results
  * Obtener resultados de un examen
  */
-router.get('/:id/results', requireAuth, async (_req, res) => {
+router.get('/:id/results', requireAuth, async (req, res) => {
   try {
     const id = String(req.params.id);
     const results = await aiExamService.getExamResults(id);
@@ -1160,7 +1160,7 @@ router.get('/attempts/:attemptId/result', async (req, res) => {
  * POST /api/ai-exams/:id/students
  * Agregar estudiantes a un examen privado
  */
-router.post('/:id/students', requireAuth, async (_req, res) => {
+router.post('/:id/students', requireAuth, async (req, res) => {
   try {
     const id = String(req.params.id);
     const { students } = req.body;
@@ -1183,7 +1183,7 @@ router.post('/:id/students', requireAuth, async (_req, res) => {
  * POST /api/ai-exams/:id/send-invitation
  * Enviar invitación por email a un estudiante
  */
-router.post('/:id/send-invitation', requireAuth, async (_req, res) => {
+router.post('/:id/send-invitation', requireAuth, async (req, res) => {
   try {
     const id = String(req.params.id);
     const { studentId } = req.body;
@@ -1240,7 +1240,7 @@ router.post('/:id/send-invitation', requireAuth, async (_req, res) => {
  * GET /api/ai-exams/:id/students
  * Obtener lista de estudiantes autorizados
  */
-router.get('/:id/students', requireAuth, async (_req, res) => {
+router.get('/:id/students', requireAuth, async (req, res) => {
   try {
     const id = String(req.params.id);
 
@@ -1275,7 +1275,7 @@ router.get('/:id/students', requireAuth, async (_req, res) => {
  * DELETE /api/ai-exams/:id/students/:studentId
  * Eliminar un estudiante autorizado
  */
-router.delete('/:id/students/:studentId', requireAuth, async (_req, res) => {
+router.delete('/:id/students/:studentId', requireAuth, async (req, res) => {
   try {
     const studentId = String(req.params.studentId);
 

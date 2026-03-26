@@ -8,7 +8,7 @@ const router = express.Router();
  * GET /api/settings
  * Obtener configuración de la plataforma (público)
  */
-router.get('/', async (req, res) => {
+router.get('/', async (_req, res) => {
   try {
     const settings = await settingsService.getSettings();
     return res.json(settings);
@@ -22,7 +22,7 @@ router.get('/', async (req, res) => {
  * GET /api/settings/colors
  * Obtener solo los colores de la plataforma (público, optimizado para carga rápida)
  */
-router.get('/colors', async (req, res) => {
+router.get('/colors', async (_req, res) => {
   try {
     // Configurar caché para mejorar rendimiento
     res.setHeader('Cache-Control', 'public, max-age=60'); // Cache por 1 minuto
@@ -84,7 +84,7 @@ router.put('/', requireAuth, requireSuperAdmin, async (req, res) => {
  * POST /api/settings/reset
  * Resetear configuración a valores por defecto (solo SUPER_ADMIN)
  */
-router.post('/reset', requireAuth, requireSuperAdmin, async (req, res) => {
+router.post('/reset', requireAuth, requireSuperAdmin, async (_req, res) => {
   try {
     const settings = await settingsService.resetSettings();
     

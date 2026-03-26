@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { upload, handleMulterError } from '../config/multer.js';
 import * as fileService from '../services/fileService.js';
 import { PrismaClient } from '@prisma/client';
@@ -12,7 +12,7 @@ const prisma = new PrismaClient();
  * Body: { questionId, responseId, formId }
  * File: archivo
  */
-router.post('/upload', upload.single('file'), handleMulterError, async (req, res) => {
+router.post('/upload', upload.single('file'), handleMulterError, async (req: Request, res: Response) => {
   try {
     const { questionId, responseId, formId } = req.body;
     const file = req.file;
@@ -42,7 +42,7 @@ router.post('/upload', upload.single('file'), handleMulterError, async (req, res
     }
 
     // Validar tipo de archivo
-    if (!fileService.validateFileType(file.mimetype, question.allowedFileTypes)) {
+    if (!fileService.validateFileType(file.mimetype, question.allowedFileTypes ?? undefined)) {
       const allowedTypes = question.allowedFileTypes || 'IMAGE, PDF, EXCEL';
       return res.status(400).json({ 
         error: `Tipo de archivo no permitido. Solo se aceptan: ${allowedTypes}` 
@@ -50,7 +50,7 @@ router.post('/upload', upload.single('file'), handleMulterError, async (req, res
     }
 
     // Validar tamaño
-    if (!fileService.validateFileSize(file.size, question.maxFileSize)) {
+    if (!fileService.validateFileSize(file.size, question.maxFileSize ?? undefined)) {
       const maxSize = question.maxFileSize || 10;
       return res.status(400).json({ 
         error: `El archivo excede el tamaño máximo permitido de ${maxSize}MB` 

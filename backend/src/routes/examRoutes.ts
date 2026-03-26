@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { upload, handleMulterError } from '../config/multer.js';
 import {
   getExams,
@@ -72,7 +72,7 @@ router.post('/:id/share', shareExam);
 router.delete('/:id/share/:userId', unshareExam);
 
 // Archivos de apoyo
-router.post('/:id/files/upload', upload.single('file'), handleMulterError, async (req, res, next) => {
+router.post('/:id/files/upload', upload.single('file'), handleMulterError, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const file = req.file;
     if (!file) {

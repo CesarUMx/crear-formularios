@@ -50,7 +50,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Health check
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   return res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
@@ -59,7 +59,7 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // API Info
-app.get('/api', (req: Request, res: Response) => {
+app.get('/api', (_req: Request, res: Response) => {
   return res.json({ 
     message: 'API de Formularios y Exámenes',
     version: '1.0.0',
@@ -83,7 +83,7 @@ app.use('/uploads', (req: Request, res: Response, next: NextFunction) => {
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
-  next();
+  return next();
 }, express.static('uploads'));
 
 // Routes
@@ -103,12 +103,12 @@ app.use('/api/grading', gradingRoutes);
 app.use('/api', progressRoutes);
 
 // 404 handler
-app.use((req: Request, res: Response) => {
+app.use((_req: Request, res: Response) => {
   return res.status(404).json({ error: 'Endpoint no encontrado' });
 });
 
 // Error handler
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Error:', err);
   return res.status(err.status || 500).json({
     error: err.message || 'Error interno del servidor'

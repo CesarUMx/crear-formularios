@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { UserRole } from '@prisma/client';
 import { verifyToken } from '../utils/jwt.js';
 
 /**
@@ -30,7 +31,7 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
     req.user = {
       id: String(decoded.id),
       email: String(decoded.email),
-      role: decoded.role as 'SUPER_ADMIN' | 'ADMIN' | 'USER',
+      role: decoded.role as UserRole,
       name: String(decoded.name),
     };
     
@@ -82,7 +83,7 @@ export const optionalAuth = (req: Request, _res: Response, next: NextFunction): 
         req.user = {
           id: String(decoded.id),
           email: String(decoded.email),
-          role: decoded.role as 'SUPER_ADMIN' | 'ADMIN' | 'USER',
+          role: decoded.role as UserRole,
           name: String(decoded.name),
         };
       }

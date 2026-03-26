@@ -4,7 +4,7 @@ import * as userService from '../services/userService.js';
 /**
  * Obtener todos los usuarios
  */
-export const getUsers = async (req: Request, res: Response, next: NextFunction) => {
+export const getUsers = async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const users = await userService.getAllUsers();
     return res.json(users);
@@ -204,7 +204,7 @@ export const toggleUserStatus = async (req: Request, res: Response, next: NextFu
 /**
  * Obtener estadísticas de usuarios
  */
-export const getUserStats = async (req: Request, res: Response, next: NextFunction) => {
+export const getUserStats = async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const stats = await userService.getUserStats();
     return res.json(stats);

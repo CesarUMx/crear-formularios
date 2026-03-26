@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
  * GET /api/templates
  * Obtener todas las plantillas activas
  */
-router.get('/', requireAuth, async (req, res) => {
+router.get('/', requireAuth, async (_req, res) => {
   try {
     const templates = await prisma.formTemplate.findMany({
       where: { isActive: true },
