@@ -5,9 +5,11 @@ interface AnimatedCharactersProps {
 }
 
 export default function AnimatedCharacters({ isPasswordFocused }: AnimatedCharactersProps) {
+  const [mounted, setMounted] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
+    setMounted(true);
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({ x: e.clientX, y: e.clientY });
     };
@@ -18,7 +20,7 @@ export default function AnimatedCharacters({ isPasswordFocused }: AnimatedCharac
 
   // Calcular la rotación de los ojos basada en la posición del mouse
   const calculateEyePosition = (elementId: string) => {
-    if (typeof window === 'undefined') return { x: 0, y: 0 };
+    if (!mounted) return { x: 0, y: 0 };
     
     const element = document.getElementById(elementId);
     if (!element) return { x: 0, y: 0 };
