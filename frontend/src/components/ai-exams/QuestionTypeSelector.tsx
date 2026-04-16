@@ -2,16 +2,11 @@ import { useState } from 'react';
 import { useColors } from '../../hooks/useColors';
 import { 
   CheckSquare, 
+  ListChecks,
   List, 
   Columns, 
   FileText, 
   ArrowDownUp,
-  MessageSquare,
-  BookOpen,
-  Lightbulb,
-  Wrench,
-  Image as ImageIcon,
-  BarChart3
 } from 'lucide-react';
 
 export interface QuestionType {
@@ -32,10 +27,17 @@ export default function QuestionTypeSelector({ onConfirm, onCancel }: QuestionTy
   const [questionTypes, setQuestionTypes] = useState<QuestionType[]>([
     {
       id: 'multiple_choice',
-      name: 'Opción Múltiple',
+      name: 'Opción Única',
       description: 'Pregunta con 4 opciones, solo una correcta',
       icon: CheckSquare,
-      enabled: true, // Siempre habilitado por defecto
+      enabled: true,
+    },
+    {
+      id: 'multiple_select',
+      name: 'Opción Múltiple',
+      description: 'Pregunta con varias respuestas correctas',
+      icon: ListChecks,
+      enabled: false,
     },
     {
       id: 'true_false',
@@ -63,13 +65,6 @@ export default function QuestionTypeSelector({ onConfirm, onCancel }: QuestionTy
       name: 'Ordenar / Secuenciar',
       description: 'Ordenar elementos en la secuencia correcta',
       icon: ArrowDownUp,
-      enabled: false,
-    },
-    {
-      id: 'data_interpretation',
-      name: 'Interpretación de Datos',
-      description: 'Analizar tabla o gráfica descrita en texto',
-      icon: BarChart3,
       enabled: false,
     },
   ]);

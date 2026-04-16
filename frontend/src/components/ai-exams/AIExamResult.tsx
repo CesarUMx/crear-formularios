@@ -14,6 +14,7 @@ import {
   Loader,
   Home,
   Flag,
+  ArrowDownUp,
 } from 'lucide-react';
 
 interface AttemptResult {
@@ -33,12 +34,14 @@ interface AttemptResult {
     id: string;
     questionId: string;
     selectedOptionId?: string;
+    textAnswer?: string;
     isCorrect?: boolean;
     pointsEarned?: number;
     question: {
       id: string;
       text: string;
       feedback?: string;
+      metadata?: any;
       options: {
         id: string;
         text: string;
@@ -239,7 +242,10 @@ export default function AIExamResult({ attemptId }: AIExamResultProps) {
         {showDetails && (
           <div className="mt-6 space-y-6">
             {result.responses && result.responses.length > 0 ? (
-              result.responses.map((response, index) => (
+              result.responses.map((response, index) => {
+                const questionType = response.question.metadata?.questionType || 'multiple_choice';
+                
+                return (
               <div key={response.id} className="border border-gray-200 rounded-lg p-4">
                 <div className="flex items-start gap-3 mb-3">
                   <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
@@ -256,6 +262,8 @@ export default function AIExamResult({ attemptId }: AIExamResultProps) {
                       {index + 1}. {response.question.text}
                     </p>
                     
+                    {/* Opción Única / Verdadero-Falso */}
+                    {(questionType === 'multiple_choice' || questionType === 'true_false') && (
                     <div className="space-y-2 ml-2">
                       {response.question.options.map((option) => (
                         <div
@@ -280,6 +288,147 @@ export default function AIExamResult({ attemptId }: AIExamResultProps) {
                         </div>
                       ))}
                     </div>
+                    )}
+
+                    {/* Opción Múltiple (varias correctas) */}
+                    {questionType === 'multiple_select' && (() => {
+                      const selectedIds: string[] = (() => {
+                        try { return response.textAnswer ? JSON.parse(response.textAnswer) : []; } catch { return []; }
+                      })();
+                      return (
+                        <div className="space-y-2 ml-2">
+                          {response.question.options.map((option) => {
+                            const wasSelected = selectedIds.includes(option.id);
+                            return (
+                              <div
+                                key={option.id}
+                                className={`p-3 rounded-lg border ${
+                                  option.isCorrect && wasSelected
+                                    ? 'bg-green-50 border-green-200'
+                                    : option.isCorrect && !wasSelected
+                                    ? 'bg-yellow-50 border-yellow-200'
+                                    : !option.isCorrect && wasSelected
+                                    ? 'bg-red-50 border-red-200'
+                                    : 'bg-gray-50 border-gray-200'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <input type="checkbox" checked={wasSelected} disabled className="mt-0.5" />
+                                  {option.isCorrect && wasSelected && <CheckCircle className="w-4 h-4 text-green-600" />}
+                                  {option.isCorrect && !wasSelected && <AlertCircle className="w-4 h-4 text-yellow-600" />}
+                                  {!option.isCorrect && wasSelected && <XCircle className="w-4 h-4 text-red-600" />}
+                                  <span className="text-sm text-gray-900">{option.text}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Relación de Columnas */}
+                    {questionType === 'matching' && (() => {
+                      const pairs = response.question.metadata?.pairs || [];
+                      const shuffledRight = response.question.metadata?.shuffledRightColumn || pairs.map((p: any) => p.right);
+                      const userMatchAnswers: string[] = (() => {
+                        try { return response.textAnswer ? JSON.parse(response.textAnswer) : []; } catch { return []; }
+                      })();
+                      return (
+                        <div className="space-y-2 ml-2">
+                          {pairs.map((pair: any, idx: number) => {
+                            const userLetter = userMatchAnswers[idx] || '';
+                            const userIdx = userLetter ? userLetter.charCodeAt(0) - 65 : -1;
+                            const userRight = userIdx >= 0 && userIdx < shuffledRight.length ? shuffledRight[userIdx] : '—';
+                            const isCorrectPair = userRight === pair.right;
+                            return (
+                              <div key={idx} className={`p-3 rounded-lg border ${isCorrectPair ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                                <div className="flex items-center gap-2">
+                                  {isCorrectPair ? <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" /> : <XCircle className="w-4 h-4 text-red-600 flex-shrink-0" />}
+                                  <span className="text-sm font-medium">{pair.left}</span>
+                                  <span className="text-gray-400">→</span>
+                                  <span className="text-sm">{userRight}</span>
+                                </div>
+                                {!isCorrectPair && (
+                                  <p className="text-xs text-green-700 mt-1 ml-6">Correcta: {pair.right}</p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Ordenar/Secuenciar */}
+                    {questionType === 'ordering' && (() => {
+                      const items = response.question.metadata?.items || [];
+                      const shuffledItems = response.question.metadata?.shuffledItems || items;
+                      const userOrder: number[] = (() => {
+                        try { return response.textAnswer ? JSON.parse(response.textAnswer) : []; } catch { return []; }
+                      })();
+                      const userOrderedItems = userOrder.length > 0 
+                        ? userOrder.map((idx: number) => shuffledItems[idx]).filter(Boolean)
+                        : shuffledItems;
+                      const correctItems = [...items].sort((a: any, b: any) => a.correctOrder - b.correctOrder);
+                      return (
+                        <div className="space-y-3 ml-2">
+                          <div>
+                            <p className="text-xs font-semibold text-gray-500 mb-1">Tu orden:</p>
+                            <div className="space-y-1">
+                              {userOrderedItems.map((item: any, idx: number) => {
+                                const isRightPosition = correctItems[idx]?.text === item?.text;
+                                return (
+                                  <div key={idx} className={`flex items-center gap-2 p-2 rounded border text-sm ${isRightPosition ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                                    <span className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-200 text-xs font-bold">{idx + 1}</span>
+                                    <span>{item?.text || '—'}</span>
+                                    {isRightPosition ? <CheckCircle className="w-4 h-4 text-green-600 ml-auto" /> : <XCircle className="w-4 h-4 text-red-600 ml-auto" />}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          {!response.isCorrect && (
+                            <div>
+                              <p className="text-xs font-semibold text-green-700 mb-1">Orden correcto:</p>
+                              <div className="space-y-1">
+                                {correctItems.map((item: any, idx: number) => (
+                                  <div key={idx} className="flex items-center gap-2 p-2 rounded border bg-green-50 border-green-200 text-sm">
+                                    <span className="w-6 h-6 flex items-center justify-center rounded-full bg-green-200 text-xs font-bold text-green-800">{idx + 1}</span>
+                                    <span>{item.text}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Completar Espacios */}
+                    {questionType === 'fill_blank' && (() => {
+                      const blanks = response.question.metadata?.blanks || [];
+                      const userFillAnswers: Record<string, string> = (() => {
+                        try { return response.textAnswer ? JSON.parse(response.textAnswer) : {}; } catch { return {}; }
+                      })();
+                      return (
+                        <div className="space-y-2 ml-2">
+                          {blanks.map((blank: any, idx: number) => {
+                            const userVal = userFillAnswers[idx] || '—';
+                            const isCorrectBlank = userVal.trim().toLowerCase() === blank.correctAnswer.trim().toLowerCase();
+                            return (
+                              <div key={idx} className={`p-3 rounded-lg border ${isCorrectBlank ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                                <div className="flex items-center gap-2">
+                                  {isCorrectBlank ? <CheckCircle className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-red-600" />}
+                                  <span className="text-sm">Espacio {idx + 1}: <strong>{userVal}</strong></span>
+                                </div>
+                                {!isCorrectBlank && (
+                                  <p className="text-xs text-green-700 mt-1 ml-6">Correcta: {blank.correctAnswer}</p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
 
                     {response.question.feedback && (
                       <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -310,7 +459,8 @@ export default function AIExamResult({ attemptId }: AIExamResultProps) {
                   </div>
                 </div>
               </div>
-              ))
+              );
+              })
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <Brain className="w-12 h-12 mx-auto mb-3 text-gray-400" />

@@ -649,7 +649,7 @@ model AIExamResponse {
   
   // Respuesta del estudiante
   selectedOptionId String? // Para preguntas de opción múltiple
-  textAnswer       String? // Para preguntas abiertas (essay, short_answer, fill_blank)
+  textAnswer       String? // Para preguntas de completar espacios (fill_blank)
   
   // Calificación
   isCorrect    Boolean?

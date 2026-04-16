@@ -16,7 +16,6 @@ import {
   BarChart3,
   AlertCircle,
   Brain,
-  CheckCircle,
   Clock,
   Target,
   ExternalLink,
@@ -175,179 +174,151 @@ export default function AIExamList() {
           primaryColor={colors.primaryColor}
         />
       ) : (
-        <div className="grid gap-6 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="space-y-3">
           {exams.map((exam) => (
             <div
               key={exam.id}
-              className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow min-w-[280px] w-full flex flex-col"
+              className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow w-full"
             >
-              {/* Card Header */}
-              <div className="p-6 border-b border-gray-200 flex-shrink-0">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Brain className="w-5 h-5 text-purple-600" />
-                      <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
-                        {exam.title}
-                      </h3>
-                    </div>
-                    {exam.description && (
-                      <p className="text-sm text-gray-600 line-clamp-2">{exam.description}</p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleToggleStatus(exam.id, exam.isActive)}
-                    className="flex-shrink-0 ml-2"
-                    title={exam.isActive ? 'Desactivar' : 'Publicar'}
-                  >
-                    {exam.isActive ? (
-                      <ToggleRight className="w-6 h-6 text-green-600" />
-                    ) : (
-                      <ToggleLeft className="w-6 h-6 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-              </div>
+              <div className="flex items-center gap-4 px-5 py-4">
+                {/* Toggle Status */}
+                <button
+                  onClick={() => handleToggleStatus(exam.id, exam.isActive)}
+                  className="flex-shrink-0"
+                  title={exam.isActive ? 'Desactivar' : 'Publicar'}
+                >
+                  {exam.isActive ? (
+                    <ToggleRight className="w-7 h-7 text-green-600" />
+                  ) : (
+                    <ToggleLeft className="w-7 h-7 text-gray-400" />
+                  )}
+                </button>
 
-              {/* Card Body */}
-              <div className="p-6 space-y-3 flex-1 flex flex-col justify-between">
+                {/* Title & Description */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-gray-900 truncate">
+                      {exam.title}
+                    </h3>
+                    {/* Badges */}
+                    {exam.isActive ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 flex-shrink-0">
+                        Publicado
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 flex-shrink-0">
+                        Borrador
+                      </span>
+                    )}
+                    {exam.accessType === 'PRIVATE' && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 flex-shrink-0">
+                        Privado
+                      </span>
+                    )}
+                  </div>
+                  {exam.description && (
+                    <p className="text-xs text-gray-500 truncate mt-0.5">{exam.description}</p>
+                  )}
+                </div>
+
                 {/* Stats */}
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <FileText className="w-4 h-4" />
-                    <span>{exam.totalQuestionsInPool || 0} preguntas</span>
+                <div className="hidden md:flex items-center gap-5 flex-shrink-0 text-xs text-gray-500">
+                  <div className="flex items-center gap-1.5" title="Preguntas en pool">
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>{exam.totalQuestionsInPool || 0}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Users className="w-4 h-4" />
-                    <span>{exam._count?.attempts || 0} intentos</span>
+                  <div className="flex items-center gap-1.5" title="Intentos realizados">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>{exam._count?.attempts || 0}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Target className="w-4 h-4" />
-                    <span>{exam.questionsPerAttempt} por intento</span>
+                  <div className="flex items-center gap-1.5" title="Preguntas por intento">
+                    <Target className="w-3.5 h-3.5" />
+                    <span>{exam.questionsPerAttempt}</span>
                   </div>
                   {exam.timeLimit && (
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Clock className="w-4 h-4" />
-                      <span>{exam.timeLimit} min</span>
+                    <div className="flex items-center gap-1.5" title="Tiempo límite">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>{exam.timeLimit}m</span>
                     </div>
                   )}
+                  <div className="flex items-center gap-1.5" title="Última actualización">
+                    <Calendar className="w-3 h-3" />
+                    <span>
+                      {new Date(exam.updatedAt).toLocaleDateString('es-MX', {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Metadata */}
-                <div className="flex items-center gap-2 text-xs text-gray-500 pt-2 border-t">
-                  <Calendar className="w-3 h-3" />
-                  <span>
-                    {new Date(exam.updatedAt).toLocaleDateString('es-MX', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </span>
-                </div>
-
-                {/* Status Badges */}
-                <div className="flex flex-wrap gap-2">
-                  {exam.isActive ? (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      <CheckCircle className="w-3 h-3 mr-1" />
-                      Publicado
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      Borrador
-                    </span>
-                  )}
-                  {exam.aiGenerated && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                      <Brain className="w-3 h-3 mr-1" />
-                      IA
-                    </span>
-                  )}
-                  {exam.accessType === 'PRIVATE' && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      Privado
-                    </span>
-                  )}
-                </div>
-
-                {/* Public Link */}
+                {/* Link buttons (when published) */}
                 {exam.isActive && (
-                  <div className="pt-3 border-t border-gray-200">
-                    <p className="text-xs font-medium text-gray-700 mb-2">
-                      {exam.accessType === 'PRIVATE' ? 'Enlace (Requiere credenciales):' : 'Enlace Público:'}
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleCopyLink(exam)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 min-h-[36px] text-xs font-medium bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition"
-                        title="Copiar enlace"
-                      >
-                        {copiedExamId === exam.id ? (
-                          <>
-                            <Check className="w-4 h-4" />
-                            <span>Copiado!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-4 h-4" />
-                            <span>Copiar</span>
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleOpenPublic(exam.slug)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 min-h-[36px] text-xs font-medium bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition"
-                        title="Abrir en nueva pestaña"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        <span>Abrir</span>
-                      </button>
-                    </div>
+                  <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => handleCopyLink(exam)}
+                      className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition"
+                      title="Copiar enlace"
+                    >
+                      {copiedExamId === exam.id ? (
+                        <Check className="w-4 h-4" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleOpenPublic(exam.slug)}
+                      className="p-2 rounded-lg text-purple-600 hover:bg-purple-50 transition"
+                      title="Abrir enlace público"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </button>
                   </div>
                 )}
-              </div>
 
-              {/* Card Footer */}
-              <div className="p-4 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-2 flex-shrink-0">
-                {exam.accessType === 'PRIVATE' && (
-                  <button
-                    onClick={() => setManagingStudents({ id: exam.id, title: exam.title })}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] min-w-[70px] text-sm font-medium text-green-600 hover:bg-green-50 rounded-lg transition"
-                    title="Gestionar estudiantes autorizados"
+                {/* Divider */}
+                <div className="hidden sm:block w-px h-6 bg-gray-200 flex-shrink-0"></div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {exam.accessType === 'PRIVATE' && (
+                    <button
+                      onClick={() => setManagingStudents({ id: exam.id, title: exam.title })}
+                      className="p-2 rounded-lg text-green-600 hover:bg-green-50 transition"
+                      title="Gestionar estudiantes"
+                    >
+                      <UserCog className="w-4 h-4" />
+                    </button>
+                  )}
+                  <a
+                    href={`/admin/ai-exams/${exam.id}/edit`}
+                    className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition"
+                    title="Editar"
                   >
-                    <UserCog className="w-4 h-4 flex-shrink-0" />
-                    <span className="whitespace-nowrap">Estudiantes</span>
+                    <Edit className="w-4 h-4" />
+                  </a>
+                  <a
+                    href={`/admin/ai-exams/${exam.id}/results`}
+                    className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition"
+                    title="Resultados"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                  </a>
+                  <a
+                    href={`/admin/ai-exams/${exam.id}/reports`}
+                    className="p-2 rounded-lg text-orange-600 hover:bg-orange-50 transition"
+                    title="Reportes"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                  </a>
+                  <button
+                    onClick={() => handleDeleteClick(exam.id, exam.title)}
+                    className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="w-4 h-4" />
                   </button>
-                )}
-                <a
-                  href={`/admin/ai-exams/${exam.id}/edit`}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] min-w-[70px] text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                >
-                  <Edit className="w-4 h-4 flex-shrink-0" />
-                  <span className="whitespace-nowrap">Editar</span>
-                </a>
-                <a
-                  href={`/admin/ai-exams/${exam.id}/results`}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] min-w-[70px] text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition"
-                >
-                  <BarChart3 className="w-4 h-4 flex-shrink-0" />
-                  <span className="whitespace-nowrap">Resultados</span>
-                </a>
-                <a
-                  href={`/admin/ai-exams/${exam.id}/reports`}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] min-w-[70px] text-sm font-medium text-orange-600 hover:bg-orange-50 rounded-lg transition"
-                  title="Ver reportes de preguntas"
-                >
-                  <MessageSquare className="w-4 h-4 flex-shrink-0" />
-                  <span className="whitespace-nowrap">Reportes</span>
-                </a>
-                <button
-                  onClick={() => handleDeleteClick(exam.id, exam.title)}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] min-w-[45px] text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition"
-                  title="Eliminar"
-                >
-                  <Trash2 className="w-4 h-4 flex-shrink-0" />
-                </button>
+                </div>
               </div>
             </div>
           ))}

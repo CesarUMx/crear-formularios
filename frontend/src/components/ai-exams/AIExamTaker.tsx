@@ -400,7 +400,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
         
         // ✅ Usar el tipo de pregunta para determinar el formato
         // Para preguntas de opción múltiple y verdadero/falso, enviar selectedOptionId
-        if (questionType === 'multiple_choice' || questionType === 'true_false' || questionType === 'data_interpretation') {
+        if (questionType === 'multiple_choice' || questionType === 'true_false') {
           const response = {
             questionId: q.id,
             selectedOptionId: String(answer), // Convertir a string por si es número
@@ -631,7 +631,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
           <button
             onClick={handleStartExam}
             disabled={loading}
-            className="w-full bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full bg-purple-600 text-white mt-4 py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (
               <>

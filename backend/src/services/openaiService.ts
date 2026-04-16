@@ -243,8 +243,8 @@ class OpenAIService {
       // Validación específica por tipo
       const questionType = q.type;
       
-      // Para tipos con opciones (multiple_choice, true_false, image_question)
-      if (['multiple_choice', 'true_false', 'image_question'].includes(questionType)) {
+      // Para tipos con opciones (multiple_choice, multiple_select, true_false)
+      if (['multiple_choice', 'multiple_select', 'true_false'].includes(questionType)) {
         if (!q.options || !Array.isArray(q.options)) {
           throw new Error(`Pregunta ${index + 1} de tipo ${questionType} debe tener opciones`);
         }
@@ -262,13 +262,6 @@ class OpenAIService {
         pairs: q.pairs || undefined,
         blanks: q.blanks || undefined,
         items: q.items || undefined,
-        expectedAnswer: q.expectedAnswer || undefined,
-        keywords: q.keywords || undefined,
-        rubric: q.rubric || undefined,
-        questions: q.questions || undefined,
-        solution: q.solution || undefined,
-        imageDescription: q.imageDescription || undefined,
-        dataDescription: q.dataDescription || undefined,
         feedback: q.feedback || '',
         metadata: q.metadata || undefined,
       };
@@ -302,79 +295,6 @@ class OpenAIService {
     const typeInstructions = this.getTypeInstructions(questionTypes);
     const formatExamples = this.getFormatExamples(questionTypes);
 
-    // Instrucciones específicas para data_interpretation
-    const dataInterpretationInstructions = questionTypes.includes('data_interpretation') ? `
-**INSTRUCCIONES CRÍTICAS PARA PREGUNTAS DE INTERPRETACIÓN DE DATOS:**
-
-REGLA FUNDAMENTAL: La pregunta DEBE ser IMPOSIBLE de responder sin ver el gráfico.
-   - MAL: "¿Cuál es el valor del seno de 30 grados?" (se puede responder sin gráfico)
-   - MAL: "¿En qué intervalo la función tangente aumenta más?" (conocimiento matemático general)
-   - BIEN: "Según el gráfico, ¿en qué mes se registró el mayor crecimiento de ventas?" (requiere ver el gráfico)
-
-NO GENERAR data_interpretation SI:
-   - El contenido es teórico/conceptual sin datos numéricos específicos
-   - El tema es matemático/científico general (trigonometría, física teórica, etc.)
-   - No hay tablas, estadísticas, o datos cuantitativos en el documento
-   
-SÍ GENERAR data_interpretation SI:
-   - El documento contiene tablas con datos numéricos
-   - Hay estadísticas, resultados de estudios, o mediciones
-   - Se presentan comparaciones cuantitativas entre categorías
-   - Existen series temporales o datos históricos
-
-1. **CONTENIDO DEL GRÁFICO**:
-   - SOLO extrae datos NUMÉRICOS REALES que aparezcan en el documento
-   - Si el documento NO tiene datos numéricos específicos, NO uses este tipo de pregunta
-   - Los datos deben ser EXACTOS del documento, no inventados ni basados en conocimiento general
-   - Ejemplo: Si el PDF dice "Ventas Q1: $50,000, Q2: $75,000", usa esos números exactos
-
-2. **TIPO DE PREGUNTA** (elige uno):
-   - Comparación: "Según los datos, ¿qué categoría tuvo el valor más alto?"
-   - Tendencia: "De acuerdo al gráfico, ¿en qué periodo se observa un aumento?"
-   - Proporción: "Según el gráfico, ¿qué porcentaje representa X del total?"
-   - Análisis: "Basándose en los datos, ¿cuál es la diferencia entre X e Y?"
-
-3. **OBLIGATORIO - chartConfig**:
-   - "type": "bar" (comparaciones), "line" (tendencias), "pie" (proporciones)
-   - "labels": Nombres EXACTOS del documento (no genéricos)
-   - "datasets": Números EXACTOS del documento (no inventados)
-   - NO incluir "title" (se omite en el gráfico)
-
-4. **FORMATO**: Opción múltiple simple (4 opciones) donde la respuesta correcta se obtiene SOLO viendo el gráfico
-
-**EJEMPLO CORRECTO:**
-` + (questionTypes.includes('data_interpretation') ? `{
-  "type": "data_interpretation",
-  "text": "Según el gráfico de ventas, ¿en qué trimestre se alcanzó el pico máximo de ingresos?",
-  "options": [
-    { "text": "Primer trimestre (Q1)", "isCorrect": false },
-    { "text": "Segundo trimestre (Q2)", "isCorrect": true },
-    { "text": "Tercer trimestre (Q3)", "isCorrect": false },
-    { "text": "Cuarto trimestre (Q4)", "isCorrect": false }
-  ],
-  "feedback": "El segundo trimestre registró $89,000 en ventas, superando a todos los demás trimestres según se observa en el gráfico.",
-  "metadata": {
-    "questionType": "data_interpretation",
-    "chartConfig": {
-      "type": "bar",
-      "labels": ["Q1 2024", "Q2 2024", "Q3 2024", "Q4 2024"],
-      "datasets": [{
-        "label": "Ventas Trimestrales (miles USD)",
-        "data": [65, 89, 78, 72]
-      }],
-      "title": "Ventas por Trimestre - Año 2024"
-    }
-  }
-}` : '') + `
-
-**VERIFICACIÓN ANTES DE GENERAR:**
-- ¿La pregunta menciona "según el gráfico" o similar?
-- ¿Es imposible responder sin ver los datos del gráfico?
-- ¿Los datos del gráfico están relacionados con el contenido del documento?
-- ¿El chartConfig tiene labels y data con la misma longitud?
-
-` : '';
-
     return `
 INSTRUCCIÓN CRÍTICA ABSOLUTA
 Debes generar EXACTAMENTE ${numberOfQuestions} preguntas. NO MÁS, NO MENOS.
@@ -385,8 +305,6 @@ NÚMERO MÁXIMO: ${numberOfQuestions}
 
 ${existingQuestionsText}
 
-${dataInterpretationInstructions}
-
 **REQUISITOS OBLIGATORIOS (INCUMPLIMIENTO = RECHAZO):**
 1. EXACTAMENTE ${numberOfQuestions} preguntas en el array "questions"
 2. Nivel de dificultad: ${difficulty}
@@ -396,7 +314,6 @@ ${dataInterpretationInstructions}
 6. Incluye feedback explicativo para cada pregunta
 7. Evalúa comprensión, no solo memorización
 8. Cubre diferentes aspectos del contenido
-${questionTypes.includes('data_interpretation') ? '9. **Para data_interpretation**: SIEMPRE incluye "metadata" con "chartConfig" válido' : ''}
 
 ${typeInstructions}
 
@@ -416,10 +333,8 @@ VERIFICACIÓN OBLIGATORIA ANTES DE RESPONDER
 3. Si no son ${numberOfQuestions}, AJUSTA hasta que sean ${numberOfQuestions}
 4. Verifica que cada pregunta tenga el campo "type"
 5. Verifica que los tipos estén distribuidos entre: ${questionTypes.join(', ')}
-${questionTypes.includes('data_interpretation') ? '6. Verifica que TODAS las preguntas data_interpretation tengan "metadata.chartConfig"' : ''}
 
 SI NO GENERAS EXACTAMENTE ${numberOfQuestions} PREGUNTAS, LA RESPUESTA SERÁ RECHAZADA
-${questionTypes.includes('data_interpretation') ? 'SI NO INCLUYES chartConfig EN data_interpretation, LA RESPUESTA SERÁ RECHAZADA' : ''}
 
 Genera en ${language} EXACTAMENTE ${numberOfQuestions} preguntas ahora.
 `.trim();
@@ -430,17 +345,13 @@ Genera en ${language} EXACTAMENTE ${numberOfQuestions} preguntas ahora.
    */
   getTypeInstructions(questionTypes: string[]): string {
     const instructions: Record<string, string> = {
-      multiple_choice: '- **Opción Múltiple**: 4 opciones, solo una correcta',
+      multiple_choice: '- **Opción Única**: 4 opciones, solo una correcta (radio)',
+      multiple_select: '- **Opción Múltiple**: 4-6 opciones, varias correctas (checkbox). DEBE tener entre 2 y 4 opciones correctas',
       true_false: '- **Verdadero/Falso**: 2 opciones (verdadero o falso)',
       matching: '- **Relación de Columnas**: Pares de elementos para emparejar (mínimo 4 pares)',
       fill_blank: '- **Completar Espacios**: Texto con espacios en blanco y respuestas correctas',
       ordering: '- **Ordenar/Secuenciar**: Lista de elementos para ordenar correctamente',
-      short_answer: '- **Respuesta Corta**: Pregunta abierta con respuesta breve esperada',
-      essay: '- **Ensayo**: Pregunta de desarrollo con criterios de evaluación',
-      case_analysis: '- **Análisis de Caso**: Caso o situación para analizar con preguntas específicas',
-      problem_solving: '- **Resolución de Problemas**: Problema con pasos de solución',
-      image_question: '- **Pregunta con Imagen**: Descripción textual de imagen/diagrama con pregunta',
-      data_interpretation: '- **Interpretación de Datos**: Gráfico generado automáticamente con chartConfig en metadata',
+
     };
 
     return questionTypes.map(type => instructions[type] || '').join('\n');
@@ -456,7 +367,7 @@ Genera en ${language} EXACTAMENTE ${numberOfQuestions} preguntas ahora.
       examples.push(`
     {
       "type": "multiple_choice",
-      "text": "Pregunta de opción múltiple",
+      "text": "Pregunta de opción única",
       "options": [
         { "text": "Opción A", "isCorrect": false },
         { "text": "Opción B", "isCorrect": true },
@@ -464,6 +375,22 @@ Genera en ${language} EXACTAMENTE ${numberOfQuestions} preguntas ahora.
         { "text": "Opción D", "isCorrect": false }
       ],
       "feedback": "Explicación"
+    }`);
+    }
+
+    if (questionTypes.includes('multiple_select')) {
+      examples.push(`
+    {
+      "type": "multiple_select",
+      "text": "Selecciona todas las respuestas correctas",
+      "options": [
+        { "text": "Opción A", "isCorrect": true },
+        { "text": "Opción B", "isCorrect": false },
+        { "text": "Opción C", "isCorrect": true },
+        { "text": "Opción D", "isCorrect": false },
+        { "text": "Opción E", "isCorrect": true }
+      ],
+      "feedback": "Explicación de por qué A, C y E son correctas"
     }`);
     }
 
@@ -520,114 +447,6 @@ Genera en ${language} EXACTAMENTE ${numberOfQuestions} preguntas ahora.
         { "text": "Paso 4", "correctOrder": 4 }
       ],
       "feedback": "Explicación del orden correcto"
-    }`);
-    }
-
-    if (questionTypes.includes('short_answer')) {
-      examples.push(`
-    {
-      "type": "short_answer",
-      "text": "Pregunta de respuesta corta",
-      "expectedAnswer": "Respuesta esperada breve",
-      "keywords": ["palabra1", "palabra2", "palabra3"],
-      "feedback": "Explicación de la respuesta correcta"
-    }`);
-    }
-
-    if (questionTypes.includes('essay')) {
-      examples.push(`
-    {
-      "type": "essay",
-      "text": "Pregunta de ensayo o desarrollo",
-      "rubric": [
-        "Criterio 1: Comprensión del tema",
-        "Criterio 2: Argumentación",
-        "Criterio 3: Ejemplos y evidencia",
-        "Criterio 4: Estructura y coherencia"
-      ],
-      "feedback": "Puntos clave que debe incluir la respuesta"
-    }`);
-    }
-
-    if (questionTypes.includes('case_analysis')) {
-      examples.push(`
-    {
-      "type": "case_analysis",
-      "text": "Caso: [Descripción del caso o situación]",
-      "questions": [
-        "¿Cuál es el problema principal?",
-        "¿Qué factores contribuyen?",
-        "¿Qué solución propones?"
-      ],
-      "feedback": "Análisis esperado y puntos clave"
-    }`);
-    }
-
-    if (questionTypes.includes('problem_solving')) {
-      examples.push(`
-    {
-      "type": "problem_solving",
-      "text": "Problema a resolver",
-      "solution": {
-        "steps": [
-          "Paso 1: Identificar datos",
-          "Paso 2: Aplicar fórmula",
-          "Paso 3: Calcular resultado"
-        ],
-        "finalAnswer": "Respuesta final esperada"
-      },
-      "feedback": "Explicación del proceso de solución"
-    }`);
-    }
-
-    if (questionTypes.includes('image_question')) {
-      examples.push(`
-    {
-      "type": "image_question",
-      "text": "Pregunta sobre la imagen",
-      "imageDescription": "Descripción detallada de la imagen o diagrama",
-      "options": [
-        { "text": "Opción A", "isCorrect": false },
-        { "text": "Opción B", "isCorrect": true },
-        { "text": "Opción C", "isCorrect": false },
-        { "text": "Opción D", "isCorrect": false }
-      ],
-      "feedback": "Explicación"
-    }`);
-    }
-
-    if (questionTypes.includes('data_interpretation')) {
-      examples.push(`
-    {
-      "type": "data_interpretation",
-      "text": "¿Cuál fue el trimestre con mayores ventas?",
-      "options": [
-        { "text": "Primer trimestre", "isCorrect": false },
-        { "text": "Segundo trimestre", "isCorrect": true },
-        { "text": "Tercer trimestre", "isCorrect": false },
-        { "text": "Cuarto trimestre", "isCorrect": false }
-      ],
-      "feedback": "El segundo trimestre tuvo las ventas más altas con $89,000",
-      "metadata": {
-        "questionType": "data_interpretation",
-        "chartConfig": {
-          "type": "bar",
-          "labels": ["Q1", "Q2", "Q3", "Q4"],
-          "datasets": [
-            {
-              "label": "Ventas por Trimestre (miles USD)",
-              "data": [65, 89, 78, 72],
-              "backgroundColor": [
-                "rgba(54, 162, 235, 0.6)",
-                "rgba(255, 99, 132, 0.6)",
-                "rgba(75, 192, 192, 0.6)",
-                "rgba(255, 206, 86, 0.6)"
-              ]
-            }
-          ],
-          "title": "Ventas por Trimestre 2024"
-        }
-      }
     }`);
     }
 

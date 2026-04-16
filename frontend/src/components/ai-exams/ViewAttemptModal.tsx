@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Eye, Clock, Target, Award, Loader, X } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, Eye, Clock, Target, Award, Loader, X } from 'lucide-react';
 import Modal from '../common/Modal';
 import { useColors } from '../../hooks/useColors';
 
@@ -187,25 +187,12 @@ export default function ViewAttemptModal({ isOpen, attemptId, onClose }: ViewAtt
                           {index + 1}. {response.question.text}
                         </p>
                         
-                        {/* Gráfico para data_interpretation (entre pregunta y opciones) */}
-                        {response.question.metadata?.questionType === 'data_interpretation' && response.question.metadata?.chartImage && (
-                          <div className="my-4 flex justify-center">
-                            <div className="w-full max-w-2xl p-4 bg-gray-50 rounded-lg border border-gray-200">
-                              <img 
-                                src={response.question.metadata.chartImage} 
-                                alt="Gráfico de datos" 
-                                className="w-full h-auto rounded-lg"
-                              />
-                            </div>
-                          </div>
-                        )}
-                        
                         {/* Renderizado según tipo de pregunta */}
                         {(() => {
                           const questionType = response.question.metadata?.questionType || 'multiple_choice';
                           
-                          // Opción múltiple / Verdadero-Falso / Interpretación de Datos
-                          if (questionType === 'multiple_choice' || questionType === 'true_false' || questionType === 'data_interpretation') {
+                          // Opción única / Verdadero-Falso
+                          if (questionType === 'multiple_choice' || questionType === 'true_false') {
                             return (
                               <div className="space-y-2 ml-2">
                                 {response.question.options?.map((option) => (
@@ -242,6 +229,54 @@ export default function ViewAttemptModal({ isOpen, attemptId, onClose }: ViewAtt
                                     )}
                                   </div>
                                 ))}
+                              </div>
+                            );
+                          }
+
+                          // Opción múltiple (varias correctas)
+                          if (questionType === 'multiple_select') {
+                            const selectedIds: string[] = (() => {
+                              try { return response.textAnswer ? JSON.parse(response.textAnswer) : []; } catch { return []; }
+                            })();
+                            return (
+                              <div className="space-y-2 ml-2">
+                                {response.question.options?.map((option) => {
+                                  const wasSelected = selectedIds.includes(option.id);
+                                  return (
+                                    <div
+                                      key={option.id}
+                                      className={`p-3 rounded-lg border ${
+                                        option.isCorrect && wasSelected
+                                          ? 'bg-green-50 border-green-200'
+                                          : option.isCorrect && !wasSelected
+                                          ? 'bg-yellow-50 border-yellow-200'
+                                          : !option.isCorrect && wasSelected
+                                          ? 'bg-red-50 border-red-200'
+                                          : 'bg-gray-50 border-gray-200'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <input type="checkbox" checked={wasSelected} disabled className="mt-0.5" />
+                                        {option.isCorrect && wasSelected && (
+                                          <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                        )}
+                                        {option.isCorrect && !wasSelected && (
+                                          <AlertCircle className="w-4 h-4 text-yellow-600 flex-shrink-0" />
+                                        )}
+                                        {!option.isCorrect && wasSelected && (
+                                          <XCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                                        )}
+                                        <span className={`text-sm ${
+                                          option.isCorrect ? 'text-green-900 font-medium' :
+                                          wasSelected ? 'text-red-900 font-medium' :
+                                          'text-gray-700'
+                                        }`}>
+                                          {option.text}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             );
                           }

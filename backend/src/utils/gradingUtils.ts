@@ -5,11 +5,7 @@
 /**
  * Tipos de preguntas que requieren calificación manual
  */
-const MANUAL_GRADING_TYPES = [
-  'essay',
-  'short_answer',
-  'case_analysis',
-  'problem_solving',
+const MANUAL_GRADING_TYPES: string[] = [
 ];
 
 /**
@@ -17,12 +13,11 @@ const MANUAL_GRADING_TYPES = [
  */
 const AUTO_GRADING_TYPES = [
   'multiple_choice',
+  'multiple_select',
   'true_false',
-  'fill_blank', // Calificación automática con validación flexible
+  'fill_blank',
   'matching',
   'ordering',
-  'image_question',
-  'data_interpretation',
 ];
 
 interface QuestionOption {
@@ -250,13 +245,27 @@ function gradeAutomatically(question: Question, userAnswer: UserAnswer): Grading
   switch (questionType) {
     case 'multiple_choice':
     case 'true_false':
-    case 'image_question':
-    case 'data_interpretation':
       // Verificar si la opción seleccionada es correcta
       const selectedOption = question.options?.find(opt => opt.id === userAnswer.selectedOptionId);
       return {
         isCorrect: selectedOption?.isCorrect || false,
         pointsEarned: selectedOption?.isCorrect ? question.points : 0,
+      };
+    
+    case 'multiple_select':
+      // Verificar que todas las correctas estén seleccionadas y ninguna incorrecta
+      const selectedIds: string[] = (() => {
+        const raw = userAnswer.userAnswer || userAnswer.textAnswer;
+        try { return raw ? JSON.parse(raw) : []; } catch { return []; }
+      })();
+      const correctOptions = question.options?.filter(opt => opt.isCorrect) || [];
+      const correctIds = correctOptions.map(opt => String(opt.id));
+      const allCorrectSelected = correctIds.every(id => selectedIds.includes(id));
+      const noIncorrectSelected = selectedIds.every(id => correctIds.includes(id));
+      const isMultiCorrect = allCorrectSelected && noIncorrectSelected;
+      return {
+        isCorrect: isMultiCorrect,
+        pointsEarned: isMultiCorrect ? question.points : 0,
       };
     
     case 'fill_blank':

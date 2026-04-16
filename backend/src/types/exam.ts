@@ -4,16 +4,9 @@
 export type QuestionType = 
   | 'multiple-choice'
   | 'true-false'
-  | 'short-answer'
-  | 'essay'
   | 'fill-in-blank'
   | 'matching'
-  | 'ordering'
-  | 'rating-scale'
-  | 'matrix'
-  | 'file-upload'
-  | 'date'
-  | 'time';
+  | 'ordering';
 
 /**
  * Base Question Structure
@@ -46,25 +39,6 @@ export interface TrueFalseQuestion extends BaseQuestion {
 }
 
 /**
- * Short Answer Question
- */
-export interface ShortAnswerQuestion extends BaseQuestion {
-  type: 'short-answer';
-  correctAnswer?: string;
-  caseSensitive?: boolean;
-  maxLength?: number;
-}
-
-/**
- * Essay Question
- */
-export interface EssayQuestion extends BaseQuestion {
-  type: 'essay';
-  minWords?: number;
-  maxWords?: number;
-}
-
-/**
  * Fill in the Blank Question
  */
 export interface FillInBlankQuestion extends BaseQuestion {
@@ -79,8 +53,6 @@ export interface FillInBlankQuestion extends BaseQuestion {
 export type Question = 
   | MultipleChoiceQuestion 
   | TrueFalseQuestion 
-  | ShortAnswerQuestion
-  | EssayQuestion
   | FillInBlankQuestion
   | BaseQuestion;
 

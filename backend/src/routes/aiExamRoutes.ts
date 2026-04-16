@@ -9,7 +9,6 @@ import { openAIService } from '../services/openaiService.js';
 import { pdfService } from '../services/pdfService.js';
 import { aiExamService } from '../services/aiExamService.js';
 import { progressTracker } from '../utils/progressTracker.js';
-import { generateChart, validateChartConfig } from '../services/chartGenerator.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -259,33 +258,6 @@ router.post(
         });
       }
 
-      // Validar si se solicitan preguntas de interpretación de datos
-      const hasDataInterpretation = types.includes('data_interpretation');
-      const onlyDataInterpretation = types.length === 1 && hasDataInterpretation;
-      
-      if (hasDataInterpretation) {
-        // Detectar si el PDF contiene datos numéricos (tablas, estadísticas, etc.)
-        const hasNumericData = /\d+[,.]?\d*\s*(%|USD|EUR|\$|€|unidades|kg|m|km|personas|años|meses)/i.test(pdfContent) ||
-                              /tabla|cuadro|gráfico|estadística|datos|resultados|medición/i.test(pdfContent);
-        
-        if (!hasNumericData) {
-          const errorMsg = onlyDataInterpretation
-            ? 'No se pueden generar preguntas de interpretación de datos porque el PDF no contiene datos numéricos, tablas o estadísticas. Por favor, sube un documento con información cuantitativa o selecciona otros tipos de preguntas.'
-            : 'El PDF no contiene datos numéricos suficientes para generar preguntas de interpretación de datos. Se omitirán las preguntas de este tipo y solo se generarán los otros tipos solicitados.';
-          
-          if (onlyDataInterpretation) {
-            progressTracker.delete(jobId);
-            return res.status(400).json({ error: errorMsg });
-          } else {
-            console.warn(`⚠️ ${errorMsg}`);
-            // Remover data_interpretation de los tipos
-            const filteredTypes = types.filter((t: string) => t !== 'data_interpretation');
-            types.length = 0;
-            types.push(...filteredTypes);
-          }
-        }
-      }
-
       const { questions } = await openAIService.generateQuestions(
         {
           content: pdfContent,
@@ -360,47 +332,7 @@ router.post(
           pairs: question.pairs,
           blanks: question.blanks,
           items: question.items,
-          expectedAnswer: question.expectedAnswer,
-          keywords: question.keywords,
-          rubric: question.rubric,
-          questions: question.questions,
-          solution: question.solution,
-          imageDescription: question.imageDescription,
-          dataDescription: question.dataDescription,
-          chartConfig: question.metadata?.chartConfig,
         };
-
-        // Generar gráfico si es data_interpretation
-        if (questionType === 'data_interpretation') {
-          console.log(`📊 Detectada pregunta de interpretación de datos ${i + 1}`);
-          
-          let chartConfig = question.metadata?.chartConfig;
-
-          // Solo generar gráfico si OpenAI proporcionó chartConfig
-          if (!chartConfig) {
-            console.warn(`⚠️ OpenAI no generó chartConfig para pregunta ${i + 1}. Saltando generación de gráfico.`);
-            console.warn(`💡 Sugerencia: Asegúrate de que el contenido del PDF tenga datos numéricos para visualizar.`);
-          } else {
-            console.log(`✅ chartConfig encontrado en pregunta ${i + 1}:`, JSON.stringify(chartConfig, null, 2));
-
-            // Generar el gráfico
-            try {
-              if (validateChartConfig(chartConfig)) {
-                console.log(`✅ Configuración de gráfico validada para pregunta ${i + 1}`);
-                console.log(`📊 Generando gráfico para pregunta ${i + 1}...`);
-
-                const chartImage = await generateChart(chartConfig);
-                metadata.chartImage = chartImage;
-
-                console.log(`✅ Gráfico generado exitosamente para pregunta ${i + 1} (${chartImage.length} caracteres)`);
-              } else {
-                console.warn(`⚠️ Configuración de gráfico inválida para pregunta ${i + 1}:`, chartConfig);
-              }
-            } catch (error: any) {
-              console.error(`❌ Error al generar gráfico para pregunta ${i + 1}:`, error.message);
-            }
-          }
-        }
 
         // Limpiar undefined del metadata
         const cleanMetadata = Object.fromEntries(

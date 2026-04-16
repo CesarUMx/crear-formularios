@@ -1,17 +1,10 @@
 import { 
-  CheckSquare, 
+  CheckSquare,
+  ListChecks,
   List, 
   Columns, 
   FileText, 
   ArrowDownUp,
-  MessageSquare,
-  BookOpen,
-  Lightbulb,
-  Wrench,
-  Image as ImageIcon,
-  BarChart3,
-  CheckCircle,
-  XCircle,
 } from 'lucide-react';
 
 interface BaseQuestion {
@@ -22,6 +15,11 @@ interface BaseQuestion {
 
 interface MultipleChoiceQuestion extends BaseQuestion {
   type: 'multiple_choice';
+  options: { text: string; isCorrect: boolean }[];
+}
+
+interface MultipleSelectQuestion extends BaseQuestion {
+  type: 'multiple_select';
   options: { text: string; isCorrect: boolean }[];
 }
 
@@ -45,46 +43,13 @@ interface OrderingQuestion extends BaseQuestion {
   items: { text: string; correctOrder: number }[];
 }
 
-interface ShortAnswerQuestion extends BaseQuestion {
-  type: 'short_answer';
-  expectedAnswer: string;
-  keywords?: string[];
-}
-
-interface EssayQuestion extends BaseQuestion {
-  type: 'essay';
-  rubric: string[];
-}
-
-interface CaseAnalysisQuestion extends BaseQuestion {
-  type: 'case_analysis';
-  questions: string[];
-}
-
-interface ProblemSolvingQuestion extends BaseQuestion {
-  type: 'problem_solving';
-  solution: {
-    steps: string[];
-    finalAnswer: string;
-  };
-}
-
-interface DataInterpretationQuestion extends BaseQuestion {
-  type: 'data_interpretation';
-  options: { text: string; isCorrect: boolean }[];
-}
-
 type Question = 
-  | MultipleChoiceQuestion 
+  | MultipleChoiceQuestion
+  | MultipleSelectQuestion
   | TrueFalseQuestion 
   | MatchingQuestion 
   | FillBlankQuestion
-  | OrderingQuestion
-  | ShortAnswerQuestion
-  | EssayQuestion
-  | CaseAnalysisQuestion
-  | ProblemSolvingQuestion
-  | DataInterpretationQuestion;
+  | OrderingQuestion;
 
 interface QuestionRendererProps {
   question: Question;
@@ -106,15 +71,11 @@ export default function QuestionRenderer({
   const getQuestionIcon = () => {
     const icons = {
       multiple_choice: CheckSquare,
+      multiple_select: ListChecks,
       true_false: List,
       matching: Columns,
       fill_blank: FileText,
       ordering: ArrowDownUp,
-      short_answer: MessageSquare,
-      essay: BookOpen,
-      case_analysis: Lightbulb,
-      problem_solving: Wrench,
-      data_interpretation: BarChart3,
     };
     const Icon = icons[question.type] || CheckSquare;
     return <Icon className="w-5 h-5" />;
@@ -122,16 +83,12 @@ export default function QuestionRenderer({
 
   const getQuestionTypeName = () => {
     const names = {
-      multiple_choice: 'Opción Múltiple',
+      multiple_choice: 'Opción Única',
+      multiple_select: 'Opción Múltiple',
       true_false: 'Verdadero/Falso',
       matching: 'Relación de Columnas',
       fill_blank: 'Completar Espacios',
       ordering: 'Ordenar/Secuenciar',
-      short_answer: 'Respuesta Corta',
-      essay: 'Ensayo',
-      case_analysis: 'Análisis de Caso',
-      problem_solving: 'Resolución de Problemas',
-      data_interpretation: 'Interpretación de Datos',
     };
     return names[question.type] || 'Pregunta';
   };
@@ -173,6 +130,59 @@ export default function QuestionRenderer({
                     name={`question-${questionNumber}`}
                     checked={isSelected}
                     onChange={() => onAnswerChange?.(optionId)}
+                    disabled={mode !== 'exam'}
+                    className="mt-1"
+                  />
+                  <span className="flex-1">{option.text}</span>
+                  {(mode === 'review' || mode === 'preview') && option.isCorrect && (
+                    <span className="text-green-600 font-semibold text-sm">✓ Correcta</span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+        );
+
+      case 'multiple_select':
+        const selectedOptions: string[] = Array.isArray(userAnswer) ? userAnswer : [];
+        return (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500 italic">Selecciona todas las respuestas correctas</p>
+            {(question as MultipleSelectQuestion).options.map((option: any, idx) => {
+              const optionId = option.id || String(idx);
+              const isSelected = mode === 'preview' ? option.isCorrect : selectedOptions.includes(optionId);
+              
+              return (
+                <label
+                  key={idx}
+                  className={`
+                    flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition
+                    ${mode === 'exam' 
+                      ? isSelected
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                      : mode === 'review'
+                      ? option.isCorrect
+                        ? 'border-green-500 bg-green-50'
+                        : isSelected
+                        ? 'border-red-500 bg-red-50'
+                        : 'border-gray-200'
+                      : mode === 'preview' && option.isCorrect
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-gray-200'
+                    }
+                  `}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => {
+                      if (mode !== 'exam') return;
+                      const newSelected = isSelected
+                        ? selectedOptions.filter(id => id !== optionId)
+                        : [...selectedOptions, optionId];
+                      onAnswerChange?.(newSelected);
+                    }}
                     disabled={mode !== 'exam'}
                     className="mt-1"
                   />
@@ -357,161 +367,6 @@ export default function QuestionRenderer({
           </div>
         );
 
-      case 'short_answer':
-        return (
-          <div className="space-y-3">
-            <textarea
-              className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
-              rows={3}
-              placeholder="Escribe tu respuesta aquí..."
-              disabled={mode !== 'exam'}
-            />
-            {mode === 'review' && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded">
-                <p className="text-sm font-semibold text-blue-800">Respuesta esperada:</p>
-                <p className="mt-1 text-sm text-blue-700">{question.expectedAnswer}</p>
-                {question.keywords && question.keywords.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-xs font-semibold text-blue-800">Palabras clave:</p>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {question.keywords.map((keyword, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
-                          {keyword}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-
-      case 'essay':
-        return (
-          <div className="space-y-3">
-            <textarea
-              className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
-              rows={8}
-              placeholder="Desarrolla tu respuesta aquí..."
-              disabled={mode !== 'exam'}
-            />
-            {(mode === 'preview' || mode === 'review') && question.rubric && (
-              <div className="p-4 bg-purple-50 border border-purple-200 rounded">
-                <p className="text-sm font-semibold text-purple-800">Criterios de evaluación:</p>
-                <ul className="mt-2 space-y-1">
-                  {question.rubric.map((criterion, idx) => (
-                    <li key={idx} className="text-sm text-purple-700 flex items-start gap-2">
-                      <span className="text-purple-500">•</span>
-                      {criterion}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'case_analysis':
-        return (
-          <div className="space-y-4">
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-sm font-semibold text-amber-800 mb-2">Caso de estudio:</p>
-              <p className="text-gray-700 leading-relaxed">{question.text}</p>
-            </div>
-            <div className="space-y-3">
-              <p className="text-sm font-semibold text-gray-700">Preguntas a responder:</p>
-              {question.questions.map((q, idx) => (
-                <div key={idx} className="space-y-2">
-                  <p className="text-sm text-gray-700 font-medium">{idx + 1}. {q}</p>
-                  <textarea
-                    className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-sm"
-                    rows={3}
-                    placeholder="Tu respuesta..."
-                    disabled={mode !== 'exam'}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-
-      case 'problem_solving':
-        return (
-          <div className="space-y-4">
-            <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
-              <p className="text-gray-700 leading-relaxed">{question.text}</p>
-            </div>
-            <div className="space-y-3">
-              <p className="text-sm font-semibold text-gray-700">Desarrollo de la solución:</p>
-              <textarea
-                className="w-full p-4 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
-                rows={6}
-                placeholder="Muestra tu proceso de solución paso a paso..."
-                disabled={mode !== 'exam'}
-              />
-            </div>
-            {mode === 'review' && question.solution && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded">
-                <p className="text-sm font-semibold text-green-800 mb-2">Solución esperada:</p>
-                <div className="space-y-2">
-                  {question.solution.steps.map((step, idx) => (
-                    <p key={idx} className="text-sm text-green-700">
-                      <strong>Paso {idx + 1}:</strong> {step}
-                    </p>
-                  ))}
-                  <p className="text-sm text-green-800 font-semibold mt-3">
-                    Respuesta final: {question.solution.finalAnswer}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'data_interpretation':
-        // Las preguntas de interpretación de datos ahora son de opción múltiple simple
-        // El gráfico se renderiza automáticamente antes del QuestionRenderer
-        return (
-          <div className="space-y-3">
-            {(question as DataInterpretationQuestion).options?.map((option, idx) => (
-              <label
-                key={idx}
-                className={`
-                  flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition
-                  ${mode === 'exam' 
-                    ? 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
-                    : mode === 'review'
-                    ? option.isCorrect
-                      ? 'border-green-500 bg-green-50'
-                      : userAnswer === idx
-                      ? 'border-red-500 bg-red-50'
-                      : 'border-gray-200'
-                    : 'border-gray-200'
-                  }
-                  ${userAnswer === idx && mode === 'exam' ? 'border-blue-500 bg-blue-50' : ''}
-                `}
-              >
-                <input
-                  type="radio"
-                  name={`question-${questionNumber}`}
-                  checked={userAnswer === idx}
-                  onChange={() => mode === 'exam' && onAnswerChange?.(idx)}
-                  disabled={mode !== 'exam'}
-                  className="mt-1 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="flex-1 text-sm text-gray-700">{option.text}</span>
-                {mode === 'review' && option.isCorrect && (
-                  <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                )}
-                {mode === 'review' && !option.isCorrect && userAnswer === idx && (
-                  <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                )}
-              </label>
-            ))}
-          </div>
-        );
-
       default:
         return <p className="text-gray-500">Tipo de pregunta no soportado</p>;
     }
@@ -534,19 +389,6 @@ export default function QuestionRenderer({
           <h3 className="text-lg font-semibold text-gray-900">{question.text}</h3>
         </div>
       </div>
-
-      {/* Gráfico para data_interpretation (entre pregunta y opciones) */}
-      {question.type === 'data_interpretation' && (question as any).chartImage && (
-        <div className="my-6 flex justify-center">
-          <div className="w-full max-w-2xl p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <img 
-              src={(question as any).chartImage} 
-              alt="Gráfico de datos" 
-              className="w-full h-auto rounded-lg"
-            />
-          </div>
-        </div>
-      )}
 
       {/* Content */}
       <div className="mt-4">
