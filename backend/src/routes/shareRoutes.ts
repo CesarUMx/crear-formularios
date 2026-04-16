@@ -3,7 +3,6 @@
 import express from 'express';
 import * as shareService from '../services/shareService.js';
 import { requireAuth } from '../middleware/auth.js';
-import '../types/express.js';
 
 const router = express.Router();
 

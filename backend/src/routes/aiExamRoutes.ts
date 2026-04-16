@@ -10,7 +10,6 @@ import { pdfService } from '../services/pdfService.js';
 import { aiExamService } from '../services/aiExamService.js';
 import { progressTracker } from '../utils/progressTracker.js';
 import { generateChart, validateChartConfig } from '../services/chartGenerator.js';
-import '../types/express.js';
 
 const router = Router();
 const prisma = new PrismaClient();
