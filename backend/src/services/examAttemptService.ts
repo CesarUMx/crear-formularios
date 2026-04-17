@@ -53,9 +53,16 @@ export const startExamAttempt = async (
   const exam = await prisma.exam.findUnique({
     where: { slug: examSlug },
     include: {
-      versions: {
-        orderBy: { version: 'desc' },
-        take: 1
+      sections: {
+        include: {
+          questions: {
+            include: {
+              options: { orderBy: { order: 'asc' } }
+            },
+            orderBy: { order: 'asc' }
+          }
+        },
+        orderBy: { order: 'asc' }
       },
       attempts: {
         where: studentData.email ? { studentEmail: studentData.email } : {}
@@ -67,7 +74,7 @@ export const startExamAttempt = async (
     throw new Error('Examen no encontrado');
   }
 
-  if (!exam.isActive || !exam.isPublic) {
+  if (!exam.isActive) {
     throw new Error('Este examen no está disponible');
   }
 
@@ -82,38 +89,42 @@ export const startExamAttempt = async (
     throw new Error(`Has alcanzado el límite de ${exam.maxAttempts} intento(s) para este examen`);
   }
 
-  const latestVersion = exam.versions[0];
   const attemptNumber = existingAttempts.length + 1;
+
+  // Calcular puntos totales de las secciones
+  const totalPoints = exam.sections.reduce((sum, section) => 
+    sum + section.questions.reduce((qSum, q) => qSum + q.points, 0), 0
+  );
+
+  // Seleccionar preguntas (pool si está configurado)
+  let allQuestions = exam.sections.flatMap(s => s.questions);
+  let selectedQuestionIds: string[] | null = null;
+  if (exam.questionsPerAttempt && exam.questionsPerAttempt < allQuestions.length) {
+    const shuffled = shuffleArray(allQuestions);
+    const selected = shuffled.slice(0, exam.questionsPerAttempt);
+    selectedQuestionIds = selected.map(q => q.id);
+  }
 
   const attempt = await prisma.examAttempt.create({
     data: {
       examId: exam.id,
-      examVersionId: latestVersion.id,
       attemptNumber,
       studentName: studentData.name,
       studentEmail: studentData.email || null,
       userId: studentData.userId || null,
+      selectedQuestions: selectedQuestionIds || undefined,
       ipAddress,
       userAgent,
-      maxScore: latestVersion.totalPoints
+      maxScore: totalPoints
     },
     include: {
       exam: {
-        include: {
-          supportFiles: {
-            orderBy: { order: 'asc' }
-          }
-        }
-      },
-      examVersion: {
         include: {
           sections: {
             include: {
               questions: {
                 include: {
-                  options: {
-                    orderBy: { order: 'asc' }
-                  }
+                  options: { orderBy: { order: 'asc' } }
                 },
                 orderBy: { order: 'asc' }
               }
@@ -125,22 +136,26 @@ export const startExamAttempt = async (
     }
   });
 
-  // Verificar que examVersion exista
-  if (!attempt.examVersion) {
-    throw new Error('No se encontró la versión del examen para este intento');
+  // Filtrar preguntas del pool si aplica
+  let sections = attempt.exam.sections;
+  if (selectedQuestionIds) {
+    sections = sections.map(section => ({
+      ...section,
+      questions: section.questions.filter(q => selectedQuestionIds!.includes(q.id))
+    })).filter(s => s.questions.length > 0);
   }
 
   // Mezclar preguntas si está habilitado
   if (exam.shuffleQuestions) {
-    attempt.examVersion.sections.forEach(section => {
+    sections.forEach((section: any) => {
       section.questions = shuffleArray(section.questions);
     });
   }
 
   // Mezclar opciones si está habilitado
   if (exam.shuffleOptions) {
-    attempt.examVersion.sections.forEach(section => {
-      section.questions.forEach(question => {
+    sections.forEach((section: any) => {
+      section.questions.forEach((question: any) => {
         if (question.options && question.options.length > 0) {
           question.options = shuffleArray(question.options);
         }
@@ -162,34 +177,37 @@ export const startExamAttempt = async (
       title: attempt.exam.title,
       description: attempt.exam.description,
       slug: attempt.exam.slug,
+      instructions: attempt.exam.instructions,
       timeLimit: attempt.exam.timeLimit,
       shuffleQuestions: attempt.exam.shuffleQuestions,
-      shuffleOptions: attempt.exam.shuffleOptions,
-      supportFiles: attempt.exam.supportFiles
+      shuffleOptions: attempt.exam.shuffleOptions
     },
-    examVersion: {
-      id: attempt.examVersion.id,
-      version: attempt.examVersion.version,
-      sections: attempt.examVersion.sections.map(section => ({
-        id: section.id,
-        title: section.title,
-        description: section.description,
-        order: section.order,
-        questions: section.questions.map(question => ({
-          id: question.id,
-          type: question.type,
-          text: question.text,
-          helpText: question.helpText,
-          points: question.points,
-          order: question.order,
-          options: question.options?.map(opt => ({
-            id: opt.id,
-            text: opt.text,
-            order: opt.order
-          }))
+    sections: sections.map((section: any) => ({
+      id: section.id,
+      title: section.title,
+      description: section.description,
+      order: section.order,
+      fileUrl: section.fileUrl,
+      fileName: section.fileName,
+      fileType: section.fileType,
+      questions: section.questions.map((question: any) => ({
+        id: question.id,
+        type: question.type,
+        text: question.text,
+        helpText: question.helpText,
+        points: question.points,
+        order: question.order,
+        metadata: question.metadata,
+        fileUrl: question.fileUrl,
+        fileName: question.fileName,
+        fileType: question.fileType,
+        options: question.options?.map((opt: any) => ({
+          id: opt.id,
+          text: opt.text,
+          order: opt.order
         }))
       }))
-    }
+    }))
   };
 
   return sanitizedAttempt;
@@ -239,7 +257,7 @@ export const saveAnswer = async (
     const attemptWithQuestions = await prisma.examAttempt.findUnique({
       where: { id: attemptId },
       include: {
-        examVersion: {
+        exam: {
           include: {
             sections: {
               include: {
@@ -254,9 +272,9 @@ export const saveAnswer = async (
     });
     
     console.error('Available questions in this attempt:');
-    attemptWithQuestions?.examVersion?.sections.forEach((section, sIdx) => {
+    attemptWithQuestions?.exam?.sections.forEach((section: any, sIdx: number) => {
       console.error(`Section ${sIdx + 1}:`);
-      section.questions.forEach((q, qIdx) => {
+      section.questions.forEach((q: any, qIdx: number) => {
         console.error(`  Question ${qIdx + 1}: ID=${q.id}, text="${q.text.substring(0, 50)}..."`);
       });
     });
@@ -359,15 +377,12 @@ export const getAttemptResult = async (attemptId: string) => {
   const attempt = await prisma.examAttempt.findUnique({
     where: { id: attemptId },
     include: {
-      exam: true,
-      examVersion: {
+      exam: {
         include: {
           sections: {
             include: {
               questions: {
-                include: {
-                  options: true
-                },
+                include: { options: true },
                 orderBy: { order: 'asc' }
               }
             },
@@ -379,9 +394,7 @@ export const getAttemptResult = async (attemptId: string) => {
         include: {
           selectedOptions: true,
           question: {
-            include: {
-              options: true
-            }
+            include: { options: true }
           }
         }
       }
@@ -398,15 +411,9 @@ export const getAttemptResult = async (attemptId: string) => {
 
   const showResults = attempt.exam.showResults;
   
-  if (showResults === 'NEVER') {
+  if (!showResults) {
     return {
       message: 'Los resultados no están disponibles para este examen'
-    };
-  }
-
-  if (showResults === 'MANUAL' && !attempt.autoGraded) {
-    return {
-      message: 'Los resultados estarán disponibles cuando el instructor los publique'
     };
   }
 
@@ -427,38 +434,38 @@ export const getAttemptResult = async (attemptId: string) => {
     exam: {
       id: attempt.exam.id,
       title: attempt.exam.title,
-      showResults: attempt.exam.showResults,
-      allowReview: attempt.exam.allowReview
+      showResults: attempt.exam.showResults
     },
     sections: [] as any[]
   };
 
-  // Si se permite revisión, incluir detalles de las respuestas
-  if (attempt.exam.allowReview && attempt.examVersion) {
-    result.sections = attempt.examVersion.sections.map(section => ({
+  // Si showResults es true, incluir detalles de las respuestas
+  if (attempt.exam.showResults) {
+    result.sections = attempt.exam.sections.map((section: any) => ({
       title: section.title,
       description: section.description,
-      questions: section.questions.map(question => {
-        const answer = attempt.answers.find(a => a.questionId === question.id);
+      questions: section.questions.map((question: any) => {
+        const answer = attempt.answers.find((a: any) => a.questionId === question.id);
         
         return {
           text: question.text,
           type: question.type,
           points: question.points,
+          metadata: question.metadata,
           pointsEarned: answer?.pointsEarned || 0,
           isCorrect: answer?.isCorrect,
           feedback: answer?.feedback,
           studentAnswer: {
             textValue: answer?.textValue,
-            selectedOptions: answer?.selectedOptions?.map(opt => ({
+            selectedOptions: answer?.selectedOptions?.map((opt: any) => ({
               id: opt.id,
               text: opt.text
             })),
             jsonValue: answer?.jsonValue
           },
           correctAnswer: question.options
-            ?.filter(opt => opt.isCorrect)
-            .map(opt => ({
+            ?.filter((opt: any) => opt.isCorrect)
+            .map((opt: any) => ({
               id: opt.id,
               text: opt.text
             }))
@@ -492,15 +499,12 @@ export const getAttemptById = async (attemptId: string) => {
   return await prisma.examAttempt.findUnique({
     where: { id: attemptId },
     include: {
-      exam: true,
-      examVersion: {
+      exam: {
         include: {
           sections: {
             include: {
               questions: {
-                include: {
-                  options: true
-                },
+                include: { options: true },
                 orderBy: { order: 'asc' }
               }
             },
@@ -512,9 +516,7 @@ export const getAttemptById = async (attemptId: string) => {
         include: {
           selectedOptions: true,
           question: {
-            include: {
-              options: true
-            }
+            include: { options: true }
           }
         }
       },
@@ -547,7 +549,7 @@ export const canTakeExam = async (
     return { canTake: false, reason: 'Examen no encontrado' };
   }
 
-  if (!exam.isActive || !exam.isPublic) {
+  if (!exam.isActive) {
     return { canTake: false, reason: 'Este examen no está disponible' };
   }
 

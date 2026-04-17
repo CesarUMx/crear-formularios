@@ -1,5 +1,4 @@
-import express, { Request, Response, NextFunction } from 'express';
-import { upload, handleMulterError } from '../config/multer.js';
+import express from 'express';
 import {
   getExams,
   getExamById,
@@ -11,8 +10,6 @@ import {
   toggleExamActive,
   shareExam,
   unshareExam,
-  uploadSupportFile,
-  deleteSupportFile,
   checkCanTakeExam,
   startAttempt,
   saveAnswer,
@@ -70,34 +67,6 @@ router.patch('/:id/status', toggleExamActive);
 // Compartir exámenes
 router.post('/:id/share', shareExam);
 router.delete('/:id/share/:userId', unshareExam);
-
-// Archivos de apoyo
-router.post('/:id/files/upload', upload.single('file'), handleMulterError, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const file = req.file;
-    if (!file) {
-      return res.status(400).json({ error: 'No se proporcionó ningún archivo' });
-    }
-
-    // Construir URL completa del backend
-    const protocol = req.protocol;
-    const host = req.get('host');
-    const fileUrl = `${protocol}://${host}/uploads/${file.filename}`;
-    
-    return res.json({
-      url: fileUrl,
-      fileUrl: fileUrl,
-      fileName: file.originalname,
-      fileType: file.mimetype,
-      fileSize: file.size
-    });
-  } catch (error) {
-    return next(error);
-  }
-});
-
-router.post('/:id/files', uploadSupportFile);
-router.delete('/:id/files/:fileId', deleteSupportFile);
 
 // Gestión de intentos (admin)
 router.get('/:id/attempts', getExamAttempts);

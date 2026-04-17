@@ -68,33 +68,16 @@ interface ExamStats {
  * Calificar un intento de examen automáticamente
  */
 export const gradeExamAttempt = async (attemptId: string): Promise<GradeExamResult> => {
-  // Primero obtener el attempt básico
-  const attemptBasic = await prisma.examAttempt.findUnique({
-    where: { id: attemptId },
-    select: { examVersionId: true }
-  });
-
-  if (!attemptBasic) {
-    throw new Error('Intento no encontrado');
-  }
-
-  // Ahora obtener el attempt completo con todas las relaciones
+  // Obtener el attempt completo con todas las relaciones
   const attempt = await prisma.examAttempt.findUnique({
     where: { id: attemptId },
     include: {
       exam: {
         include: {
-          versions: {
-            where: { id: attemptBasic.examVersionId ?? undefined },
+          sections: {
             include: {
-              sections: {
-                include: {
-                  questions: {
-                    include: {
-                      options: true
-                    }
-                  }
-                }
+              questions: {
+                include: { options: true }
               }
             }
           }

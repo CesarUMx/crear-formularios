@@ -73,14 +73,12 @@ export const createExam = async (req: Request, res: Response, next: NextFunction
       title, 
       description, 
       sections, 
-      templateId,
       timeLimit,
       maxAttempts,
       passingScore,
       shuffleQuestions,
       shuffleOptions,
-      showResults,
-      allowReview
+      showResults
     } = req.body;
 
     if (!title || title.trim() === '') {
@@ -129,14 +127,12 @@ export const createExam = async (req: Request, res: Response, next: NextFunction
     const exam = await examService.createExam(String(req.user!.id), {
       title,
       description,
-      templateId: templateId || 'modern',
       timeLimit,
       maxAttempts,
       passingScore,
       shuffleQuestions,
       shuffleOptions,
       showResults,
-      allowReview,
       sections
     });
 
@@ -158,15 +154,13 @@ export const updateExam = async (req: Request, res: Response, next: NextFunction
     const { 
       title, 
       description, 
-      templateId, 
       sections,
       timeLimit,
       maxAttempts,
       passingScore,
       shuffleQuestions,
       shuffleOptions,
-      showResults,
-      allowReview
+      showResults
     } = req.body;
 
     const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
@@ -185,19 +179,17 @@ export const updateExam = async (req: Request, res: Response, next: NextFunction
     const exam = await examService.updateExam(String(id), {
       title,
       description,
-      templateId,
       timeLimit,
       maxAttempts,
       passingScore,
       shuffleQuestions,
       shuffleOptions,
       showResults,
-      allowReview,
       sections
     });
 
     return res.json({
-      message: 'Examen actualizado exitosamente (nueva versión creada)',
+      message: 'Examen actualizado exitosamente',
       exam
     });
   } catch (error) {
@@ -230,12 +222,12 @@ export const deleteExam = async (req: Request, res: Response, next: NextFunction
 };
 
 /**
- * Publicar/despublicar examen
+ * Publicar/despublicar examen (activa o desactiva)
  */
 export const toggleExamPublish = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { isPublic } = req.body;
+    const { isActive } = req.body;
 
     const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
     if (permission !== 'FULL') {
@@ -244,10 +236,10 @@ export const toggleExamPublish = async (req: Request, res: Response, next: NextF
       });
     }
 
-    const exam = await examService.toggleExamPublish(String(id), isPublic);
+    const exam = await examService.toggleExamPublish(String(id), isActive);
 
     return res.json({
-      message: `Examen ${isPublic ? 'publicado' : 'despublicado'} exitosamente`,
+      message: `Examen ${isActive ? 'publicado' : 'despublicado'} exitosamente`,
       exam
     });
   } catch (error) {
@@ -337,65 +329,6 @@ export const unshareExam = async (req: Request, res: Response, next: NextFunctio
 
     return res.json({
       message: 'Acceso removido exitosamente'
-    });
-  } catch (error) {
-    return next(error);
-  }
-};
-
-/**
- * Subir archivo de apoyo
- */
-export const uploadSupportFile = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-    const { fileName, fileUrl, fileType, fileSize } = req.body;
-
-    console.log('=== uploadSupportFile ===');
-    console.log('fileUrl recibida:', fileUrl);
-    console.log('========================');
-
-    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
-    if (permission !== 'FULL' && permission !== 'EDIT') {
-      return res.status(403).json({ 
-        error: 'No tienes permisos para modificar este examen' 
-      });
-    }
-
-    const file = await examService.addSupportFile(String(id), {
-      fileName,
-      fileUrl,
-      fileType,
-      fileSize
-    });
-
-    return res.status(201).json({
-      message: 'Archivo subido exitosamente',
-      file
-    });
-  } catch (error) {
-    return next(error);
-  }
-};
-
-/**
- * Eliminar archivo de apoyo
- */
-export const deleteSupportFile = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id, fileId } = req.params;
-
-    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
-    if (permission !== 'FULL' && permission !== 'EDIT') {
-      return res.status(403).json({ 
-        error: 'No tienes permisos para modificar este examen' 
-      });
-    }
-
-    await examService.deleteSupportFile(String(fileId));
-
-    return res.json({
-      message: 'Archivo eliminado exitosamente'
     });
   } catch (error) {
     return next(error);

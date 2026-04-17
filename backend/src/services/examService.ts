@@ -1,4 +1,4 @@
-import { PrismaClient, ExamQuestionType, ShowResultsType } from '@prisma/client';
+import { PrismaClient, ExamQuestionType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -30,25 +30,16 @@ interface ExamOption {
 interface CreateExamData {
   title: string;
   description?: string;
-  templateId?: string;
   timeLimit?: number;
   maxAttempts?: number;
   passingScore?: number;
   shuffleQuestions?: boolean;
   shuffleOptions?: boolean;
-  showResults?: ShowResultsType;
-  allowReview?: boolean;
+  showResults?: boolean;
   sections: ExamSection[];
 }
 
 interface UpdateExamData extends CreateExamData {}
-
-interface FileData {
-  fileName: string;
-  fileUrl: string;
-  fileType: string;
-  fileSize: number;
-}
 
 // ==================== FUNCIONES ====================
 
@@ -63,7 +54,7 @@ export const getUserExams = async (userId: string, userRole: string) => {
           select: { id: true, name: true, email: true }
         },
         _count: {
-          select: { attempts: true, versions: true, supportFiles: true }
+          select: { attempts: true, sections: true }
         }
       },
       orderBy: { updatedAt: 'desc' }
@@ -86,7 +77,7 @@ export const getUserExams = async (userId: string, userRole: string) => {
         select: { permission: true }
       },
       _count: {
-        select: { attempts: true, versions: true, supportFiles: true }
+        select: { attempts: true, sections: true }
       }
     },
     orderBy: { updatedAt: 'desc' }
@@ -103,26 +94,18 @@ export const getExamById = async (examId: string) => {
       createdBy: {
         select: { id: true, name: true, email: true }
       },
-      supportFiles: {
-        orderBy: { order: 'asc' }
-      },
-      versions: {
+      sections: {
         include: {
-          sections: {
+          questions: {
             include: {
-              questions: {
-                include: {
-                  options: {
-                    orderBy: { order: 'asc' }
-                  }
-                },
+              options: {
                 orderBy: { order: 'asc' }
               }
             },
             orderBy: { order: 'asc' }
           }
         },
-        orderBy: { version: 'desc' }
+        orderBy: { order: 'asc' }
       },
       sharedWith: {
         include: {
@@ -145,40 +128,35 @@ export const getExamBySlug = async (slug: string) => {
   const exam = await prisma.exam.findUnique({
     where: { slug },
     include: {
-      supportFiles: {
-        orderBy: { order: 'asc' }
-      },
-      versions: {
-        orderBy: { version: 'desc' },
-        take: 1,
+      sections: {
+        orderBy: { order: 'asc' },
         select: {
           id: true,
-          version: true,
-          createdAt: true,
-          sections: {
+          title: true,
+          description: true,
+          order: true,
+          fileUrl: true,
+          fileName: true,
+          fileType: true,
+          questions: {
             orderBy: { order: 'asc' },
             select: {
               id: true,
-              title: true,
-              description: true,
+              type: true,
+              text: true,
+              helpText: true,
+              points: true,
               order: true,
-              questions: {
+              metadata: true,
+              fileUrl: true,
+              fileName: true,
+              fileType: true,
+              options: {
                 orderBy: { order: 'asc' },
                 select: {
                   id: true,
-                  type: true,
                   text: true,
-                  helpText: true,
-                  points: true,
-                  order: true,
-                  options: {
-                    orderBy: { order: 'asc' },
-                    select: {
-                      id: true,
-                      text: true,
-                      order: true
-                    }
-                  }
+                  order: true
                 }
               }
             }
@@ -188,7 +166,7 @@ export const getExamBySlug = async (slug: string) => {
     }
   });
 
-  if (!exam || !exam.isActive || !exam.isPublic) {
+  if (!exam || !exam.isActive) {
     return null;
   }
 
@@ -202,14 +180,12 @@ export const createExam = async (userId: string, data: CreateExamData) => {
   const { 
     title, 
     description, 
-    templateId, 
     timeLimit,
     maxAttempts,
     passingScore,
     shuffleQuestions,
     shuffleOptions,
     showResults,
-    allowReview,
     sections 
   } = data;
 
@@ -227,68 +203,50 @@ export const createExam = async (userId: string, data: CreateExamData) => {
     counter++;
   }
 
-  const totalPoints = calculateTotalPoints(sections);
-
   const exam = await prisma.exam.create({
     data: {
       title,
       description,
       slug,
-      templateId: templateId || null,
       timeLimit: timeLimit || null,
       maxAttempts: maxAttempts || 1,
       passingScore: passingScore || 60,
       shuffleQuestions: shuffleQuestions || false,
       shuffleOptions: shuffleOptions || false,
-      showResults: (showResults as ShowResultsType) || 'IMMEDIATE',
-      allowReview: allowReview !== undefined ? allowReview : true,
+      showResults: showResults !== undefined ? showResults : true,
       autoGrade: checkIfAutoGradable(sections),
       createdById: userId,
-      versions: {
-        create: {
-          version: 1,
-          title,
-          description: description || null,
-          totalPoints,
-          sections: {
-            create: sections.map((section, sectionIndex) => ({
-              title: section.title,
-              description: section.description || null,
-              order: sectionIndex,
-              questions: {
-                create: section.questions.map((question, questionIndex) => ({
-                  type: question.type,
-                  text: question.text,
-                  helpText: question.helpText || null,
-                  points: question.points || 1,
-                  order: questionIndex,
-                  correctAnswer: question.correctAnswer || null,
-                  feedback: question.feedback || null,
-                  options: question.options?.length ? {
-                    create: question.options.map((option, optionIndex) => ({
-                      text: option.text,
-                      order: optionIndex,
-                      isCorrect: option.isCorrect || false
-                    }))
-                  } : undefined
+      sections: {
+        create: sections.map((section, sectionIndex) => ({
+          title: section.title,
+          description: section.description || null,
+          order: sectionIndex,
+          questions: {
+            create: section.questions.map((question, questionIndex) => ({
+              type: question.type,
+              text: question.text,
+              helpText: question.helpText || null,
+              points: question.points || 1,
+              order: questionIndex,
+              correctAnswer: question.correctAnswer || null,
+              feedback: question.feedback || null,
+              options: question.options?.length ? {
+                create: question.options.map((option, optionIndex) => ({
+                  text: option.text,
+                  order: optionIndex,
+                  isCorrect: option.isCorrect || false
                 }))
-              }
+              } : undefined
             }))
           }
-        }
+        }))
       }
     },
     include: {
-      versions: {
+      sections: {
         include: {
-          sections: {
-            include: {
-              questions: {
-                include: {
-                  options: true
-                }
-              }
-            }
+          questions: {
+            include: { options: true }
           }
         }
       }
@@ -305,97 +263,73 @@ export const updateExam = async (examId: string, data: UpdateExamData) => {
   const { 
     title, 
     description, 
-    templateId,
     timeLimit,
     maxAttempts,
     passingScore,
     shuffleQuestions,
     shuffleOptions,
     showResults,
-    allowReview,
     sections 
   } = data;
 
   const exam = await prisma.exam.findUnique({
-    where: { id: examId },
-    include: {
-      versions: {
-        orderBy: { version: 'desc' },
-        take: 1
-      }
-    }
+    where: { id: examId }
   });
 
   if (!exam) {
     throw new Error('Examen no encontrado');
   }
 
-  const latestVersion = exam.versions[0];
-  const newVersion = latestVersion ? latestVersion.version + 1 : 1;
-  const totalPoints = calculateTotalPoints(sections);
+  // Eliminar secciones anteriores (cascade elimina preguntas y opciones)
+  await prisma.examSection.deleteMany({
+    where: { examId }
+  });
 
   const updatedExam = await prisma.exam.update({
     where: { id: examId },
     data: {
       title,
       description,
-      templateId: templateId || null,
       timeLimit: timeLimit || null,
       maxAttempts,
       passingScore,
       shuffleQuestions,
       shuffleOptions,
       showResults,
-      allowReview,
       autoGrade: checkIfAutoGradable(sections),
-      versions: {
-        create: {
-          version: newVersion,
-          title,
-          description: description || null,
-          totalPoints,
-          sections: {
-            create: sections.map((section, sectionIndex) => ({
-              title: section.title,
-              description: section.description || null,
-              order: sectionIndex,
-              questions: {
-                create: section.questions.map((question, questionIndex) => ({
-                  type: question.type,
-                  text: question.text,
-                  helpText: question.helpText || null,
-                  points: question.points || 1,
-                  order: questionIndex,
-                  correctAnswer: question.correctAnswer || null,
-                  feedback: question.feedback || null,
-                  options: question.options?.length ? {
-                    create: question.options.map((option, optionIndex) => ({
-                      text: option.text,
-                      order: optionIndex,
-                      isCorrect: option.isCorrect || false
-                    }))
-                  } : undefined
+      sections: {
+        create: sections.map((section, sectionIndex) => ({
+          title: section.title,
+          description: section.description || null,
+          order: sectionIndex,
+          questions: {
+            create: section.questions.map((question, questionIndex) => ({
+              type: question.type,
+              text: question.text,
+              helpText: question.helpText || null,
+              points: question.points || 1,
+              order: questionIndex,
+              correctAnswer: question.correctAnswer || null,
+              feedback: question.feedback || null,
+              options: question.options?.length ? {
+                create: question.options.map((option, optionIndex) => ({
+                  text: option.text,
+                  order: optionIndex,
+                  isCorrect: option.isCorrect || false
                 }))
-              }
+              } : undefined
             }))
           }
-        }
+        }))
       }
     },
     include: {
-      versions: {
+      sections: {
         include: {
-          sections: {
-            include: {
-              questions: {
-                include: {
-                  options: true
-                }
-              }
-            }
+          questions: {
+            include: { options: true }
           }
-        },
-        orderBy: { version: 'desc' }
+        }
       }
     }
   });
@@ -415,14 +349,14 @@ export const deleteExam = async (examId: string) => {
 /**
  * Publicar/despublicar un examen
  */
-export const toggleExamPublish = async (examId: string, isPublic: boolean) => {
+export const toggleExamPublish = async (examId: string, isActive: boolean) => {
   const examData = await prisma.exam.findUnique({ where: { id: examId } });
   
   const exam = await prisma.exam.update({
     where: { id: examId },
     data: { 
-      isPublic,
-      publicUrl: isPublic ? `/e/${examData?.slug}` : null
+      isActive,
+      publicUrl: isActive ? `/e/${examData?.slug}` : null
     }
   });
 
@@ -474,39 +408,6 @@ export const unshareExam = async (examId: string, userId: string) => {
 };
 
 /**
- * Subir archivo de apoyo
- */
-export const addSupportFile = async (examId: string, fileData: FileData) => {
-  const { fileName, fileUrl, fileType, fileSize } = fileData;
-
-  const maxOrder = await prisma.examFile.findFirst({
-    where: { examId },
-    orderBy: { order: 'desc' },
-    select: { order: true }
-  });
-
-  return await prisma.examFile.create({
-    data: {
-      examId,
-      fileName,
-      fileUrl,
-      fileType,
-      fileSize,
-      order: maxOrder ? maxOrder.order + 1 : 0
-    }
-  });
-};
-
-/**
- * Eliminar archivo de apoyo
- */
-export const deleteSupportFile = async (fileId: string) => {
-  return await prisma.examFile.delete({
-    where: { id: fileId }
-  });
-};
-
-/**
  * Verificar permisos de usuario sobre examen
  */
 export const checkExamPermission = async (
@@ -541,19 +442,6 @@ export const checkExamPermission = async (
 
   return null;
 };
-
-/**
- * Calcular puntos totales del examen
- */
-function calculateTotalPoints(sections: ExamSection[]): number {
-  let total = 0;
-  sections.forEach(section => {
-    section.questions.forEach(question => {
-      total += question.points || 1;
-    });
-  });
-  return total;
-}
 
 /**
  * Verificar si un examen puede ser calificado automáticamente
