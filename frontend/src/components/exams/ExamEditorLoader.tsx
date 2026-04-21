@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { examService } from '../../lib/examService';
 import ExamEditor from './ExamEditor';
-import type { Exam } from '../../lib/types';
+import type { Exam, ExamAccessType } from '../../lib/types';
 
 interface ExamEditorLoaderProps {
   examId: string;
@@ -49,44 +49,44 @@ export default function ExamEditorLoader({ examId }: ExamEditorLoaderProps) {
     );
   }
 
-  const latestVersion = exam.versions?.[0];
-  if (!latestVersion) {
-    return (
-      <div className="rounded-lg bg-yellow-50 p-4">
-        <h3 className="font-semibold text-yellow-800">Advertencia</h3>
-        <p className="text-yellow-700 text-sm mt-1">Este examen no tiene versiones</p>
-      </div>
-    );
-  }
-
   return (
     <ExamEditor
       examId={examId}
       initialData={{
         title: exam.title,
         description: exam.description,
-        templateId: exam.templateId,
+        instructions: exam.instructions,
         timeLimit: exam.timeLimit,
         maxAttempts: exam.maxAttempts,
         passingScore: exam.passingScore,
         shuffleQuestions: exam.shuffleQuestions,
         shuffleOptions: exam.shuffleOptions,
         showResults: exam.showResults,
-        allowReview: exam.allowReview,
-        sections: latestVersion.sections.map(section => ({
+        accessType: (exam.accessType as ExamAccessType) || 'PUBLIC',
+        questionsPerAttempt: exam.questionsPerAttempt,
+        sections: (exam.sections || []).map((section: any) => ({
+          id: section.id,
           title: section.title,
           description: section.description,
-          questions: section.questions.map(question => ({
+          fileUrl: section.fileUrl,
+          fileName: section.fileName,
+          fileType: section.fileType,
+          questions: (section.questions || []).map((question: any) => ({
+            id: question.id,
             type: question.type,
             text: question.text,
             helpText: question.helpText,
             points: question.points,
-            options: question.options?.map(opt => ({
+            options: question.options?.map((opt: any) => ({
               text: opt.text,
               isCorrect: opt.isCorrect
             })),
             correctAnswer: question.correctAnswer || undefined,
-            feedback: question.feedback || undefined
+            metadata: question.metadata || undefined,
+            feedback: question.feedback || undefined,
+            fileUrl: question.fileUrl,
+            fileName: question.fileName,
+            fileType: question.fileType,
           }))
         }))
       }}

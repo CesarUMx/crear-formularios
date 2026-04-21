@@ -153,10 +153,10 @@ export type ExamQuestionType =
   | 'CHECKBOX' 
   | 'TRUE_FALSE' 
   | 'MATCHING' 
-  | 'ORDERING';
+  | 'ORDERING'
+  | 'FILL_BLANK';
 
-// Tipos de mostrar resultados
-export type ShowResultsType = 'IMMEDIATE' | 'AFTER_DEADLINE' | 'MANUAL' | 'NEVER';
+export type ExamAccessType = 'PUBLIC' | 'PRIVATE';
 
 // Opción de pregunta de examen
 export interface ExamQuestionOption {
@@ -182,38 +182,25 @@ export interface ExamQuestion {
   order: number;
   options?: ExamQuestionOption[];
   correctAnswer?: CorrectAnswer | null;
+  metadata?: any;
   feedback?: string | null;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
 }
 
-// Sección de examen
+// Seccion de examen
 export interface ExamSection {
   id?: string;
   title: string;
   description?: string;
   order: number;
   questions: ExamQuestion[];
-}
-
-// Versión del examen
-export interface ExamVersion {
-  id: string;
-  version: number;
-  title?: string;
-  description?: string;
-  totalPoints: number;
-  sections: ExamSection[];
-  createdAt: string;
-}
-
-// Archivo de apoyo
-export interface ExamFile {
-  id: string;
-  fileName: string;
-  fileUrl: string;
-  fileType: string;
-  fileSize: number;
-  order: number;
-  uploadedAt: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
 }
 
 // Usuario compartido (examen)
@@ -236,19 +223,19 @@ export interface Exam {
   description?: string;
   slug: string;
   isActive: boolean;
-  isPublic: boolean;
   publicUrl?: string;
-  templateId?: string;
   
-  // Configuración
+  // Configuracion
+  accessType: ExamAccessType;
+  instructions?: string;
   timeLimit?: number;
   maxAttempts: number;
   passingScore: number;
   shuffleQuestions: boolean;
   shuffleOptions: boolean;
-  showResults: ShowResultsType;
-  allowReview: boolean;
+  showResults: boolean;
   autoGrade: boolean;
+  questionsPerAttempt?: number;
   
   // Relaciones
   createdAt: string;
@@ -258,12 +245,10 @@ export interface Exam {
     name: string;
     email: string;
   };
-  versions?: ExamVersion[];
-  supportFiles?: ExamFile[];
+  sections?: ExamSection[];
   sharedWith?: ExamShare[];
   _count?: {
     attempts: number;
-    versions: number;
   };
 }
 
@@ -271,59 +256,76 @@ export interface Exam {
 export interface ExamInput {
   title: string;
   description?: string;
-  templateId?: string;
+  instructions?: string;
   timeLimit?: number;
   maxAttempts?: number;
   passingScore?: number;
   shuffleQuestions?: boolean;
   shuffleOptions?: boolean;
-  showResults?: ShowResultsType;
-  allowReview?: boolean;
+  showResults?: boolean;
+  accessType?: ExamAccessType;
+  questionsPerAttempt?: number;
   sections: ExamSectionInput[];
 }
 
 export interface ExamSectionInput {
+  id?: string;
   title: string;
   description?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  pendingFile?: File; // Archivo seleccionado pero no subido aún
   questions: ExamQuestionInput[];
 }
 
 export interface ExamQuestionInput {
+  id?: string;
   type: ExamQuestionType;
   text: string;
   helpText?: string;
   points: number;
   options?: { text: string; isCorrect?: boolean }[];
   correctAnswer?: CorrectAnswer;
+  metadata?: any;
   feedback?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  pendingFile?: File; // Archivo seleccionado pero no subido aún
 }
 
 // Intento de examen
 export interface ExamAttempt {
   id: string;
   examId: string;
-  examVersionId: string;
   attemptNumber: number;
   studentName: string;
   studentEmail?: string;
   userId?: string;
+  sessionToken?: string;
   
   // Estado
   startedAt: string;
   completedAt?: string;
   timeSpent?: number;
   
-  // Calificación
+  // Calificacion
   score?: number;
   maxScore: number;
   percentage?: number;
-  passed?: boolean;
+  passed?: boolean | null;
   gradedAt?: string;
   gradedBy?: string;
+  autoGraded?: boolean;
+  requiresManualGrading?: boolean;
+  isGraded?: boolean;
+  
+  // Seguridad
+  tabSwitches?: number;
   
   // Relaciones
   exam?: Exam;
-  examVersion?: ExamVersion;
   answers?: ExamAnswer[];
 }
 
@@ -345,50 +347,59 @@ export interface ExamAnswer {
 
 // Resultado de intento (para mostrar al estudiante)
 export interface ExamAttemptResult {
-  attemptId: string;
-  examTitle: string;
-  studentName: string;
+  // Si showResults=false, solo viene message
+  message?: string;
+
+  attemptId?: string;
+  examTitle?: string;
+  studentName?: string;
   studentEmail?: string;
   
-  score: number;
-  maxScore: number;
-  percentage: number;
-  passed: boolean;
-  passingScore: number;
-  autoGraded: boolean;
+  score?: number;
+  maxScore?: number;
+  percentage?: number;
+  passed?: boolean;
+  passingScore?: number;
+  autoGraded?: boolean;
   feedback?: string;
   
-  startedAt: string;
-  completedAt: string;
-  timeSpent: number;
+  startedAt?: string;
+  completedAt?: string;
+  timeSpent?: number;
   
-  exam: {
+  exam?: {
+    id: string;
     title: string;
     slug: string;
     passingScore: number;
-    showResults: ShowResultsType;
-    allowReview: boolean;
+    showResults: boolean;
   };
   
-  answers: {
-    questionId: string;
-    textValue?: string;
-    selectedOptions?: ExamQuestionOption[];
-    pointsEarned: number;
-    isCorrect?: boolean;
-    feedback?: string;
-  }[];
-  
-  sections: {
+  sections?: {
     title: string;
     description?: string;
+    fileUrl?: string;
+    fileName?: string;
+    fileType?: string;
     questions: {
       id: string;
       type: ExamQuestionType;
       text: string;
       points: number;
+      metadata?: any;
       feedback?: string;
-      correctAnswer?: string;
+      fileUrl?: string;
+      fileName?: string;
+      fileType?: string;
+      options?: ExamQuestionOption[];
+      pointsEarned: number;
+      isCorrect?: boolean;
+      answerFeedback?: string;
+      studentAnswer: {
+        textValue?: string;
+        selectedOptions?: { id: string; text: string }[];
+        jsonValue?: any;
+      };
     }[];
   }[];
 }

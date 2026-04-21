@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api';
+import { API_URL } from './config';
 
 export interface PublicForm {
   id: string;

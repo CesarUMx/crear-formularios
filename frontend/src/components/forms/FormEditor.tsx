@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { formService } from '../../lib/formService';
 import type { QuestionType, SectionInput, QuestionInput } from '../../lib/types';
 import { TemplateSelector } from '../templates';
+import { PageHeader } from '../common';
+import { useColors } from '../../hooks/useColors';
 import { 
   Plus, 
   Trash2, 
@@ -10,7 +12,8 @@ import {
   AlertCircle,
   CheckCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  FileText
 } from 'lucide-react';
 
 interface FormEditorProps {
@@ -33,6 +36,7 @@ const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
 ];
 
 export default function FormEditor({ formId, initialData }: FormEditorProps) {
+  const colors = useColors();
   const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
   const [templateId, setTemplateId] = useState(initialData?.templateId || 'modern');
@@ -208,9 +212,17 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
   const needsOptions = (type: QuestionType) => ['SELECT', 'RADIO', 'CHECKBOX'].includes(type);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Mensajes */}
-      {error && (
+    <div className="space-y-6">
+      <PageHeader
+        icon={FileText}
+        title={formId ? "Editar Formulario" : "Crear Nuevo Formulario"}
+        description={formId ? "Modifica tu formulario existente" : "Diseña tu formulario agregando secciones y preguntas con puntos"}
+        primaryColor={colors.primaryColor}
+      />
+      
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Mensajes */}
+        {error && (
         <div className="rounded-lg bg-red-50 p-4 flex items-start">
           <AlertCircle className="h-5 w-5 text-red-400 mr-3 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-red-700">{error}</div>
@@ -592,12 +604,14 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
         <button
           type="submit"
           disabled={loading}
-          className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          style={{ backgroundColor: colors.primaryColor }}
+          className="px-6 py-2.5 text-white rounded-lg hover:opacity-90 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           <Save className="w-4 h-4" />
           {loading ? 'Guardando...' : formId ? 'Actualizar Formulario' : 'Crear Formulario'}
         </button>
       </div>
     </form>
+    </div>
   );
 }

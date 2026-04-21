@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api';
+import { API_URL } from './config';
 
 interface ApiError {
   error: string;
@@ -42,6 +42,15 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config);
+      
+      // Si el token es inválido o expiró (401), cerrar sesión automáticamente
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/';
+        throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+      }
+
       const data = await response.json();
 
       if (!response.ok) {

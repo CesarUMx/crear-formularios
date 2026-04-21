@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { userService } from '../../lib/userService';
 import type { UserRole } from '../../lib/types';
+import { useColors } from '../../hooks/useColors';
 import { Save, AlertCircle, CheckCircle, User, Mail, Lock, Shield } from 'lucide-react';
 import Modal from '../common/Modal';
 
@@ -11,6 +12,7 @@ interface CreateUserModalProps {
 }
 
 export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUserModalProps) {
+  const colors = useColors();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -185,7 +187,8 @@ export default function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUs
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            style={{ backgroundColor: colors.primaryColor }}
+            className="flex-1 px-4 py-2.5 text-white rounded-lg hover:opacity-90 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             <Save className="w-4 h-4" />
             {loading ? 'Creando...' : 'Crear Usuario'}

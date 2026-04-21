@@ -23,6 +23,7 @@
     "tailwindcss": "^4.1.16"
   },
   "devDependencies": {
-    "@astrojs/node": "^9.5.0"
+    "@astrojs/node": "^9.5.0",
+    "baseline-browser-mapping": "^2.10.8"
   }
 }

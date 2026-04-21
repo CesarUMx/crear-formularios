@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { userService } from '../../lib/userService';
 import type { SystemUser, UserStats } from '../../lib/types';
+import { useToast, ToastContainer, DeleteDialog, useDialog, PageHeader, EmptyState } from '../common';
+import { useColors } from '../../hooks/useColors';
 import { 
   Plus, 
   Users, 
@@ -25,6 +27,12 @@ export default function UserList() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<SystemUser | null>(null);
   const [resettingUser, setResettingUser] = useState<SystemUser | null>(null);
+  const [userToDelete, setUserToDelete] = useState<SystemUser | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const toast = useToast();
+  const deleteDialog = useDialog();
+  const colors = useColors();
 
   useEffect(() => {
     loadData();
@@ -51,21 +59,40 @@ export default function UserList() {
     try {
       await userService.toggleUserStatus(user.id, !user.isActive);
       await loadData();
+      toast.success(
+        user.isActive ? 'Usuario desactivado' : 'Usuario activado',
+        `${user.name} fue ${user.isActive ? 'desactivado' : 'activado'} correctamente`
+      );
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al cambiar estado');
+      toast.error(
+        'Error al cambiar estado',
+        err instanceof Error ? err.message : 'Ocurrió un error inesperado'
+      );
     }
   };
 
-  const handleDelete = async (user: SystemUser) => {
-    if (!confirm(`¿Estás seguro de eliminar a "${user.name}"?\n\nEsta acción no se puede deshacer.`)) {
-      return;
-    }
+  const handleDeleteClick = (user: SystemUser) => {
+    setUserToDelete(user);
+    deleteDialog.open();
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete) return;
+    
+    setDeleteLoading(true);
     try {
-      await userService.deleteUser(user.id);
+      await userService.deleteUser(userToDelete.id);
       await loadData();
+      toast.success('Usuario eliminado', `${userToDelete.name} fue eliminado correctamente`);
+      deleteDialog.close();
+      setUserToDelete(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar usuario');
+      toast.error(
+        'Error al eliminar usuario',
+        err instanceof Error ? err.message : 'Ocurrió un error inesperado'
+      );
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -91,17 +118,16 @@ export default function UserList() {
 
   return (
     <div className="space-y-6">
-      {/* Header con estadísticas */}
-      <div className="flex flex-col sm:flex-row justify-end items-start sm:items-center gap-4 mb-6">
-        <button
-          onClick={() => setShowCreateModal(true)}
-          style={{ backgroundColor: 'var(--color-secondary)' }}
-          className="flex items-center gap-2 px-4 py-2.5 text-white rounded-lg hover:opacity-90 transition-all shadow-lg font-medium"
-        >
-          <Plus className="w-5 h-5" />
-          Nuevo Usuario
-        </button>
-      </div>
+      {/* Header */}
+      <PageHeader
+        icon={Users}
+        title="Gestión de Usuarios"
+        description="Administra los usuarios del sistema"
+        buttonText={users.length > 0 ? "Nuevo Usuario" : undefined}
+        onButtonClick={users.length > 0 ? () => setShowCreateModal(true) : undefined}
+        buttonIcon={Plus}
+        primaryColor={colors.primaryColor}
+      />
 
       {/* Estadísticas */}
       {stats && (
@@ -149,9 +175,20 @@ export default function UserList() {
       )}
 
       {/* Tabla de usuarios */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+      {users.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="No hay usuarios"
+          description="Comienza agregando el primer usuario del sistema"
+          buttonText="Crear Usuario"
+          onButtonClick={() => setShowCreateModal(true)}
+          buttonIcon={Plus}
+          primaryColor={colors.primaryColor}
+        />
+      ) : (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -257,7 +294,7 @@ export default function UserList() {
                         <Key className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(user)}
+                        onClick={() => handleDeleteClick(user)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
                         title="Eliminar usuario"
                       >
@@ -271,6 +308,7 @@ export default function UserList() {
           </table>
         </div>
       </div>
+      )}
 
       {/* Modales */}
       <CreateUserModal
@@ -288,14 +326,24 @@ export default function UserList() {
         />
       )}
 
-      {resettingUser && (
-        <ResetPasswordModal
-          isOpen={true}
-          user={resettingUser}
-          onClose={() => setResettingUser(null)}
-          onSuccess={loadData}
-        />
-      )}
+      <ResetPasswordModal
+        isOpen={!!resettingUser}
+        user={resettingUser!}
+        onClose={() => setResettingUser(null)}
+        onSuccess={loadData}
+      />
+
+      {/* Delete Dialog */}
+      <DeleteDialog
+        isOpen={deleteDialog.isOpen}
+        onClose={deleteDialog.close}
+        onConfirm={handleDeleteConfirm}
+        itemName={userToDelete?.name || ''}
+        loading={deleteLoading}
+      />
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
     </div>
   );
 }

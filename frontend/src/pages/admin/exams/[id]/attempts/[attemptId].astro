@@ -1,0 +1,19 @@
+---
+import AdminLayout from '../../../../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../../../../components/auth/ProtectedRoute';
+import ExamGradingView from '../../../../../components/exams/ExamGradingView';
+
+export const prerender = false;
+const { id, attemptId } = Astro.params;
+if (!id || !attemptId) {
+  return Astro.redirect('/admin/exams');
+}
+---
+
+<AdminLayout title="Calificacion del Intento" currentPath="/admin/exams">
+  <ProtectedRoute client:load>
+    <div class="max-w-7xl mx-auto">
+      <ExamGradingView client:load examId={id} attemptId={attemptId} />
+    </div>
+  </ProtectedRoute>
+</AdminLayout>

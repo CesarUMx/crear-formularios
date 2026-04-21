@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { formService } from '../../lib/formService';
 import type { Form } from '../../lib/types';
 import ShareFormModal from './ShareFormModal';
+import { useToast, ToastContainer, DeleteDialog, useDialog, PageHeader, EmptyState } from '../common';
+import { useColors } from '../../hooks/useColors';
 import { 
   Plus, 
   FileText, 
@@ -25,6 +27,12 @@ export default function FormList() {
   const [error, setError] = useState('');
   const [shareModalForm, setShareModalForm] = useState<{ id: string; title: string } | null>(null);
   const [copiedFormId, setCopiedFormId] = useState<string | null>(null);
+  const [formToDelete, setFormToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  const toast = useToast();
+  const deleteDialog = useDialog();
+  const colors = useColors();
 
   useEffect(() => {
     loadForms();
@@ -47,19 +55,40 @@ export default function FormList() {
     try {
       await formService.toggleFormStatus(id, !currentStatus);
       await loadForms();
+      toast.success(
+        currentStatus ? 'Formulario desactivado' : 'Formulario activado',
+        'El estado se actualizó correctamente'
+      );
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al cambiar estado');
+      toast.error(
+        'Error al cambiar estado',
+        err instanceof Error ? err.message : 'Ocurrió un error inesperado'
+      );
     }
   };
 
-  const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`¿Estás seguro de eliminar "${title}"?`)) return;
+  const handleDeleteClick = (id: string, title: string) => {
+    setFormToDelete({ id, title });
+    deleteDialog.open();
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!formToDelete) return;
+    
+    setDeleteLoading(true);
     try {
-      await formService.deleteForm(id);
+      await formService.deleteForm(formToDelete.id);
       await loadForms();
+      toast.success('Formulario eliminado', `"${formToDelete.title}" fue eliminado correctamente`);
+      deleteDialog.close();
+      setFormToDelete(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar formulario');
+      toast.error(
+        'Error al eliminar formulario',
+        err instanceof Error ? err.message : 'Ocurrió un error inesperado'
+      );
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -74,8 +103,9 @@ export default function FormList() {
       await navigator.clipboard.writeText(url);
       setCopiedFormId(form.id);
       setTimeout(() => setCopiedFormId(null), 2000);
+      toast.success('Enlace copiado', 'El enlace público fue copiado al portapapeles');
     } catch (err) {
-      alert('Error al copiar enlace');
+      toast.error('Error al copiar enlace', 'No se pudo copiar el enlace al portapapeles');
     }
   };
 
@@ -107,34 +137,27 @@ export default function FormList() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
-          <p className="text-gray-600">Crea, edita y gestiona tus formularios</p>
-        </div>
-        <a
-          href="/admin/forms/new"
-          style={{ backgroundColor: 'var(--color-secondary)' }}
-          className="flex items-center gap-2 px-4 py-2.5 text-white rounded-lg hover:opacity-90 transition-all shadow-lg font-medium"
-        >
-          <Plus className="w-5 h-5" />
-          Nuevo Formulario
-        </a>
-      </div>
+      <PageHeader
+        icon={FileText}
+        title="Mis Formularios"
+        description="Crea, edita y gestiona tus formularios"
+        buttonText={forms.length > 0 ? "Nuevo Formulario" : undefined}
+        onButtonClick={forms.length > 0 ? () => window.location.href = '/admin/forms/new' : undefined}
+        buttonIcon={Plus}
+        primaryColor={colors.primaryColor}
+      />
 
       {/* Lista de formularios */}
       {forms.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
-          <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No hay formularios</h3>
-          <p className="text-gray-600 mb-6">Comienza creando tu primer formulario</p>
-          <a
-            href="/admin/forms/new"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
-          >
-            <Plus className="w-5 h-5" />
-            Crear Formulario
-          </a>
-        </div>
+        <EmptyState
+          icon={FileText}
+          title="No hay formularios"
+          description="Comienza creando tu primer formulario"
+          buttonText="Crear Formulario"
+          onButtonClick={() => window.location.href = '/admin/forms/new'}
+          buttonIcon={Plus}
+          primaryColor={colors.primaryColor}
+        />
       ) : (
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
           {forms.map((form) => (
@@ -269,7 +292,7 @@ export default function FormList() {
                   <span className="whitespace-nowrap">Ver</span>
                 </a>
                 <button
-                  onClick={() => handleDelete(form.id, form.title)}
+                  onClick={() => handleDeleteClick(form.id, form.title)}
                   className="flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] min-w-[45px] text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition"
                   title="Eliminar"
                 >
@@ -289,6 +312,18 @@ export default function FormList() {
           onClose={() => setShareModalForm(null)}
         />
       )}
+
+      {/* Delete Dialog */}
+      <DeleteDialog
+        isOpen={deleteDialog.isOpen}
+        onClose={deleteDialog.close}
+        onConfirm={handleDeleteConfirm}
+        itemName={formToDelete?.title || ''}
+        loading={deleteLoading}
+      />
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
     </div>
   );
 }

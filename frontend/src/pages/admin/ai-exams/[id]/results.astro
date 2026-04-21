@@ -1,0 +1,19 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../../../components/auth/ProtectedRoute';
+import { AIExamResults } from '../../../../components/ai-exams';
+
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/admin/ai-exams');
+}
+---
+
+<AdminLayout title="Resultados del Examen" currentPath="/admin/ai-exams">
+  <ProtectedRoute client:load>
+    <div class="max-w-7xl mx-auto">
+      <AIExamResults client:load examId={id} />
+    </div>
+  </ProtectedRoute>
+</AdminLayout>

@@ -1,0 +1,14 @@
+---
+import ManualGradingView from '../../../components/ai-exams/ManualGradingView';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+
+const { attemptId } = Astro.params;
+
+if (!attemptId) {
+  return Astro.redirect('/admin/grading/pending');
+}
+---
+
+<AdminLayout title="Calificación Manual">
+  <ManualGradingView client:load attemptId={attemptId} />
+</AdminLayout>

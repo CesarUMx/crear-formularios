@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { userService } from '../../lib/userService';
 import type { SystemUser, UserRole } from '../../lib/types';
+import { useColors } from '../../hooks/useColors';
 import { Save, AlertCircle, CheckCircle, User, Shield } from 'lucide-react';
 import Modal from '../common/Modal';
 
@@ -12,11 +13,17 @@ interface EditUserModalProps {
 }
 
 export default function EditUserModal({ isOpen, user, onClose, onSuccess }: EditUserModalProps) {
-  const [name, setName] = useState(user.name);
-  const [role, setRole] = useState<UserRole>(user.role);
+  const colors = useColors();
+  const [name, setName] = useState(user?.name || '');
+  const [role, setRole] = useState<UserRole>(user?.role || 'TEACHER');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Validar que user no sea null
+  if (!user) {
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,7 +177,8 @@ export default function EditUserModal({ isOpen, user, onClose, onSuccess }: Edit
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            style={{ backgroundColor: colors.primaryColor }}
+            className="flex-1 px-4 py-2.5 text-white rounded-lg hover:opacity-90 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             <Save className="w-4 h-4" />
             {loading ? 'Guardando...' : 'Guardar Cambios'}
