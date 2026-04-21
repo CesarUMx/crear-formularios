@@ -9,6 +9,7 @@ interface StudentData {
   name: string;
   email?: string;
   userId?: string;
+  studentId?: string;
 }
 
 interface AnswerData {
@@ -96,13 +97,39 @@ export const startExamAttempt = async (
     sum + section.questions.reduce((qSum, q) => qSum + q.points, 0), 0
   );
 
-  // Seleccionar preguntas (pool si está configurado)
-  let allQuestions = exam.sections.flatMap(s => s.questions);
+  // Seleccionar preguntas (pool si está configurado) - POR SECCIÓN
   let selectedQuestionIds: string[] | null = null;
-  if (exam.questionsPerAttempt && exam.questionsPerAttempt < allQuestions.length) {
-    const shuffled = shuffleArray(allQuestions);
-    const selected = shuffled.slice(0, exam.questionsPerAttempt);
-    selectedQuestionIds = selected.map(q => q.id);
+  if (exam.questionsPerAttempt) {
+    const totalQuestions = exam.sections.reduce((sum, s) => sum + s.questions.length, 0);
+    
+    if (exam.questionsPerAttempt < totalQuestions) {
+      // Selección proporcional por sección
+      selectedQuestionIds = [];
+      let remaining = exam.questionsPerAttempt;
+      
+      exam.sections.forEach((section, idx) => {
+        const sectionTotal = section.questions.length;
+        const proportion = sectionTotal / totalQuestions;
+        
+        // Calcular cuántas preguntas tomar de esta sección (proporcionalmente)
+        let toSelect = Math.round(proportion * exam.questionsPerAttempt!);
+        
+        // Ajuste para la última sección (evitar redondeos)
+        if (idx === exam.sections.length - 1) {
+          toSelect = remaining;
+        }
+        
+        // No puede seleccionar más de las que existen en la sección
+        toSelect = Math.min(toSelect, sectionTotal);
+        
+        // Seleccionar aleatoriamente X preguntas de esta sección
+        const shuffledSection = shuffleArray([...section.questions]);
+        const selected = shuffledSection.slice(0, toSelect);
+        selectedQuestionIds!.push(...selected.map((q: any) => q.id));
+        
+        remaining -= toSelect;
+      });
+    }
   }
 
   const attempt = await prisma.examAttempt.create({
@@ -112,7 +139,9 @@ export const startExamAttempt = async (
       studentName: studentData.name,
       studentEmail: studentData.email || null,
       userId: studentData.userId || null,
+      studentId: studentData.studentId || null,
       selectedQuestions: selectedQuestionIds || undefined,
+      sessionToken: `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`,
       ipAddress,
       userAgent,
       maxScore: totalPoints
@@ -145,31 +174,83 @@ export const startExamAttempt = async (
     })).filter(s => s.questions.length > 0);
   }
 
-  // Mezclar preguntas si está habilitado
+  console.log('=== SHUFFLE DEBUG ===');
+  console.log('shuffleQuestions:', exam.shuffleQuestions);
+  console.log('shuffleOptions:', exam.shuffleOptions);
+  console.log('Total sections:', sections.length);
+  console.log('Questions per section:', sections.map((s: any) => s.questions.length));
+
+  // Mezclar preguntas si está habilitado (usando attempt.id como seed para consistencia al recargar)
   if (exam.shuffleQuestions) {
+    console.log('🔀 Mezclando preguntas con seed:', attempt.id);
     sections.forEach((section: any) => {
-      section.questions = shuffleArray(section.questions);
+      section.questions = shuffleArrayWithSeed(section.questions, `${attempt.id}-s${section.id}`);
     });
+  } else {
+    console.log('⚠️ shuffleQuestions está DESACTIVADO');
   }
 
-  // Mezclar opciones si está habilitado
+  // Mezclar opciones si está habilitado (RADIO/CHECKBOX/TRUE_FALSE, MATCHING y ORDERING)
   if (exam.shuffleOptions) {
+    console.log('🔀 Mezclando opciones con seed:', attempt.id);
     sections.forEach((section: any) => {
       section.questions.forEach((question: any) => {
+        // Opciones de RADIO, CHECKBOX, TRUE_FALSE
         if (question.options && question.options.length > 0) {
-          question.options = shuffleArray(question.options);
+          question.options = shuffleArrayWithSeed(question.options, `${attempt.id}-q${question.id}`);
+        }
+        // MATCHING: mezclar la columna derecha
+        if (question.type === 'MATCHING' && question.metadata?.pairs) {
+          const rightColumn = question.metadata.pairs.map((p: any) => p.right);
+          question.shuffledRightColumn = shuffleArrayWithSeed(rightColumn, `${attempt.id}-m${question.id}`);
+        }
+        // ORDERING: mezclar los items
+        if (question.type === 'ORDERING' && question.metadata?.items) {
+          question.shuffledItems = shuffleArrayWithSeed([...question.metadata.items], `${attempt.id}-o${question.id}`);
         }
       });
     });
+  } else {
+    console.log('⚠️ shuffleOptions está DESACTIVADO');
   }
 
-  // Sanitizar el attempt para enviar solo información necesaria
+  // Sanitizar el attempt - sections dentro de exam para coincidir con getAttemptById
+  const sanitizedSections = sections.map((section: any) => ({
+    id: section.id,
+    title: section.title,
+    description: section.description,
+    order: section.order,
+    fileUrl: section.fileUrl,
+    fileName: section.fileName,
+    fileType: section.fileType,
+    questions: section.questions.map((question: any) => ({
+      id: question.id,
+      type: question.type,
+      text: question.text,
+      helpText: question.helpText,
+      points: question.points,
+      order: question.order,
+      metadata: question.metadata,
+      shuffledRightColumn: (question as any).shuffledRightColumn,
+      shuffledItems: (question as any).shuffledItems,
+      fileUrl: question.fileUrl,
+      fileName: question.fileName,
+      fileType: question.fileType,
+      options: question.options?.map((opt: any) => ({
+        id: opt.id,
+        text: opt.text,
+        order: opt.order
+      }))
+    }))
+  }));
+
   const sanitizedAttempt = {
     id: attempt.id,
     attemptNumber: attempt.attemptNumber,
     studentName: attempt.studentName,
     studentEmail: attempt.studentEmail,
     startedAt: attempt.startedAt,
+    sessionToken: attempt.sessionToken,
     timeLimit: exam.timeLimit,
     maxScore: attempt.maxScore,
     exam: {
@@ -180,34 +261,11 @@ export const startExamAttempt = async (
       instructions: attempt.exam.instructions,
       timeLimit: attempt.exam.timeLimit,
       shuffleQuestions: attempt.exam.shuffleQuestions,
-      shuffleOptions: attempt.exam.shuffleOptions
+      shuffleOptions: attempt.exam.shuffleOptions,
+      sections: sanitizedSections
     },
-    sections: sections.map((section: any) => ({
-      id: section.id,
-      title: section.title,
-      description: section.description,
-      order: section.order,
-      fileUrl: section.fileUrl,
-      fileName: section.fileName,
-      fileType: section.fileType,
-      questions: section.questions.map((question: any) => ({
-        id: question.id,
-        type: question.type,
-        text: question.text,
-        helpText: question.helpText,
-        points: question.points,
-        order: question.order,
-        metadata: question.metadata,
-        fileUrl: question.fileUrl,
-        fileName: question.fileName,
-        fileType: question.fileType,
-        options: question.options?.map((opt: any) => ({
-          id: opt.id,
-          text: opt.text,
-          order: opt.order
-        }))
-      }))
-    }))
+    // Mantener también a nivel raíz por retrocompatibilidad
+    sections: sanitizedSections
   };
 
   return sanitizedAttempt;
@@ -354,19 +412,15 @@ export const submitExamAttempt = async (attemptId: string) => {
   });
 
   // Si el examen es auto-calificable, calificarlo automáticamente
-  if (attempt.exam.autoGrade) {
-    const result = await gradeExamAttempt(attemptId);
-    return {
-      completed: true,
-      autoGraded: true,
-      ...result
-    };
-  }
+  // Siempre ejecutar auto-calificación para las preguntas que sí son auto-calificables.
+  // Las preguntas TEXT/TEXTAREA sin keywords quedarán pendientes (isCorrect = null)
+  // y el profesor deberá calificarlas manualmente.
+  const result = await gradeExamAttempt(attemptId);
 
   return {
     completed: true,
-    autoGraded: false,
-    message: 'Tu examen ha sido enviado y será calificado manualmente'
+    autoGraded: true,
+    ...result
   };
 };
 
@@ -431,9 +485,13 @@ export const getAttemptResult = async (attemptId: string) => {
     passed: attempt.passed,
     passingScore: attempt.exam.passingScore,
     autoGraded: attempt.autoGraded,
+    requiresManualGrading: attempt.requiresManualGrading,
+    isGraded: attempt.isGraded,
     exam: {
       id: attempt.exam.id,
       title: attempt.exam.title,
+      slug: (attempt.exam as any).slug,
+      passingScore: attempt.exam.passingScore,
       showResults: attempt.exam.showResults
     },
     sections: [] as any[]
@@ -444,17 +502,30 @@ export const getAttemptResult = async (attemptId: string) => {
     result.sections = attempt.exam.sections.map((section: any) => ({
       title: section.title,
       description: section.description,
+      fileUrl: section.fileUrl,
+      fileName: section.fileName,
+      fileType: section.fileType,
       questions: section.questions.map((question: any) => {
         const answer = attempt.answers.find((a: any) => a.questionId === question.id);
         
         return {
+          id: question.id,
           text: question.text,
           type: question.type,
           points: question.points,
           metadata: question.metadata,
+          fileUrl: question.fileUrl,
+          fileName: question.fileName,
+          fileType: question.fileType,
+          feedback: question.feedback,
+          options: question.options?.map((opt: any) => ({
+            id: opt.id,
+            text: opt.text,
+            isCorrect: opt.isCorrect
+          })),
           pointsEarned: answer?.pointsEarned || 0,
           isCorrect: answer?.isCorrect,
-          feedback: answer?.feedback,
+          answerFeedback: answer?.feedback,
           studentAnswer: {
             textValue: answer?.textValue,
             selectedOptions: answer?.selectedOptions?.map((opt: any) => ({
@@ -462,13 +533,7 @@ export const getAttemptResult = async (attemptId: string) => {
               text: opt.text
             })),
             jsonValue: answer?.jsonValue
-          },
-          correctAnswer: question.options
-            ?.filter((opt: any) => opt.isCorrect)
-            .map((opt: any) => ({
-              id: opt.id,
-              text: opt.text
-            }))
+          }
         };
       })
     }));
@@ -496,7 +561,7 @@ export const getExamAttempts = async (examId: string) => {
  * Obtener un intento específico (para admin)
  */
 export const getAttemptById = async (attemptId: string) => {
-  return await prisma.examAttempt.findUnique({
+  const attempt = await prisma.examAttempt.findUnique({
     where: { id: attemptId },
     include: {
       exam: {
@@ -504,8 +569,8 @@ export const getAttemptById = async (attemptId: string) => {
           sections: {
             include: {
               questions: {
-                include: { options: true },
-                orderBy: { order: 'asc' }
+                include: { options: true }
+                // NO usar orderBy - el shuffle se aplica después
               }
             },
             orderBy: { order: 'asc' }
@@ -525,7 +590,62 @@ export const getAttemptById = async (attemptId: string) => {
       }
     }
   });
+
+  if (!attempt) {
+    return null;
+  }
+
+  // Aplicar shuffle consistente usando attemptId como seed (mismo que startExamAttempt)
+  // Esto es importante para que al recargar la página, las preguntas aparezcan en el mismo orden
+  if (attempt.exam.shuffleQuestions) {
+    attempt.exam.sections.forEach((section: any) => {
+      section.questions = shuffleArrayWithSeed(section.questions, `${attemptId}-s${section.id}`);
+    });
+  }
+
+  if (attempt.exam.shuffleOptions) {
+    attempt.exam.sections.forEach((section: any) => {
+      section.questions.forEach((question: any) => {
+        if (question.options && question.options.length > 0) {
+          question.options = shuffleArrayWithSeed(question.options, `${attemptId}-q${question.id}`);
+        }
+        // MATCHING: mezclar columna derecha
+        if (question.type === 'MATCHING' && question.metadata?.pairs) {
+          const rightColumn = question.metadata.pairs.map((p: any) => p.right);
+          question.shuffledRightColumn = shuffleArrayWithSeed(rightColumn, `${attemptId}-m${question.id}`);
+        }
+        // ORDERING: mezclar items
+        if (question.type === 'ORDERING' && question.metadata?.items) {
+          question.shuffledItems = shuffleArrayWithSeed([...question.metadata.items], `${attemptId}-o${question.id}`);
+        }
+      });
+    });
+  }
+
+  return attempt;
 };
+
+/**
+ * Shuffle con seed para mantener orden consistente entre recargas
+ */
+function shuffleArrayWithSeed<T>(array: T[], seed: string): T[] {
+  const arr = [...array];
+  // Generar hash positivo a partir del seed
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    hash = hash >>> 0; // Convertir a unsigned 32-bit (siempre positivo)
+  }
+  // Fisher-Yates con generador pseudo-aleatorio determinístico
+  for (let i = arr.length - 1; i > 0; i--) {
+    hash = (hash * 9301 + 49297) % 233280;
+    hash = Math.abs(hash); // Garantizar positivo
+    const j = Math.floor((hash / 233280) * (i + 1));
+    const safeJ = Math.max(0, Math.min(j, i)); // Garantizar índice válido
+    [arr[i], arr[safeJ]] = [arr[safeJ], arr[i]];
+  }
+  return arr;
+}
 
 /**
  * Verificar si un estudiante puede tomar el examen
@@ -591,4 +711,53 @@ export const canTakeExam = async (
     attemptsUsed: attemptCount,
     maxAttempts: exam.maxAttempts
   };
+};
+
+// ==================== SEGURIDAD ====================
+
+/**
+ * Registrar cambio de pestaña
+ */
+export const recordTabSwitch = async (attemptId: string) => {
+  const attempt = await prisma.examAttempt.findUnique({
+    where: { id: attemptId }
+  });
+  if (!attempt) throw new Error('Intento no encontrado');
+  if (attempt.completedAt) throw new Error('Este examen ya ha sido completado');
+
+  return await prisma.examAttempt.update({
+    where: { id: attemptId },
+    data: {
+      tabSwitches: { increment: 1 }
+    },
+    select: { id: true, tabSwitches: true }
+  });
+};
+
+/**
+ * Guardar foto del estudiante
+ */
+export const saveStudentPhoto = async (attemptId: string, photoData: string) => {
+  const attempt = await prisma.examAttempt.findUnique({
+    where: { id: attemptId }
+  });
+  if (!attempt) throw new Error('Intento no encontrado');
+
+  return await prisma.examAttempt.update({
+    where: { id: attemptId },
+    data: { studentPhoto: photoData },
+    select: { id: true }
+  });
+};
+
+/**
+ * Validar session token
+ */
+export const validateSessionToken = async (attemptId: string, sessionToken: string): Promise<boolean> => {
+  const attempt = await prisma.examAttempt.findUnique({
+    where: { id: attemptId },
+    select: { sessionToken: true }
+  });
+  if (!attempt) return false;
+  return attempt.sessionToken === sessionToken;
 };

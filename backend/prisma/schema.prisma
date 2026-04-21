@@ -308,6 +308,7 @@ model Exam {
   attempts   ExamAttempt[]
   sharedWith ExamShare[]
   students   ExamStudent[]
+  reports    ExamQuestionReport[]
 
   @@map("exams")
 }
@@ -441,6 +442,7 @@ model ExamAttempt {
   user    User?         @relation(fields: [userId], references: [id])
   student ExamStudent?  @relation(fields: [studentId], references: [id])
   answers ExamAnswer[]
+  reports ExamQuestionReport[]
 
   @@index([examId, attemptNumber])
   @@index([sessionToken])
@@ -503,6 +505,29 @@ model ExamStudent {
 
   @@unique([examId, email])
   @@map("exam_students")
+}
+
+// Reportes de preguntas de exámenes normales
+model ExamQuestionReport {
+  id             String   @id @default(cuid())
+  examId         String
+  attemptId      String
+  questionId     String
+  questionText   String
+  userAnswer     String
+  correctAnswer  String
+  reason         String
+  status         ReportStatus @default(PENDING)
+  reviewedAt     DateTime?
+  reviewedBy     String?
+  reviewNotes    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  exam    Exam        @relation(fields: [examId], references: [id], onDelete: Cascade)
+  attempt ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@map("exam_question_reports")
 }
 
 // ==================== MODELOS DE EXÁMENES CON IA ====================

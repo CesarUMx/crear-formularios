@@ -26,7 +26,7 @@ let platformColors = {
 
 try {
   const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api';
-  const response = await fetch(`${API_URL}/settings/colors`, {
+  const response = await fetch(`${API_URL}/api/settings/colors`, {
     headers: { 'Cache-Control': 'no-cache' }
   });
   
@@ -124,7 +124,7 @@ try {
         const updateColorsFromServer = async () => {
           try {
             const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api';
-            const response = await fetch(`${API_URL}/settings/colors`, { 
+            const response = await fetch(`${API_URL}/api/settings/colors`, { 
               headers: { 'Cache-Control': 'no-cache' },
               cache: 'no-store'
             });

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { aiExamService } from '../../lib/aiExamService';
-import { useToast, ToastContainer, Dialog, useDialog, PageHeader } from '../common';
+import { API_URL } from '../../lib/config';
+import { useToast, ToastContainer, Dialog, useDialog, PageHeader, QuestionRenderer } from '../common';
 import { useColors } from '../../hooks/useColors';
 import ExamLoader from './ExamLoader';
 import QuestionTypeSelector from './QuestionTypeSelector';
 import type { QuestionType } from './QuestionTypeSelector';
-import QuestionRenderer from './QuestionRenderer';
 import {
   Brain,
   Upload,
@@ -19,6 +19,10 @@ import {
   Save,
   Sparkles,
   RefreshCw,
+  Globe,
+  Lock,
+  Clock,
+  Eye,
 } from 'lucide-react';
 
 interface GeneratedQuestion {
@@ -67,6 +71,7 @@ export default function AIExamGenerator({ examId: initialExamId }: AIExamGenerat
   const [passingScore, setPassingScore] = useState(60);
   const [accessType, setAccessType] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC');
   const [questionsPerAttempt, setQuestionsPerAttempt] = useState(10);
+  const [showResults, setShowResults] = useState(true);
 
   // Step 2: Generación con IA
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -153,6 +158,7 @@ export default function AIExamGenerator({ examId: initialExamId }: AIExamGenerat
         passingScore,
         accessType,
         questionsPerAttempt,
+        showResults,
       });
 
       setExamId(exam.id);
@@ -228,7 +234,7 @@ export default function AIExamGenerator({ examId: initialExamId }: AIExamGenerat
       const jobId = `${examId}-${Date.now()}`;
       
       // Conectar SSE inmediatamente
-      eventSource = new EventSource(`http://localhost:3000/api/progress/${jobId}`);
+      eventSource = new EventSource(`${API_URL}/progress/${jobId}`);
       
       eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -377,7 +383,7 @@ export default function AIExamGenerator({ examId: initialExamId }: AIExamGenerat
         throw new Error('Pregunta no encontrada');
       }
 
-      const response = await fetch(`http://localhost:3000/api/ai-exams/questions/${questionToRegenerate.id}/regenerate`, {
+      const response = await fetch(`${API_URL}/ai-exams/questions/${questionToRegenerate.id}/regenerate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -450,150 +456,170 @@ export default function AIExamGenerator({ examId: initialExamId }: AIExamGenerat
 
       {/* Step 1: Configuración */}
       {step === 1 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Título */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Título del Examen *
-              </label>
+        <div className="space-y-6">
+          {/* Informacion del Examen */}
+          <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Informacion del Examen
+            </h3>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Titulo *</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
-                placeholder="Ej: Examen de Historia de México"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Ej: Examen de Historia de Mexico"
                 required
               />
             </div>
 
-            {/* Descripción */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Descripción
-              </label>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Descripcion</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
-                placeholder="Descripción breve del examen..."
+                rows={2}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Descripcion del examen..."
               />
             </div>
 
-            {/* Instrucciones */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Instrucciones para el Estudiante
-              </label>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Instrucciones para el Estudiante</label>
               <textarea
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Lee cuidadosamente cada pregunta antes de responder..."
               />
             </div>
+          </div>
 
-            {/* Tiempo límite */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tiempo Límite (minutos)
-              </label>
-              <input
-                type="number"
-                value={timeLimit}
-                onChange={(e) => setTimeLimit(e.target.value ? Number(e.target.value) : '')}
-                min="1"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
-                placeholder="Sin límite"
-              />
+          {/* Configuracion */}
+          <div className="bg-white rounded-lg shadow-sm p-6 space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Settings className="w-5 h-5" />
+              Configuracion
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <Clock className="w-4 h-4 inline mr-1" />
+                  Tiempo Limite (min)
+                </label>
+                <input
+                  type="number"
+                  value={timeLimit}
+                  onChange={(e) => setTimeLimit(e.target.value ? Number(e.target.value) : '')}
+                  min="1"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Sin limite"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Intentos Maximos</label>
+                <input
+                  type="number"
+                  value={maxAttempts}
+                  onChange={(e) => setMaxAttempts(Number(e.target.value))}
+                  min="1"
+                  max="10"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Calificacion Minima (%)</label>
+                <input
+                  type="number"
+                  value={passingScore}
+                  onChange={(e) => setPassingScore(Number(e.target.value))}
+                  min="0"
+                  max="100"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
             </div>
 
-            {/* Intentos máximos */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Intentos Máximos
-              </label>
-              <input
-                type="number"
-                value={maxAttempts}
-                onChange={(e) => setMaxAttempts(Number(e.target.value))}
-                min="1"
-                max="10"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
-              />
-            </div>
-
-            {/* Puntaje de aprobación */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Puntaje de Aprobación (%)
-              </label>
-              <input
-                type="number"
-                value={passingScore}
-                onChange={(e) => setPassingScore(Number(e.target.value))}
-                min="0"
-                max="100"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
-              />
-            </div>
-
-            {/* Preguntas por intento */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Preguntas por Intento
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Preguntas por Intento</label>
               <input
                 type="number"
                 value={questionsPerAttempt}
                 onChange={(e) => setQuestionsPerAttempt(Number(e.target.value))}
                 min="1"
                 max="50"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
+                className="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Número de preguntas que verá cada estudiante
-              </p>
+              <p className="text-xs text-gray-500 mt-1">Numero de preguntas que vera cada estudiante</p>
             </div>
 
             {/* Tipo de acceso */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Acceso
-              </label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="PUBLIC"
-                    checked={accessType === 'PUBLIC'}
-                    onChange={(e) => setAccessType(e.target.value as 'PUBLIC')}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm">Público (cualquiera con el link)</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="PRIVATE"
-                    checked={accessType === 'PRIVATE'}
-                    onChange={(e) => setAccessType(e.target.value as 'PRIVATE')}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm">Privado (solo estudiantes autorizados)</span>
-                </label>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Acceso</label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAccessType('PUBLIC')}
+                  className={`flex-1 flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition ${
+                    accessType === 'PUBLIC'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <Globe className="w-5 h-5" />
+                  <div className="text-left">
+                    <p className="font-medium">Publico</p>
+                    <p className="text-xs text-gray-500">Cualquiera con el enlace</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccessType('PRIVATE')}
+                  className={`flex-1 flex items-center gap-2 px-4 py-3 rounded-lg border-2 transition ${
+                    accessType === 'PRIVATE'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <Lock className="w-5 h-5" />
+                  <div className="text-left">
+                    <p className="font-medium">Privado</p>
+                    <p className="text-xs text-gray-500">Solo estudiantes autorizados</p>
+                  </div>
+                </button>
               </div>
             </div>
+
+            {/* Mostrar resultados */}
+            <label className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition">
+              <Eye className="w-4 h-4 text-gray-500 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-700">Mostrar resultados</p>
+                <p className="text-xs text-gray-400">Alumno ve calificacion y respuestas</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={showResults}
+                onChange={(e) => setShowResults(e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded"
+              />
+            </label>
           </div>
 
-          <div className="flex justify-end pt-4 border-t">
+          {/* Boton Continuar */}
+          <div className="flex justify-end">
             <button
               onClick={handleCreateExam}
               disabled={loading}
               style={{ backgroundColor: colors.primaryColor }}
-              className="flex items-center gap-2 px-6 py-2.5 text-white rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-6 py-3 text-white rounded-lg font-medium hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>

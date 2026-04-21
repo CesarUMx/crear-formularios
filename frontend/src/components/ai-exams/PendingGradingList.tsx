@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ClipboardCheck, User, Calendar, FileText, ArrowRight, AlertCircle } from 'lucide-react';
+import { API_URL } from '../../lib/config';
 
 interface PendingAttempt {
   id: string;
@@ -31,7 +32,7 @@ export default function PendingGradingList() {
 
   const fetchPendingAttempts = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/grading/pending');
+      const response = await fetch(`${API_URL}/grading/pending`);
       const data = await response.json();
       setAttempts(data);
     } catch (error) {

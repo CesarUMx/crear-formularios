@@ -16,7 +16,7 @@ export interface AIExam {
   passingScore: number;
   shuffleQuestions: boolean;
   shuffleOptions: boolean;
-  showResults: string;
+  showResults: boolean;
   allowReview: boolean;
   totalQuestionsInPool: number;
   questionsPerAttempt: number;
@@ -102,6 +102,7 @@ export interface CreateAIExamData {
   passingScore?: number;
   accessType: 'PUBLIC' | 'PRIVATE';
   questionsPerAttempt: number;
+  showResults?: boolean;
 }
 
 export interface GenerateQuestionsData {
@@ -459,6 +460,61 @@ class AIExamService {
       throw new Error(error.error || 'Error al enviar invitación');
     }
 
+    return response.json();
+  }
+
+  // ==================== COMPARTIR ====================
+
+  async getShares(examId: string) {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/ai-exams/${examId}/shares`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Error al obtener compartidos');
+    return response.json();
+  }
+
+  async getAvailableUsers(examId: string) {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/ai-exams/${examId}/available-users`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Error al obtener usuarios');
+    return response.json();
+  }
+
+  async shareExam(examId: string, userId: string, permission: string) {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/ai-exams/${examId}/share`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ userId, permission }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Error al compartir');
+    }
+    return response.json();
+  }
+
+  async updateSharePermission(examId: string, userId: string, permission: string) {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/ai-exams/${examId}/share/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ permission }),
+    });
+    if (!response.ok) throw new Error('Error al actualizar permiso');
+    return response.json();
+  }
+
+  async unshareExam(examId: string, userId: string) {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/ai-exams/${examId}/share/${userId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Error al eliminar acceso');
     return response.json();
   }
 }

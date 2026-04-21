@@ -5,199 +5,174 @@ import type {
   Permission, 
   ExamAttempt, 
   ExamAttemptResult,
-  ExamStats,
-  ExamQuestionOption 
+  ExamStats 
 } from './types';
+import { API_URL } from './config';
 
 export const examService = {
-  /**
-   * Obtener todos los exámenes del usuario
-   */
+  // ==================== CRUD ====================
+
   async getExams(): Promise<Exam[]> {
     return api.get<Exam[]>('/exams');
   },
 
-  /**
-   * Obtener un examen por ID
-   */
   async getExamById(id: string): Promise<Exam> {
     return api.get<Exam>(`/exams/${id}`);
   },
 
-  /**
-   * Obtener examen público por slug
-   */
   async getExamBySlug(slug: string): Promise<Exam> {
     return api.get<Exam>(`/exams/public/${slug}`);
   },
 
-  /**
-   * Crear un nuevo examen
-   */
   async createExam(data: ExamInput): Promise<{ message: string; exam: Exam }> {
     return api.post<{ message: string; exam: Exam }>('/exams', data);
   },
 
-  /**
-   * Actualizar un examen (crea nueva versión)
-   */
   async updateExam(id: string, data: ExamInput): Promise<{ message: string; exam: Exam }> {
     return api.put<{ message: string; exam: Exam }>(`/exams/${id}`, data);
   },
 
-  /**
-   * Eliminar un examen
-   */
   async deleteExam(id: string): Promise<{ message: string }> {
     return api.delete<{ message: string }>(`/exams/${id}`);
   },
 
-  /**
-   * Publicar/despublicar examen
-   */
-  async toggleExamPublish(id: string, isPublic: boolean): Promise<{ message: string; exam: Exam }> {
-    return api.patch<{ message: string; exam: Exam }>(`/exams/${id}/publish`, { isPublic });
+  async toggleExamPublish(id: string, isActive: boolean): Promise<{ message: string; exam: Exam }> {
+    return api.patch<{ message: string; exam: Exam }>(`/exams/${id}/publish`, { isActive });
   },
 
-  /**
-   * Activar/Desactivar examen
-   */
   async toggleExamActive(id: string, isActive: boolean): Promise<{ message: string; exam: Exam }> {
     return api.patch<{ message: string; exam: Exam }>(`/exams/${id}/status`, { isActive });
   },
 
-  /**
-   * Compartir examen
-   */
+  // ==================== COMPARTIR ====================
+
   async shareExam(id: string, userId: string, permission: Permission): Promise<{ message: string }> {
     return api.post<{ message: string }>(`/exams/${id}/share`, { userId, permission });
   },
 
-  /**
-   * Remover acceso compartido
-   */
   async unshareExam(id: string, userId: string): Promise<{ message: string }> {
     return api.delete<{ message: string }>(`/exams/${id}/share/${userId}`);
   },
 
-  /**
-   * Subir archivo de apoyo
-   */
-  async uploadSupportFile(
-    id: string, 
-    data: { fileName: string; fileUrl: string; fileType: string; fileSize: number }
-  ): Promise<{ message: string }> {
-    return api.post<{ message: string }>(`/exams/${id}/files`, data);
+  async getExamShares(id: string): Promise<any[]> {
+    return api.get<any[]>(`/exams/${id}/shares`);
   },
 
-  /**
-   * Eliminar archivo de apoyo
-   */
-  async deleteSupportFile(id: string, fileId: string): Promise<{ message: string }> {
-    return api.delete<{ message: string }>(`/exams/${id}/files/${fileId}`);
+  async getAvailableUsers(id: string): Promise<any[]> {
+    return api.get<any[]>(`/exams/${id}/available-users`);
   },
 
-  /**
-   * Verificar si puede tomar el examen
-   */
+  async updateSharePermission(id: string, userId: string, permission: Permission): Promise<any> {
+    return api.put<any>(`/exams/${id}/share/${userId}`, { permission });
+  },
+
+  // ==================== ARCHIVOS ====================
+
+  async uploadSectionFile(examId: string, sectionId: string, file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${API_URL}/exams/${examId}/sections/${sectionId}/file`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Error al subir archivo');
+    return res.json();
+  },
+
+  async deleteSectionFile(examId: string, sectionId: string): Promise<any> {
+    return api.delete(`/exams/${examId}/sections/${sectionId}/file`);
+  },
+
+  async uploadQuestionFile(examId: string, questionId: string, file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${API_URL}/exams/${examId}/questions/${questionId}/file`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Error al subir archivo');
+    return res.json();
+  },
+
+  async deleteQuestionFile(examId: string, questionId: string): Promise<any> {
+    return api.delete(`/exams/${examId}/questions/${questionId}/file`);
+  },
+
+  // ==================== ESTUDIANTES (PRIVADO) ====================
+
+  async addStudents(examId: string, students: { name: string; email: string; password: string }[]): Promise<any> {
+    return api.post(`/exams/${examId}/students`, { students });
+  },
+
+  async getStudents(examId: string): Promise<any[]> {
+    return api.get(`/exams/${examId}/students`);
+  },
+
+  async updateStudent(examId: string, studentId: string, data: { isActive?: boolean; name?: string }): Promise<any> {
+    return api.put(`/exams/${examId}/students/${studentId}`, data);
+  },
+
+  async deleteStudent(examId: string, studentId: string): Promise<any> {
+    return api.delete(`/exams/${examId}/students/${studentId}`);
+  },
+
+  async loginStudent(slug: string, email: string, password: string): Promise<any> {
+    return api.post('/exams/login', { slug, email, password });
+  },
+
+  // ==================== INTENTOS ====================
+
   async checkCanTakeExam(slug: string, email?: string): Promise<{
     canTake: boolean;
     attemptsUsed: number;
     maxAttempts: number;
-    attemptsRemaining: number;
     message?: string;
-    pendingAttempt?: {
-      id: string;
-      startedAt: string;
-      attemptNumber: number;
-    } | null;
+    pendingAttempt?: { id: string; startedAt: string; attemptNumber: number } | null;
   }> {
     const params = email ? `?email=${encodeURIComponent(email)}` : '';
     return api.get(`/exams/public/${slug}/can-take${params}`);
   },
 
-  /**
-   * Iniciar intento de examen
-   */
-  async startAttempt(slug: string, data: { name: string; email?: string }): Promise<{
+  async startAttempt(slug: string, data: { name: string; email?: string; studentId?: string }): Promise<{
     message: string;
-    attempt: ExamAttempt;
+    attempt: any;
   }> {
-    return api.post<{ message: string; attempt: ExamAttempt }>(
-      `/exams/public/${slug}/start`, 
-      data
-    );
+    return api.post(`/exams/public/${slug}/start`, data);
   },
 
-  /**
-   * Obtener datos de un intento
-   */
   async getAttempt(attemptId: string): Promise<ExamAttempt> {
     return api.get<ExamAttempt>(`/exams/attempts/${attemptId}`);
   },
 
-  /**
-   * Guardar respuesta
-   */
   async saveAnswer(
-    attemptId: string, 
-    data: {
-      questionId: string;
-      textValue?: string;
-      selectedOptionIds?: string[];
-      jsonValue?: any;
-    }
+    attemptId: string,
+    data: { questionId: string; textValue?: string; selectedOptionIds?: string[]; jsonValue?: any }
   ): Promise<{ success: boolean }> {
     return api.put<{ success: boolean }>(`/exams/attempts/${attemptId}/answer`, data);
   },
 
-  /**
-   * Enviar/completar examen
-   */
-  async submitAttempt(attemptId: string): Promise<{
-    message: string;
-    completed: boolean;
-    autoGraded: boolean;
-    score?: number;
-    maxScore?: number;
-    passed?: boolean;
-    percentage?: number;
-  }> {
-    return api.post<{
-      message: string;
-      completed: boolean;
-      autoGraded: boolean;
-      score?: number;
-      maxScore?: number;
-      passed?: boolean;
-      percentage?: number;
-    }>(`/exams/attempts/${attemptId}/submit`, {});
+  async submitAttempt(attemptId: string): Promise<any> {
+    return api.post(`/exams/attempts/${attemptId}/submit`, {});
   },
 
-  /**
-   * Obtener resultado de intento
-   */
   async getAttemptResult(attemptId: string): Promise<ExamAttemptResult> {
     return api.get<ExamAttemptResult>(`/exams/attempts/${attemptId}/result`);
   },
 
-  /**
-   * Obtener todos los intentos de un examen (admin)
-   */
   async getExamAttempts(id: string): Promise<ExamAttempt[]> {
     return api.get<ExamAttempt[]>(`/exams/${id}/attempts`);
   },
 
-  /**
-   * Obtener un intento específico (admin)
-   */
   async getAttemptById(id: string, attemptId: string): Promise<ExamAttempt> {
     return api.get<ExamAttempt>(`/exams/${id}/attempts/${attemptId}`);
   },
 
-  /**
-   * Calificar pregunta manualmente
-   */
+  // ==================== CALIFICACION ====================
+
   async gradeQuestionManually(
     id: string,
     attemptId: string,
@@ -210,17 +185,32 @@ export const examService = {
     );
   },
 
-  /**
-   * Obtener estadísticas del examen
-   */
   async getExamStats(id: string): Promise<ExamStats> {
     return api.get<ExamStats>(`/exams/${id}/stats`);
   },
 
-  /**
-   * Ajustar puntos a 100
-   */
-  async adjustPoints(sections: any[]): Promise<any> {
-    return api.post('/exams/adjust-points', { sections });
+  // ==================== SEGURIDAD ====================
+
+  async recordTabSwitch(attemptId: string): Promise<any> {
+    return api.post(`/exams/attempts/${attemptId}/tab-switch`, {});
+  },
+
+  async saveStudentPhoto(attemptId: string, photo: string): Promise<any> {
+    return api.post(`/exams/attempts/${attemptId}/photo`, { photo });
+  },
+
+  // ==================== REPORTES ====================
+
+  async createQuestionReport(examId: string, questionId: string, data: any): Promise<any> {
+    return api.post(`/exams/${examId}/questions/${questionId}/report`, data);
+  },
+
+  async getQuestionReports(examId: string, status?: string): Promise<any[]> {
+    const params = status ? `?status=${status}` : '';
+    return api.get(`/exams/${examId}/reports${params}`);
+  },
+
+  async reviewQuestionReport(reportId: string, data: { status: string; reviewNotes?: string }): Promise<any> {
+    return api.put(`/exams/reports/${reportId}`, data);
   },
 };

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_URL } from '../../lib/config';
 import { 
   ClipboardCheck, 
   User, 
@@ -70,7 +71,7 @@ export default function ManualGradingView({ attemptId, onComplete }: ManualGradi
 
   const fetchAttempt = async () => {
     try {
-      const response = await fetch(`http://localhost:3000/api/grading/attempt/${attemptId}`);
+      const response = await fetch(`${API_URL}/grading/attempt/${attemptId}`);
       const data = await response.json();
       setAttempt(data);
       
@@ -108,7 +109,7 @@ export default function ManualGradingView({ attemptId, onComplete }: ManualGradi
   const handleSaveResponse = async (responseId: string) => {
     setSaving(true);
     try {
-      await fetch(`http://localhost:3000/api/grading/response/${responseId}`, {
+      await fetch(`${API_URL}/grading/response/${responseId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -142,7 +143,7 @@ export default function ManualGradingView({ attemptId, onComplete }: ManualGradi
   const handleCompleteGrading = async () => {
     setSaving(true);
     try {
-      await fetch(`http://localhost:3000/api/grading/attempt/${attemptId}/complete`, {
+      await fetch(`${API_URL}/grading/attempt/${attemptId}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

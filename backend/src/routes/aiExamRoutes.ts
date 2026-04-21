@@ -52,7 +52,7 @@ function shuffleArray<T>(array: T[]): T[] {
 router.get('/', requireAuth, async (req, res) => {
   try {
     const userId = req.user!.id;
-    const exams = await aiExamService.getAIExamsByCreator(userId);
+    const exams = await aiExamService.getAIExamsByCreator(userId, req.user!.role);
     return res.json(exams);
   } catch (error: any) {
     console.error('Error al obtener exámenes:', error);
@@ -423,6 +423,85 @@ router.get('/:id/results', requireAuth, async (req, res) => {
     return res.status(500).json({
       error: error.message || 'Error al obtener resultados',
     });
+  }
+});
+
+// ==================== COMPARTIR ====================
+
+router.get('/:id/shares', requireAuth, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const permission = await aiExamService.checkAIExamPermission(id, req.user!.id, req.user!.role);
+    if (!permission) return res.status(403).json({ error: 'No tienes acceso a este examen' });
+
+    const shares = await aiExamService.getAIExamShares(id);
+    return res.json(shares);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Error al obtener compartidos' });
+  }
+});
+
+router.get('/:id/available-users', requireAuth, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const permission = await aiExamService.checkAIExamPermission(id, req.user!.id, req.user!.role);
+    if (permission !== 'FULL') return res.status(403).json({ error: 'No tienes permisos para compartir' });
+
+    const users = await aiExamService.getAvailableUsersForAIExam(id);
+    return res.json(users);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Error al obtener usuarios' });
+  }
+});
+
+router.post('/:id/share', requireAuth, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const { userId, permission } = req.body;
+
+    const userPerm = await aiExamService.checkAIExamPermission(id, req.user!.id, req.user!.role);
+    if (userPerm !== 'FULL') return res.status(403).json({ error: 'No tienes permisos para compartir' });
+
+    if (!userId) return res.status(400).json({ error: 'El ID del usuario es requerido' });
+    if (!['VIEW', 'EDIT', 'FULL'].includes(permission)) return res.status(400).json({ error: 'Permiso invalido' });
+
+    const share = await aiExamService.shareAIExam(id, userId, permission);
+    return res.status(201).json({ message: 'Examen compartido exitosamente', share });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Error al compartir' });
+  }
+});
+
+router.put('/:id/share/:userId', requireAuth, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const userId = String(req.params.userId);
+    const { permission } = req.body;
+
+    const userPerm = await aiExamService.checkAIExamPermission(id, req.user!.id, req.user!.role);
+    if (userPerm !== 'FULL') return res.status(403).json({ error: 'No tienes permisos' });
+
+    if (!['VIEW', 'EDIT', 'FULL'].includes(permission)) return res.status(400).json({ error: 'Permiso invalido' });
+
+    const share = await aiExamService.updateAIExamSharePermission(id, userId, permission);
+    return res.json(share);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Error al actualizar permiso' });
+  }
+});
+
+router.delete('/:id/share/:userId', requireAuth, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const userId = String(req.params.userId);
+
+    const permission = await aiExamService.checkAIExamPermission(id, req.user!.id, req.user!.role);
+    if (permission !== 'FULL') return res.status(403).json({ error: 'No tienes permisos' });
+
+    await aiExamService.unshareAIExam(id, userId);
+    return res.json({ message: 'Acceso removido exitosamente' });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Error al eliminar acceso' });
   }
 });
 
@@ -1032,6 +1111,7 @@ router.get('/attempts/:attemptId/result', async (req, res) => {
           select: {
             title: true,
             passingScore: true,
+            showResults: true,
           },
         },
         responses: {
@@ -1049,6 +1129,16 @@ router.get('/attempts/:attemptId/result', async (req, res) => {
 
     if (!attempt) {
       return res.status(404).json({ error: 'Intento no encontrado' });
+    }
+
+    // Si showResults es false, devolver solo mensaje
+    if (!attempt.aiExam.showResults) {
+      return res.json({
+        id: attempt.id,
+        aiExam: attempt.aiExam,
+        showResults: false,
+        message: 'Examen entregado exitosamente. El profesor revisara tus respuestas.',
+      });
     }
 
     // Agregar metadata de aleatorización a cada respuesta

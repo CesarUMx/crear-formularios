@@ -78,7 +78,10 @@ export const createExam = async (req: Request, res: Response, next: NextFunction
       passingScore,
       shuffleQuestions,
       shuffleOptions,
-      showResults
+      showResults,
+      instructions,
+      questionsPerAttempt,
+      accessType
     } = req.body;
 
     if (!title || title.trim() === '') {
@@ -133,6 +136,9 @@ export const createExam = async (req: Request, res: Response, next: NextFunction
       shuffleQuestions,
       shuffleOptions,
       showResults,
+      instructions,
+      questionsPerAttempt,
+      accessType,
       sections
     });
 
@@ -160,7 +166,10 @@ export const updateExam = async (req: Request, res: Response, next: NextFunction
       passingScore,
       shuffleQuestions,
       shuffleOptions,
-      showResults
+      showResults,
+      instructions,
+      questionsPerAttempt,
+      accessType
     } = req.body;
 
     const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
@@ -185,6 +194,9 @@ export const updateExam = async (req: Request, res: Response, next: NextFunction
       shuffleQuestions,
       shuffleOptions,
       showResults,
+      instructions,
+      questionsPerAttempt,
+      accessType,
       sections
     });
 
@@ -335,6 +347,49 @@ export const unshareExam = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
+export const getExamShares = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
+    if (!permission) return res.status(403).json({ error: 'No tienes acceso a este examen' });
+
+    const shares = await examService.getExamShares(String(id));
+    return res.json(shares);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getAvailableUsersForExam = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
+    if (permission !== 'FULL') return res.status(403).json({ error: 'No tienes permisos para compartir' });
+
+    const users = await examService.getAvailableUsersForExam(String(id));
+    return res.json(users);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const updateExamSharePermission = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id, userId } = req.params;
+    const { permission } = req.body;
+
+    const userPerm = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
+    if (userPerm !== 'FULL') return res.status(403).json({ error: 'No tienes permisos' });
+
+    if (!['VIEW', 'EDIT', 'FULL'].includes(permission)) return res.status(400).json({ error: 'Permiso invalido' });
+
+    const share = await examService.updateExamSharePermission(String(id), String(userId), permission);
+    return res.json(share);
+  } catch (error) {
+    return next(error);
+  }
+};
+
 /**
  * Verificar si puede tomar el examen
  */
@@ -361,7 +416,7 @@ export const checkCanTakeExam = async (req: Request, res: Response, next: NextFu
 export const startAttempt = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { slug } = req.params;
-    const { name, email } = req.body;
+    const { name, email, studentId } = req.body;
 
     if (!name || name.trim() === '') {
       return res.status(400).json({ 
@@ -371,7 +426,7 @@ export const startAttempt = async (req: Request, res: Response, next: NextFuncti
 
     const attempt = await examAttemptService.startExamAttempt(
       String(slug),
-      { name, email },
+      { name, email, studentId },
       req.ip || '',
       req.get('user-agent') || ''
     );
@@ -579,6 +634,328 @@ export const getExamStats = async (req: Request, res: Response, next: NextFuncti
     const stats = await examGradingService.getExamStats(String(id));
 
     return res.json(stats);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// ==================== ARCHIVOS (Sección/Pregunta) ====================
+
+/**
+ * Subir archivo a una sección
+ */
+export const uploadSectionFile = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id, sectionId } = req.params;
+
+    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
+    if (permission !== 'FULL' && permission !== 'EDIT') {
+      return res.status(403).json({ error: 'No tienes permisos para editar este examen' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se proporcionó un archivo' });
+    }
+
+    const fileUrl = `/uploads/${req.file.filename}`;
+    const section = await examService.uploadSectionFile(String(id), String(sectionId), {
+      url: fileUrl,
+      name: req.file.originalname,
+      type: req.file.mimetype,
+      size: req.file.size
+    });
+
+    return res.json({ message: 'Archivo subido exitosamente', section });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Eliminar archivo de una sección
+ */
+export const removeSectionFile = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id, sectionId } = req.params;
+
+    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
+    if (permission !== 'FULL' && permission !== 'EDIT') {
+      return res.status(403).json({ error: 'No tienes permisos para editar este examen' });
+    }
+
+    await examService.deleteSectionFile(String(id), String(sectionId));
+    return res.json({ message: 'Archivo eliminado exitosamente' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Subir archivo a una pregunta
+ */
+export const uploadQuestionFile = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id, questionId } = req.params;
+
+    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
+    if (permission !== 'FULL' && permission !== 'EDIT') {
+      return res.status(403).json({ error: 'No tienes permisos para editar este examen' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se proporcionó un archivo' });
+    }
+
+    const fileUrl = `/uploads/${req.file.filename}`;
+    const question = await examService.uploadQuestionFile(String(id), String(questionId), {
+      url: fileUrl,
+      name: req.file.originalname,
+      type: req.file.mimetype,
+      size: req.file.size
+    });
+
+    return res.json({ message: 'Archivo subido exitosamente', question });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Eliminar archivo de una pregunta
+ */
+export const removeQuestionFile = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id, questionId } = req.params;
+
+    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
+    if (permission !== 'FULL' && permission !== 'EDIT') {
+      return res.status(403).json({ error: 'No tienes permisos para editar este examen' });
+    }
+
+    await examService.deleteQuestionFile(String(id), String(questionId));
+    return res.json({ message: 'Archivo eliminado exitosamente' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// ==================== ESTUDIANTES (Examen Privado) ====================
+
+/**
+ * Agregar estudiantes a un examen privado
+ */
+export const addStudents = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { students } = req.body;
+
+    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
+    if (permission !== 'FULL') {
+      return res.status(403).json({ error: 'No tienes permisos para gestionar estudiantes' });
+    }
+
+    if (!students || !Array.isArray(students) || students.length === 0) {
+      return res.status(400).json({ error: 'Debe proporcionar al menos un estudiante' });
+    }
+
+    for (const s of students) {
+      if (!s.name || !s.email || !s.password) {
+        return res.status(400).json({ error: 'Cada estudiante debe tener nombre, email y contraseña' });
+      }
+    }
+
+    const created = await examService.addStudents(String(id), students);
+    return res.status(201).json({ message: 'Estudiantes agregados exitosamente', students: created });
+  } catch (error: any) {
+    if (error.message.includes('privado')) {
+      return res.status(400).json({ error: error.message });
+    }
+    return next(error);
+  }
+};
+
+/**
+ * Obtener estudiantes de un examen
+ */
+export const getStudents = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
+    if (!permission) {
+      return res.status(403).json({ error: 'No tienes permisos para ver este examen' });
+    }
+
+    const students = await examService.getStudents(String(id));
+    return res.json(students);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Actualizar estudiante
+ */
+export const updateStudent = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id, studentId } = req.params;
+    const { isActive, name } = req.body;
+
+    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
+    if (permission !== 'FULL') {
+      return res.status(403).json({ error: 'No tienes permisos para gestionar estudiantes' });
+    }
+
+    const student = await examService.updateStudent(String(id), String(studentId), { isActive, name });
+    return res.json({ message: 'Estudiante actualizado', student });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Eliminar estudiante
+ */
+export const removeStudent = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id, studentId } = req.params;
+
+    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
+    if (permission !== 'FULL') {
+      return res.status(403).json({ error: 'No tienes permisos para gestionar estudiantes' });
+    }
+
+    await examService.deleteStudent(String(id), String(studentId));
+    return res.json({ message: 'Estudiante eliminado exitosamente' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Login de estudiante para examen privado
+ */
+export const loginStudent = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { slug, email, password } = req.body;
+
+    if (!slug || !email || !password) {
+      return res.status(400).json({ error: 'Slug, email y contraseña son requeridos' });
+    }
+
+    const result = await examService.loginStudent(String(slug), String(email), String(password));
+    return res.json(result);
+  } catch (error: any) {
+    if (error.message === 'Credenciales inválidas') {
+      return res.status(401).json({ error: error.message });
+    }
+    return next(error);
+  }
+};
+
+// ==================== SEGURIDAD ====================
+
+/**
+ * Registrar cambio de pestaña
+ */
+export const recordTabSwitch = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { attemptId } = req.params;
+    const result = await examAttemptService.recordTabSwitch(String(attemptId));
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Guardar foto del estudiante
+ */
+export const saveStudentPhoto = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { attemptId } = req.params;
+    const { photo } = req.body;
+
+    if (!photo) {
+      return res.status(400).json({ error: 'La foto es requerida' });
+    }
+
+    const result = await examAttemptService.saveStudentPhoto(String(attemptId), String(photo));
+    return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// ==================== REPORTES DE PREGUNTAS ====================
+
+/**
+ * Crear reporte de pregunta
+ */
+export const createQuestionReport = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id, questionId } = req.params;
+    const { attemptId, questionText, userAnswer, correctAnswer, reason } = req.body;
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ error: 'El motivo del reporte es requerido' });
+    }
+
+    const report = await examService.createQuestionReport({
+      examId: String(id),
+      attemptId: String(attemptId),
+      questionId: String(questionId),
+      questionText: questionText || '',
+      userAnswer: userAnswer || '',
+      correctAnswer: correctAnswer || '',
+      reason: String(reason)
+    });
+
+    return res.status(201).json({ message: 'Reporte creado exitosamente', report });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Obtener reportes de un examen
+ */
+export const getQuestionReports = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.query;
+
+    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
+    if (!permission) {
+      return res.status(403).json({ error: 'No tienes permisos para ver los reportes' });
+    }
+
+    const reports = await examService.getQuestionReports(String(id), status as string | undefined);
+    return res.json(reports);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Revisar reporte
+ */
+export const reviewQuestionReport = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { reportId } = req.params;
+    const { status, reviewNotes } = req.body;
+
+    if (!status || !['REVIEWED', 'ACCEPTED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ error: 'Estado inválido' });
+    }
+
+    const report = await examService.reviewQuestionReport(String(reportId), {
+      status,
+      reviewNotes,
+      reviewedBy: String(req.user!.id)
+    });
+
+    return res.json({ message: 'Reporte actualizado', report });
   } catch (error) {
     return next(error);
   }

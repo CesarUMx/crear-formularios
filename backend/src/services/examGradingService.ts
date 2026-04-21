@@ -102,16 +102,34 @@ export const gradeExamAttempt = async (attemptId: string): Promise<GradeExamResu
 
   const exam = attempt.exam as typeof attempt.exam & { autoGrade: boolean; passingScore: number };
 
-  if (!exam.autoGrade) {
-    throw new Error('Este examen requiere calificación manual');
-  }
-
   let totalScore = 0;
+  let hasPendingManual = false;
   const maxScore = attempt.maxScore;
+
+  console.log('=== GRADING DEBUG ===');
+  console.log('Attempt ID:', attemptId);
+  console.log('Total answers:', attempt.answers.length);
+  console.log('Max score:', maxScore);
 
   for (const answer of attempt.answers) {
     const question = answer.question;
+    console.log('\n--- Question:', question.id, '---');
+    console.log('Type:', question.type);
+    console.log('Points:', question.points);
+    console.log('Student answer:', {
+      textValue: answer.textValue,
+      selectedOptions: answer.selectedOptions.map(o => ({ id: o.id, text: o.text })),
+      jsonValue: answer.jsonValue
+    });
+    
     const result = gradeQuestion(question, answer as ExamAnswer);
+    
+    console.log('Result:', result);
+    
+    // Si isCorrect es null, la pregunta queda pendiente de revisión manual
+    if (result.isCorrect === null) {
+      hasPendingManual = true;
+    }
     
     await prisma.examAnswer.update({
       where: { id: answer.id },
@@ -125,14 +143,26 @@ export const gradeExamAttempt = async (attemptId: string): Promise<GradeExamResu
     totalScore += result.pointsEarned;
   }
 
-  const passed = totalScore >= exam.passingScore;
+  const percentage = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
+  const passed = percentage >= exam.passingScore;
+
+  console.log('\n=== FINAL GRADING ===');
+  console.log('Total score:', totalScore);
+  console.log('Max score:', maxScore);
+  console.log('Percentage:', percentage);
+  console.log('Passing score (%):', exam.passingScore);
+  console.log('Passed:', passed);
+  console.log('Has pending manual:', hasPendingManual);
 
   await prisma.examAttempt.update({
     where: { id: attemptId },
     data: {
       score: totalScore,
-      passed,
-      autoGraded: true
+      autoScore: totalScore,
+      passed: hasPendingManual ? null : passed, // Si hay pendientes, no se puede determinar aún
+      autoGraded: true,
+      requiresManualGrading: hasPendingManual,
+      isGraded: !hasPendingManual
     }
   });
 
@@ -140,7 +170,7 @@ export const gradeExamAttempt = async (attemptId: string): Promise<GradeExamResu
     score: totalScore,
     maxScore,
     passed,
-    percentage: (totalScore / maxScore) * 100
+    percentage
   };
 };
 
@@ -167,6 +197,17 @@ function gradeQuestion(question: ExamQuestion, answer: ExamAnswer): GradingResul
     case 'ORDERING':
       return gradeOrderingQuestion(question, answer);
     
+    case 'FILL_BLANK':
+      return gradeFillBlankQuestion(question, answer);
+    
+    case 'TEXTAREA':
+      // Respuesta larga: siempre requiere calificación manual
+      return {
+        isCorrect: null,
+        pointsEarned: 0,
+        feedback: 'Pendiente de calificación manual'
+      };
+    
     default:
       return {
         isCorrect: null,
@@ -174,6 +215,51 @@ function gradeQuestion(question: ExamQuestion, answer: ExamAnswer): GradingResul
         feedback: 'Tipo de pregunta no soportado para calificación automática'
       };
   }
+}
+
+/**
+ * Calificar pregunta de completar espacios (FILL_BLANK)
+ */
+function gradeFillBlankQuestion(question: ExamQuestion, answer: ExamAnswer): GradingResult {
+  const metadata = (question as any).metadata;
+  const blanks: { position?: number; correctAnswer: string }[] = metadata?.blanks || [];
+
+  console.log('📝 Grading FILL_BLANK');
+  console.log('Blanks:', blanks);
+  console.log('Student jsonValue:', answer.jsonValue);
+
+  if (blanks.length === 0 || !answer.jsonValue) {
+    return {
+      isCorrect: false,
+      pointsEarned: 0,
+      feedback: 'Respuesta incompleta'
+    };
+  }
+
+  // answer.jsonValue es un objeto { 0: "valor0", 1: "valor1", ... }
+  const studentAnswers = answer.jsonValue as Record<string, string>;
+
+  let correctCount = 0;
+  const totalBlanks = blanks.length;
+
+  for (let i = 0; i < totalBlanks; i++) {
+    const correctText = (blanks[i].correctAnswer || '').trim().toLowerCase();
+    const studentText = (studentAnswers[i] || studentAnswers[String(i)] || '').trim().toLowerCase();
+    if (correctText && correctText === studentText) {
+      correctCount++;
+    }
+  }
+
+  const isCorrect = correctCount === totalBlanks;
+  const pointsEarned = totalBlanks > 0 ? (correctCount / totalBlanks) * question.points : 0;
+
+  return {
+    isCorrect,
+    pointsEarned,
+    feedback: isCorrect
+      ? (question.feedback || 'Todos los espacios correctos')
+      : `${correctCount} de ${totalBlanks} espacios correctos`
+  };
 }
 
 /**
@@ -295,7 +381,15 @@ function gradeTextQuestion(question: ExamQuestion, answer: ExamAnswer): GradingR
  * Calificar pregunta de relacionar columnas (MATCHING)
  */
 function gradeMatchingQuestion(question: ExamQuestion, answer: ExamAnswer): GradingResult {
-  if (!question.correctAnswer || !answer.jsonValue) {
+  const metadata = (question as any).metadata;
+  const pairs: { left: string; right: string }[] = metadata?.pairs || [];
+  const studentAnswer = answer.jsonValue;
+
+  console.log('🔗 Grading MATCHING');
+  console.log('Pairs:', pairs);
+  console.log('Student answer:', studentAnswer);
+
+  if (pairs.length === 0 || !studentAnswer) {
     return {
       isCorrect: false,
       pointsEarned: 0,
@@ -303,20 +397,23 @@ function gradeMatchingQuestion(question: ExamQuestion, answer: ExamAnswer): Grad
     };
   }
 
-  const correctMatches = question.correctAnswer.matches || {};
-  const studentMatches = answer.jsonValue.matches || {};
+  // studentAnswer es un array donde cada posición i tiene el texto de la "derecha" seleccionada
+  // pairs[i].right es la respuesta correcta para pairs[i].left
+  const studentArray: string[] = Array.isArray(studentAnswer) ? studentAnswer : [];
 
   let correctCount = 0;
-  let totalPairs = Object.keys(correctMatches).length;
+  const totalPairs = pairs.length;
 
-  for (const [key, value] of Object.entries(correctMatches)) {
-    if (studentMatches[key] === value) {
+  for (let i = 0; i < totalPairs; i++) {
+    const correctRight = (pairs[i].right || '').trim().toLowerCase();
+    const studentRight = (studentArray[i] || '').trim().toLowerCase();
+    if (correctRight && correctRight === studentRight) {
       correctCount++;
     }
   }
 
   const isCorrect = correctCount === totalPairs;
-  const pointsEarned = (correctCount / totalPairs) * question.points;
+  const pointsEarned = totalPairs > 0 ? (correctCount / totalPairs) * question.points : 0;
 
   return {
     isCorrect,
@@ -331,7 +428,13 @@ function gradeMatchingQuestion(question: ExamQuestion, answer: ExamAnswer): Grad
  * Calificar pregunta de ordenamiento (ORDERING)
  */
 function gradeOrderingQuestion(question: ExamQuestion, answer: ExamAnswer): GradingResult {
-  if (!question.correctAnswer || !answer.jsonValue) {
+  console.log('🔢 Grading ORDERING question');
+  console.log('Student jsonValue:', answer.jsonValue);
+
+  const metadata = (question as any).metadata;
+  const items: { text: string; correctOrder: number }[] = metadata?.items || [];
+
+  if (items.length === 0 || !answer.jsonValue) {
     return {
       isCorrect: false,
       pointsEarned: 0,
@@ -339,10 +442,19 @@ function gradeOrderingQuestion(question: ExamQuestion, answer: ExamAnswer): Grad
     };
   }
 
-  const correctOrder = question.correctAnswer.order || [];
-  const studentOrder = answer.jsonValue.order || [];
+  // Orden correcto: items ordenados por correctOrder → array de textos
+  const correctTexts = [...items]
+    .sort((a, b) => a.correctOrder - b.correctOrder)
+    .map(i => (i.text || '').trim().toLowerCase());
 
-  if (correctOrder.length !== studentOrder.length) {
+  // Respuesta del estudiante: array de textos en el orden que él los puso
+  const studentArray: string[] = Array.isArray(answer.jsonValue) ? answer.jsonValue : [];
+  const studentTexts = studentArray.map(t => (t || '').trim().toLowerCase());
+
+  console.log('Correct texts:', correctTexts);
+  console.log('Student texts:', studentTexts);
+
+  if (correctTexts.length !== studentTexts.length) {
     return {
       isCorrect: false,
       pointsEarned: 0,
@@ -351,21 +463,21 @@ function gradeOrderingQuestion(question: ExamQuestion, answer: ExamAnswer): Grad
   }
 
   let correctPositions = 0;
-  for (let i = 0; i < correctOrder.length; i++) {
-    if (correctOrder[i] === studentOrder[i]) {
+  for (let i = 0; i < correctTexts.length; i++) {
+    if (correctTexts[i] === studentTexts[i]) {
       correctPositions++;
     }
   }
 
-  const isCorrect = correctPositions === correctOrder.length;
-  const pointsEarned = (correctPositions / correctOrder.length) * question.points;
+  const isCorrect = correctPositions === correctTexts.length;
+  const pointsEarned = correctTexts.length > 0 ? (correctPositions / correctTexts.length) * question.points : 0;
 
   return {
     isCorrect,
     pointsEarned,
     feedback: isCorrect
       ? (question.feedback || 'Orden correcto')
-      : `${correctPositions} de ${correctOrder.length} elementos en posición correcta`
+      : `${correctPositions} de ${correctTexts.length} elementos en posición correcta`
   };
 }
 

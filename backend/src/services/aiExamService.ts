@@ -1,4 +1,4 @@
-import { PrismaClient, AIExamAccessType } from '@prisma/client';
+import { PrismaClient, AIExamAccessType, SharePermission } from '@prisma/client';
 import { openAIService } from './openaiService.js';
 import bcrypt from 'bcryptjs';
 
@@ -15,6 +15,7 @@ interface CreateAIExamParams {
   passingScore?: number;
   accessType: AIExamAccessType;
   questionsPerAttempt: number;
+  showResults?: boolean;
   createdById: string;
 }
 
@@ -36,6 +37,7 @@ interface UpdateAIExamData {
   passingScore?: number;
   questionsPerAttempt?: number;
   accessType?: AIExamAccessType;
+  showResults?: boolean;
 }
 
 interface Student {
@@ -96,6 +98,7 @@ class AIExamService {
         passingScore: params.passingScore || 60,
         accessType: params.accessType,
         questionsPerAttempt: params.questionsPerAttempt,
+        showResults: params.showResults !== undefined ? params.showResults : true,
         createdById: params.createdById,
         publicUrl: `/ai-exam/${slug}`,
       },
@@ -213,39 +216,34 @@ class AIExamService {
   /**
    * Obtener todos los exámenes de un profesor
    */
-  async getAIExamsByCreator(createdById: string) {
-    const exams = await prisma.aIExam.findMany({
-      where: { createdById },
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+  async getAIExamsByCreator(createdById: string, userRole?: string) {
+    // SUPER_ADMIN ve todos
+    if (userRole === 'SUPER_ADMIN') {
+      return await prisma.aIExam.findMany({
+        include: {
+          createdBy: { select: { id: true, name: true, email: true } },
+          sections: { include: { questions: { include: { options: true } } } },
+          _count: { select: { attempts: true, students: true } },
         },
-        sections: {
-          include: {
-            questions: {
-              include: {
-                options: true,
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            attempts: true,
-            students: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+        orderBy: { createdAt: 'desc' },
+      });
+    }
 
-    return exams;
+    return await prisma.aIExam.findMany({
+      where: {
+        OR: [
+          { createdById },
+          { sharedWith: { some: { userId: createdById } } },
+        ],
+      },
+      include: {
+        createdBy: { select: { id: true, name: true, email: true } },
+        sharedWith: { where: { userId: createdById }, select: { permission: true } },
+        sections: { include: { questions: { include: { options: true } } } },
+        _count: { select: { attempts: true, students: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   /**
@@ -660,6 +658,67 @@ class AIExamService {
     });
 
     return attempts;
+  }
+
+  // ==================== COMPARTIR ====================
+
+  async checkAIExamPermission(aiExamId: string, userId: string, userRole: string): Promise<SharePermission | null> {
+    if (userRole === 'SUPER_ADMIN') return 'FULL';
+
+    const exam = await prisma.aIExam.findUnique({
+      where: { id: aiExamId },
+      include: { sharedWith: { where: { userId } } },
+    });
+
+    if (!exam) return null;
+    if (exam.createdById === userId) return 'FULL';
+    if (exam.sharedWith.length > 0) return exam.sharedWith[0].permission;
+    return null;
+  }
+
+  async shareAIExam(aiExamId: string, userId: string, permission: SharePermission) {
+    return await prisma.aIExamShare.upsert({
+      where: { aiExamId_userId: { aiExamId, userId } },
+      update: { permission },
+      create: { aiExamId, userId, permission },
+    });
+  }
+
+  async unshareAIExam(aiExamId: string, userId: string) {
+    return await prisma.aIExamShare.delete({
+      where: { aiExamId_userId: { aiExamId, userId } },
+    });
+  }
+
+  async getAIExamShares(aiExamId: string) {
+    return await prisma.aIExamShare.findMany({
+      where: { aiExamId },
+      include: {
+        user: { select: { id: true, name: true, email: true, role: true } },
+      },
+      orderBy: { sharedAt: 'desc' },
+    });
+  }
+
+  async getAvailableUsersForAIExam(aiExamId: string) {
+    const exam = await prisma.aIExam.findUnique({
+      where: { id: aiExamId },
+      select: { createdById: true },
+    });
+    if (!exam) throw new Error('Examen no encontrado');
+
+    return await prisma.user.findMany({
+      where: { id: { not: exam.createdById }, isActive: true },
+      select: { id: true, name: true, email: true, role: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async updateAIExamSharePermission(aiExamId: string, userId: string, permission: SharePermission) {
+    return await prisma.aIExamShare.update({
+      where: { aiExamId_userId: { aiExamId, userId } },
+      data: { permission },
+    });
   }
 
   /**

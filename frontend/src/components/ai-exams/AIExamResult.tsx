@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_URL } from '../../lib/config';
 import { aiExamService } from '../../lib/aiExamService';
 import { useColors } from '../../hooks/useColors';
 import ReportQuestionModal from './ReportQuestionModal';
@@ -74,7 +75,7 @@ export default function AIExamResult({ attemptId }: AIExamResultProps) {
   const loadResult = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:3000/api/ai-exams/attempts/${attemptId}/result`);
+      const response = await fetch(`${API_URL}/ai-exams/attempts/${attemptId}/result`);
       
       if (!response.ok) {
         throw new Error('No se pudo cargar el resultado');
@@ -140,6 +141,30 @@ export default function AIExamResult({ attemptId }: AIExamResultProps) {
 
   if (!result) {
     return null;
+  }
+
+  // Si showResults es false, mostrar solo mensaje de entrega
+  if (result.showResults === false) {
+    return (
+      <div className="max-w-2xl mx-auto py-12">
+        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center space-y-4">
+          <CheckCircle className="w-16 h-16 text-green-500 mx-auto" />
+          <h1 className="text-2xl font-bold text-gray-900">Examen Entregado</h1>
+          <p className="text-gray-600">{result.message || 'Tu examen fue entregado exitosamente. El profesor revisara tus respuestas.'}</p>
+          {result.aiExam?.title && (
+            <p className="text-sm text-gray-500">{result.aiExam.title}</p>
+          )}
+          <a
+            href="/"
+            className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-lg font-medium hover:opacity-90 transition mt-4"
+            style={{ backgroundColor: colors.primaryColor }}
+          >
+            <Home className="w-4 h-4" />
+            Volver al Inicio
+          </a>
+        </div>
+      </div>
+    );
   }
 
   const score = result.score ?? 0;

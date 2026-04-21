@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Award, Clock, CheckCircle, XCircle, AlertCircle, TrendingUp, Calendar } from 'lucide-react';
+import { API_URL } from '../../lib/config';
 
 interface Attempt {
   id: string;
@@ -35,7 +36,7 @@ export default function StudentGradesView({ studentId }: StudentGradesViewProps)
 
   const fetchGrades = async () => {
     try {
-      const response = await fetch(`http://localhost:3000/api/grading/student/${studentId}/grades`);
+      const response = await fetch(`${API_URL}/grading/student/${studentId}/grades`);
       const data = await response.json();
       setAttempts(data);
     } catch (error) {

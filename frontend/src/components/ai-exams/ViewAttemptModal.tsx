@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, AlertCircle, Eye, Clock, Target, Award, Loader, X } from 'lucide-react';
 import Modal from '../common/Modal';
 import { useColors } from '../../hooks/useColors';
+import { API_URL } from '../../lib/config';
 
 interface ViewAttemptModalProps {
   isOpen: boolean;
@@ -67,7 +68,7 @@ export default function ViewAttemptModal({ isOpen, attemptId, onClose }: ViewAtt
   const loadAttempt = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:3000/api/ai-exams/attempts/${attemptId}/result`);
+      const response = await fetch(`${API_URL}/ai-exams/attempts/${attemptId}/result`);
       
       if (!response.ok) {
         throw new Error('No se pudo cargar el intento');

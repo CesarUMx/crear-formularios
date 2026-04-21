@@ -1,28 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { examService } from '../../lib/examService';
 import type { Exam } from '../../lib/types';
-import { useToast, ToastContainer, DeleteDialog, useDialog, PageHeader, EmptyState } from '../common';
+import { useToast, ToastContainer, DeleteDialog, useDialog, PageHeader, EmptyState, ShareExamModal } from '../common';
 import { useColors } from '../../hooks/useColors';
+import ManageStudentsModal from './ManageStudentsModal';
 import { 
-  Plus, 
-  FileText, 
-  Users, 
-  Calendar, 
-  ToggleLeft, 
-  ToggleRight,
-  Trash2,
-  Edit,
-  Share2,
-  BarChart3,
-  AlertCircle,
-  ExternalLink,
-  Copy,
-  Check,
-  Clock,
-  Award,
-  Eye,
-  EyeOff
+  Plus, FileText, Users, UserCog, Calendar, ToggleLeft, ToggleRight, Trash2,
+  Edit, BarChart3, AlertCircle, ExternalLink, Copy, Check, Clock, Award,
+  Search, Globe, Lock, Eye, EyeOff, Share2
 } from 'lucide-react';
+
+type AccessFilter = 'all' | 'PUBLIC' | 'PRIVATE';
+type StatusFilter = 'all' | 'active' | 'inactive';
 
 export default function ExamList() {
   const [exams, setExams] = useState<Exam[]>([]);
@@ -31,14 +20,19 @@ export default function ExamList() {
   const [copiedExamId, setCopiedExamId] = useState<string | null>(null);
   const [examToDelete, setExamToDelete] = useState<{ id: string; title: string } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [managingStudents, setManagingStudents] = useState<{ id: string; title: string } | null>(null);
+  const [sharingExam, setSharingExam] = useState<{ id: string; title: string } | null>(null);
+
+  // Filtros
+  const [searchQuery, setSearchQuery] = useState('');
+  const [accessFilter, setAccessFilter] = useState<AccessFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   
   const toast = useToast();
   const deleteDialog = useDialog();
   const colors = useColors();
 
-  useEffect(() => {
-    loadExams();
-  }, []);
+  useEffect(() => { loadExams(); }, []);
 
   const loadExams = async () => {
     try {
@@ -47,11 +41,29 @@ export default function ExamList() {
       setExams(data);
       setError('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar exámenes');
+      setError(err instanceof Error ? err.message : 'Error al cargar examenes');
     } finally {
       setLoading(false);
     }
   };
+
+  const filteredExams = useMemo(() => {
+    return exams.filter(exam => {
+      if (searchQuery && !exam.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (accessFilter !== 'all' && exam.accessType !== accessFilter) return false;
+      if (statusFilter === 'active' && !exam.isActive) return false;
+      if (statusFilter === 'inactive' && exam.isActive) return false;
+      return true;
+    });
+  }, [exams, searchQuery, accessFilter, statusFilter]);
+
+  // Contadores para filtros
+  const counts = useMemo(() => ({
+    public: exams.filter(e => e.accessType === 'PUBLIC').length,
+    private: exams.filter(e => e.accessType === 'PRIVATE').length,
+    active: exams.filter(e => e.isActive).length,
+    inactive: exams.filter(e => !e.isActive).length,
+  }), [exams]);
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     try {
@@ -59,29 +71,10 @@ export default function ExamList() {
       await loadExams();
       toast.success(
         currentStatus ? 'Examen desactivado' : 'Examen activado',
-        'El estado del examen se actualizó correctamente'
+        'El estado del examen se actualizo correctamente'
       );
     } catch (err) {
-      toast.error(
-        'Error al cambiar estado',
-        err instanceof Error ? err.message : 'Ocurrió un error inesperado'
-      );
-    }
-  };
-
-  const handleTogglePublic = async (id: string, currentStatus: boolean) => {
-    try {
-      await examService.toggleExamPublish(id, !currentStatus);
-      await loadExams();
-      toast.success(
-        currentStatus ? 'Examen privado' : 'Examen público',
-        'La visibilidad del examen se actualizó correctamente'
-      );
-    } catch (err) {
-      toast.error(
-        'Error al cambiar visibilidad',
-        err instanceof Error ? err.message : 'Ocurrió un error inesperado'
-      );
+      toast.error('Error al cambiar estado', err instanceof Error ? err.message : 'Error inesperado');
     }
   };
 
@@ -92,87 +85,65 @@ export default function ExamList() {
 
   const handleDeleteConfirm = async () => {
     if (!examToDelete) return;
-    
     setDeleteLoading(true);
     try {
       await examService.deleteExam(examToDelete.id);
       await loadExams();
-      toast.success('Examen eliminado', `"${examToDelete.title}" fue eliminado correctamente`);
+      toast.success('Examen eliminado', `"${examToDelete.title}" fue eliminado`);
       deleteDialog.close();
       setExamToDelete(null);
     } catch (err) {
-      toast.error(
-        'Error al eliminar examen',
-        err instanceof Error ? err.message : 'Ocurrió un error inesperado'
-      );
+      toast.error('Error al eliminar', err instanceof Error ? err.message : 'Error inesperado');
     } finally {
       setDeleteLoading(false);
     }
   };
 
-  const getPublicUrl = (slug: string) => {
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/e/${slug}`;
-  };
-
   const handleCopyLink = async (exam: Exam) => {
     try {
-      const url = getPublicUrl(exam.slug);
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(`${window.location.origin}/e/${exam.slug}`);
       setCopiedExamId(exam.id);
       setTimeout(() => setCopiedExamId(null), 2000);
-      toast.success('Enlace copiado', 'El enlace público fue copiado al portapapeles');
-    } catch (err) {
-      toast.error('Error al copiar enlace', 'No se pudo copiar el enlace al portapapeles');
+      toast.success('Enlace copiado', 'El enlace fue copiado al portapapeles');
+    } catch {
+      toast.error('Error', 'No se pudo copiar el enlace');
     }
-  };
-
-  const handleOpenPublic = (slug: string) => {
-    const url = getPublicUrl(slug);
-    window.open(url, '_blank');
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando exámenes...</p>
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">Cargando examenes...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-lg bg-red-50 p-4 flex items-start">
-        <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 mr-3" />
-        <div>
-          <h3 className="font-semibold text-red-800">Error</h3>
-          <p className="text-red-700 text-sm mt-1">{error}</p>
-        </div>
+      <div className="rounded-lg bg-red-50 p-4 flex items-start gap-3">
+        <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+        <p className="text-red-700 text-sm">{error}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <PageHeader
         icon={FileText}
-        title="Exámenes"
-        description="Crea y gestiona tus exámenes"
+        title="Examenes"
+        description="Crea y gestiona tus examenes"
         buttonText={exams.length > 0 ? "Nuevo Examen" : undefined}
         onButtonClick={exams.length > 0 ? () => window.location.href = '/admin/exams/new' : undefined}
         buttonIcon={Plus}
         primaryColor={colors.primaryColor}
       />
 
-      {/* Lista de exámenes */}
       {exams.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title="No hay exámenes creados"
+          title="No hay examenes creados"
           description="Crea tu primer examen para comenzar"
           buttonText="Crear Examen"
           onButtonClick={() => window.location.href = '/admin/exams/new'}
@@ -180,193 +151,190 @@ export default function ExamList() {
           primaryColor={colors.primaryColor}
         />
       ) : (
-        <div className="grid gap-4">
-        {exams.map((exam) => (
-          <div
-            key={exam.id}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
-          >
-            <div className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {exam.title}
-                    </h3>
-                    
-                    {/* Status Badges */}
-                    <div className="flex items-center gap-2">
-                      {exam.isActive ? (
-                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                          Activo
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded-full">
-                          Inactivo
-                        </span>
-                      )}
-                      
-                      {exam.isPublic ? (
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full flex items-center gap-1">
-                          <Eye className="w-3 h-3" />
-                          Público
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full flex items-center gap-1">
-                          <EyeOff className="w-3 h-3" />
-                          Privado
-                        </span>
-                      )}
+        <>
+          {/* Barra de busqueda y filtros */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+            {/* Buscador */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por nombre..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
 
-                      {exam.autoGrade && (
-                        <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
-                          Auto-calificable
-                        </span>
-                      )}
-                    </div>
-                  </div>
+            {/* Filtros */}
+            <div className="flex flex-wrap gap-2">
+              {/* Acceso */}
+              <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1">
+                <button onClick={() => setAccessFilter('all')} className={`px-3 py-1 rounded-md text-xs font-medium transition ${accessFilter === 'all' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
+                  Todos
+                </button>
+                <button onClick={() => setAccessFilter('PUBLIC')} className={`px-3 py-1 rounded-md text-xs font-medium transition flex items-center gap-1 ${accessFilter === 'PUBLIC' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
+                  <Globe className="w-3 h-3" /> Publicos <span className="text-gray-400">({counts.public})</span>
+                </button>
+                <button onClick={() => setAccessFilter('PRIVATE')} className={`px-3 py-1 rounded-md text-xs font-medium transition flex items-center gap-1 ${accessFilter === 'PRIVATE' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
+                  <Lock className="w-3 h-3" /> Privados <span className="text-gray-400">({counts.private})</span>
+                </button>
+              </div>
 
-                  {exam.description && (
-                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                      {exam.description}
-                    </p>
-                  )}
-
-                  {/* Stats */}
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <div className="flex items-center gap-1">
-                      <Users className="w-4 h-4" />
-                      <span>{exam._count?.attempts || 0} intentos</span>
-                    </div>
-                    
-                    {exam.timeLimit && (
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        <span>{exam.timeLimit} min</span>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center gap-1">
-                      <Award className="w-4 h-4" />
-                      <span>Mínimo {exam.passingScore}%</span>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <FileText className="w-4 h-4" />
-                      <span>{exam.maxAttempts} {exam.maxAttempts === 1 ? 'intento' : 'intentos'}</span>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      <span>{new Date(exam.createdAt).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-2 ml-4">
-                  {/* Edit */}
-                  <a
-                    href={`/admin/exams/${exam.id}`}
-                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Editar"
-                  >
-                    <Edit className="w-5 h-5" />
-                  </a>
-
-                  {/* Stats */}
-                  <a
-                    href={`/admin/exams/${exam.id}/stats`}
-                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Estadísticas"
-                  >
-                    <BarChart3 className="w-5 h-5" />
-                  </a>
-
-                  {/* Share */}
-                  <button
-                    onClick={() => handleCopyLink(exam)}
-                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Copiar enlace"
-                  >
-                    {copiedExamId === exam.id ? (
-                      <Check className="w-5 h-5 text-green-600" />
-                    ) : (
-                      <Copy className="w-5 h-5" />
-                    )}
-                  </button>
-
-                  {/* Open Public */}
-                  {exam.isPublic && exam.isActive && (
-                    <button
-                      onClick={() => handleOpenPublic(exam.slug)}
-                      className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                      title="Ver público"
-                    >
-                      <ExternalLink className="w-5 h-5" />
-                    </button>
-                  )}
-
-                  {/* Toggle Public */}
-                  <button
-                    onClick={() => handleTogglePublic(exam.id, exam.isPublic)}
-                    className={`p-2 rounded-lg transition-colors ${
-                      exam.isPublic
-                        ? 'text-blue-600 hover:bg-blue-50'
-                        : 'text-gray-400 hover:bg-gray-100'
-                    }`}
-                    title={exam.isPublic ? 'Hacer privado' : 'Hacer público'}
-                  >
-                    {exam.isPublic ? (
-                      <Eye className="w-5 h-5" />
-                    ) : (
-                      <EyeOff className="w-5 h-5" />
-                    )}
-                  </button>
-
-                  {/* Toggle Active */}
-                  <button
-                    onClick={() => handleToggleActive(exam.id, exam.isActive)}
-                    className={`p-2 rounded-lg transition-colors ${
-                      exam.isActive
-                        ? 'text-green-600 hover:bg-green-50'
-                        : 'text-gray-400 hover:bg-gray-100'
-                    }`}
-                    title={exam.isActive ? 'Desactivar' : 'Activar'}
-                  >
-                    {exam.isActive ? (
-                      <ToggleRight className="w-5 h-5" />
-                    ) : (
-                      <ToggleLeft className="w-5 h-5" />
-                    )}
-                  </button>
-
-                  {/* Delete */}
-                  <button
-                    onClick={() => handleDeleteClick(exam.id, exam.title)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Eliminar"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
+              {/* Estado */}
+              <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1">
+                <button onClick={() => setStatusFilter('all')} className={`px-3 py-1 rounded-md text-xs font-medium transition ${statusFilter === 'all' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}>
+                  Todos
+                </button>
+                <button onClick={() => setStatusFilter('active')} className={`px-3 py-1 rounded-md text-xs font-medium transition flex items-center gap-1 ${statusFilter === 'active' ? 'bg-white shadow text-green-700' : 'text-gray-600 hover:text-gray-900'}`}>
+                  Publicados <span className="text-gray-400">({counts.active})</span>
+                </button>
+                <button onClick={() => setStatusFilter('inactive')} className={`px-3 py-1 rounded-md text-xs font-medium transition flex items-center gap-1 ${statusFilter === 'inactive' ? 'bg-white shadow text-gray-700' : 'text-gray-600 hover:text-gray-900'}`}>
+                  Borradores <span className="text-gray-400">({counts.inactive})</span>
+                </button>
               </div>
             </div>
           </div>
-        ))}
-      </div>
+
+          {/* Lista */}
+          {filteredExams.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+              <Search className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No se encontraron examenes con esos filtros</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredExams.map((exam) => (
+                <div key={exam.id} className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow w-full">
+                  <div className="flex items-center gap-4 px-5 py-4">
+                    {/* Toggle */}
+                    <button
+                      onClick={() => handleToggleActive(exam.id, exam.isActive)}
+                      className="flex-shrink-0"
+                      title={exam.isActive ? 'Desactivar' : 'Activar'}
+                    >
+                      {exam.isActive ? (
+                        <ToggleRight className="w-7 h-7 text-green-600" />
+                      ) : (
+                        <ToggleLeft className="w-7 h-7 text-gray-400" />
+                      )}
+                    </button>
+
+                    {/* Titulo y badges */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-gray-900 truncate">{exam.title}</h3>
+                        {exam.isActive ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 flex-shrink-0">Publicado</span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 flex-shrink-0">Borrador</span>
+                        )}
+                        {exam.accessType === 'PRIVATE' && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 flex-shrink-0">Privado</span>
+                        )}
+                        {exam.autoGrade && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 flex-shrink-0">Auto</span>
+                        )}
+                      </div>
+                      {exam.description && (
+                        <p className="text-xs text-gray-500 truncate mt-0.5">{exam.description}</p>
+                      )}
+                    </div>
+
+                    {/* Stats */}
+                    <div className="hidden md:flex items-center gap-5 flex-shrink-0 text-xs text-gray-500">
+                      <div className="flex items-center gap-1.5" title="Intentos realizados">
+                        <Users className="w-3.5 h-3.5" />
+                        <span>{exam._count?.attempts || 0}</span>
+                      </div>
+                      {exam.timeLimit && (
+                        <div className="flex items-center gap-1.5" title="Tiempo limite">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{exam.timeLimit}m</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1.5" title="Puntaje minimo">
+                        <Award className="w-3.5 h-3.5" />
+                        <span>{exam.passingScore}%</span>
+                      </div>
+                      <div className="flex items-center gap-1.5" title="Max intentos">
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>{exam.maxAttempts}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5" title="Fecha de creacion">
+                        <Calendar className="w-3 h-3" />
+                        <span>{new Date(exam.createdAt).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}</span>
+                      </div>
+                    </div>
+
+                    {/* Link buttons */}
+                    {exam.isActive && (
+                      <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+                        <button onClick={() => handleCopyLink(exam)} className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="Copiar enlace">
+                          {copiedExamId === exam.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        </button>
+                        <button onClick={() => window.open(`${window.location.origin}/e/${exam.slug}`, '_blank')} className="p-2 rounded-lg text-purple-600 hover:bg-purple-50 transition" title="Abrir enlace publico">
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Separador */}
+                    <div className="hidden sm:block w-px h-6 bg-gray-200 flex-shrink-0"></div>
+
+                    {/* Acciones */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {exam.accessType === 'PRIVATE' && (
+                        <button onClick={() => setManagingStudents({ id: exam.id, title: exam.title })} className="p-2 rounded-lg text-green-600 hover:bg-green-50 transition" title="Gestionar estudiantes">
+                          <UserCog className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button onClick={() => setSharingExam({ id: exam.id, title: exam.title })} className="p-2 rounded-lg text-indigo-600 hover:bg-indigo-50 transition" title="Compartir">
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                      <a href={`/admin/exams/${exam.id}`} className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="Editar">
+                        <Edit className="w-4 h-4" />
+                      </a>
+                      <a href={`/admin/exams/${exam.id}/attempts`} className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition" title="Resultados">
+                        <BarChart3 className="w-4 h-4" />
+                      </a>
+                      <button onClick={() => handleDeleteClick(exam.id, exam.title)} className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition" title="Eliminar">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
-      {/* Delete Dialog */}
-      <DeleteDialog
-        isOpen={deleteDialog.isOpen}
-        onClose={deleteDialog.close}
-        onConfirm={handleDeleteConfirm}
-        itemName={examToDelete?.title || ''}
-        loading={deleteLoading}
-      />
+      <DeleteDialog isOpen={deleteDialog.isOpen} onClose={deleteDialog.close} onConfirm={handleDeleteConfirm} itemName={examToDelete?.title || ''} loading={deleteLoading} />
 
-      {/* Toast Container */}
+      {managingStudents && (
+        <ManageStudentsModal
+          examId={managingStudents.id}
+          examTitle={managingStudents.title}
+          examSlug={exams.find(e => e.id === managingStudents.id)?.slug || ''}
+          isOpen={true}
+          onClose={() => setManagingStudents(null)}
+        />
+      )}
+
+      {sharingExam && (
+        <ShareExamModal
+          examId={sharingExam.id}
+          examTitle={sharingExam.title}
+          onClose={() => setSharingExam(null)}
+          getShares={(id) => examService.getExamShares(id)}
+          getAvailableUsers={(id) => examService.getAvailableUsers(id)}
+          shareExam={(id, userId, perm) => examService.shareExam(id, userId, perm as any)}
+          updatePermission={(id, userId, perm) => examService.updateSharePermission(id, userId, perm as any)}
+          unshareExam={(id, userId) => examService.unshareExam(id, userId)}
+        />
+      )}
+
       <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
     </div>
   );

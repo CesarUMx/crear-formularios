@@ -3,6 +3,7 @@ import { AlertTriangle, Send } from 'lucide-react';
 import Modal from '../common/Modal';
 import { useColors } from '../../hooks/useColors';
 import { useToast } from '../common';
+import { API_URL } from '../../lib/config';
 
 interface ReportQuestionModalProps {
   isOpen: boolean;
@@ -50,7 +51,7 @@ export default function ReportQuestionModal({
         reason: reason.trim(),
       };
 
-      const response = await fetch('http://localhost:3000/api/question-reports', {
+      const response = await fetch(`${API_URL}/question-reports`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { aiExamService } from '../../lib/aiExamService';
-import { useToast, ToastContainer, Dialog, useDialog } from '../common';
-import QuestionRenderer from './QuestionRenderer';
+import { useToast, ToastContainer, Dialog, useDialog, QuestionRenderer } from '../common';
 import PhotoCapture from './PhotoCapture';
 import {
   Brain,
@@ -12,6 +11,10 @@ import {
   Send,
   RefreshCw,
   Info,
+  ChevronLeft,
+  ChevronRight,
+  Save,
+  Shield,
 } from 'lucide-react';
 
 interface Question {
@@ -57,6 +60,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
   const [responses, setResponses] = useState<Record<string, any>>({});
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   
   // ✅ Seguridad: Detección de cambio de pestaña
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
@@ -657,117 +661,154 @@ export default function AIExamTaker({ slug }: { slug: string }) {
 
   // Step: Tomando el examen
   if (step === 'exam') {
+    const currentQuestion = questions[currentQuestionIndex];
+    const isFirstQuestion = currentQuestionIndex === 0;
+    const isLastQuestion = currentQuestionIndex === questions.length - 1;
+
+    const transformedQuestion = currentQuestion ? {
+      ...currentQuestion,
+      type: currentQuestion.metadata?.questionType || 'multiple_choice',
+      ...currentQuestion.metadata,
+    } : null;
+
+    const goToNext = () => {
+      if (currentQuestionIndex < questions.length - 1) {
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
+      }
+    };
+
+    const goToPrev = () => {
+      if (currentQuestionIndex > 0) {
+        setCurrentQuestionIndex(currentQuestionIndex - 1);
+      }
+    };
+
     return (
-      <div 
-        className="max-w-4xl mx-auto py-8 space-y-6"
-        onCopy={(e) => {
-          e.preventDefault();
-          toast.warning('⚠️ Acción bloqueada', 'No se permite copiar contenido del examen');
-        }}
-        onCut={(e) => {
-          e.preventDefault();
-          toast.warning('⚠️ Acción bloqueada', 'No se permite cortar contenido del examen');
-        }}
-        onPaste={(e) => {
-          e.preventDefault();
-        }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          toast.warning('⚠️ Acción bloqueada', 'El menú contextual está deshabilitado durante el examen');
-        }}
+      <div
+        className="max-w-4xl mx-auto py-4 space-y-4"
+        onCopy={(e) => { e.preventDefault(); }}
+        onCut={(e) => { e.preventDefault(); }}
+        onPaste={(e) => { e.preventDefault(); }}
+        onContextMenu={(e) => { e.preventDefault(); }}
         style={{ userSelect: 'none' }}
       >
-        {/* Header con timer */}
+        {/* Header sticky */}
         <div className="bg-white rounded-lg border border-gray-200 p-4 sticky top-0 z-10 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">{examInfo?.title}</h2>
               <p className="text-sm text-gray-600">
-                {getAnsweredCount()} de {questions.length} preguntas respondidas
+                Pregunta {currentQuestionIndex + 1} de {questions.length}
+                {' | '}
+                {getAnsweredCount()} respondidas
               </p>
             </div>
-            {timeRemaining !== null && (
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                timeRemaining < 300 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
-              }`}>
-                <Clock className="w-5 h-5" />
-                <span className="font-mono font-bold text-lg">{formatTime(timeRemaining)}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              {tabSwitchCount > 0 && (
+                <div className="flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs">
+                  <Shield className="w-3 h-3" />
+                  {tabSwitchCount}/4
+                </div>
+              )}
+              {timeRemaining !== null && (
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                  timeRemaining < 300 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                }`}>
+                  <Clock className="w-5 h-5" />
+                  <span className="font-mono font-bold text-lg">{formatTime(timeRemaining)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="mt-3">
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="h-2 rounded-full bg-purple-600 transition-all duration-300"
+                style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Question dots */}
+          <div className="mt-3 flex flex-wrap gap-1">
+            {questions.map((q, idx) => {
+              const isActive = idx === currentQuestionIndex;
+              const answer = responses[q.id];
+              const isAnswered = answer !== null && answer !== undefined && answer !== '' && !(Array.isArray(answer) && answer.length === 0);
+              return (
+                <button
+                  key={q.id}
+                  onClick={() => setCurrentQuestionIndex(idx)}
+                  className={`w-7 h-7 rounded-full text-xs font-medium transition ${
+                    isActive
+                      ? 'ring-2 ring-offset-1 ring-purple-500 bg-purple-600 text-white'
+                      : isAnswered
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                  }`}
+                  title={`Pregunta ${idx + 1}`}
+                >
+                  {idx + 1}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Preguntas */}
-        <div className="space-y-6">
-          {questions.map((question, index) => {
-            // Debug: Ver qué datos tiene la pregunta
-            console.log('🔍 Pregunta original:', {
-              id: question.id,
-              text: question.text,
-              metadata: question.metadata,
-              options: question.options,
-            });
+        {/* Pregunta actual */}
+        {transformedQuestion && (
+          <div className="bg-white rounded-lg border border-gray-200 p-8">
+            <QuestionRenderer
+              question={transformedQuestion as any}
+              questionNumber={currentQuestionIndex + 1}
+              mode="exam"
+              userAnswer={responses[currentQuestion.id]}
+              onAnswerChange={(answer) => handleResponseChange(currentQuestion.id, answer)}
+            />
 
-            // Transformar pregunta para QuestionRenderer
-            const transformedQuestion = {
-              ...question,
-              type: question.metadata?.questionType || 'multiple_choice',
-              ...question.metadata,
-            };
+            {/* Navigation */}
+            <div className="mt-8 pt-6 border-t border-gray-200 flex items-center justify-between">
+              <button
+                onClick={goToPrev}
+                disabled={isFirstQuestion}
+                className="flex items-center gap-2 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                <ChevronLeft className="w-5 h-5" />
+                Anterior
+              </button>
 
-            console.log('🎯 Pregunta transformada:', {
-              type: transformedQuestion.type,
-              hasOptions: !!transformedQuestion.options,
-              hasBlanks: !!transformedQuestion.blanks,
-              hasPairs: !!transformedQuestion.pairs,
-            });
-
-            return (
-              <div key={question.id}>
-                <QuestionRenderer
-                  question={transformedQuestion as any}
-                  questionNumber={index + 1}
-                  mode="exam"
-                  userAnswer={responses[question.id]}
-                  onAnswerChange={(answer) => handleResponseChange(question.id, answer)}
-                />
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Botón de enviar */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 sticky bottom-0">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              <p className="font-medium">
-                {getAnsweredCount()} de {questions.length} preguntas respondidas
-              </p>
-              {getAnsweredCount() < questions.length && (
-                <p className="text-orange-600">
-                  Faltan {questions.length - getAnsweredCount()} preguntas por responder
-                </p>
-              )}
-            </div>
-            <button
-              onClick={handleSubmitClick}
-              disabled={submitting}
-              className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-            >
-              {submitting ? (
-                <>
-                  <Loader className="w-5 h-5 animate-spin" />
-                  Enviando...
-                </>
+              {!isLastQuestion ? (
+                <button
+                  onClick={goToNext}
+                  className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                >
+                  Siguiente
+                  <ChevronRight className="w-5 h-5" />
+                </button>
               ) : (
-                <>
-                  <Send className="w-5 h-5" />
-                  Enviar Examen
-                </>
+                <button
+                  onClick={handleSubmitClick}
+                  disabled={submitting}
+                  className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader className="w-5 h-5 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5" />
+                      Enviar Examen
+                    </>
+                  )}
+                </button>
               )}
-            </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Diálogo de confirmación */}
         <Dialog
