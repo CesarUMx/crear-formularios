@@ -327,6 +327,9 @@ model ExamSection {
   description String?
   order    Int
 
+  // Temporalizador por sección
+  timeLimit Int? // Tiempo límite en minutos para esta sección (null = sin límite)
+
   // Archivo adjunto (1 por sección)
   fileUrl  String?
   fileName String?
@@ -416,6 +419,7 @@ model ExamAttempt {
   startedAt   DateTime  @default(now())
   completedAt DateTime?
   timeSpent   Int? // segundos
+  sectionTimes Json? // Rastreo de tiempo por sección: { "sectionId": { started, completed, ended } }
 
   // Calificación
   score      Float?

@@ -528,7 +528,11 @@ async function recalculateAttemptScore(attemptId: string) {
     where: { id: attemptId },
     include: {
       exam: true,
-      answers: true
+      answers: {
+        include: {
+          question: true
+        }
+      }
     }
   });
 
@@ -542,11 +546,23 @@ async function recalculateAttemptScore(attemptId: string) {
 
   const passed = totalScore >= attempt.exam.passingScore;
 
+  // Verificar si todas las preguntas que requieren calificación manual ya fueron calificadas
+  const manualAnswers = attempt.answers.filter(a => 
+    a.question.type === 'TEXT' || a.question.type === 'TEXTAREA'
+  );
+  
+  const allManualGraded = manualAnswers.length === 0 || manualAnswers.every(a => 
+    a.pointsEarned !== null && a.pointsEarned !== undefined
+  );
+
   await prisma.examAttempt.update({
     where: { id: attemptId },
     data: {
       score: totalScore,
-      passed
+      passed,
+      requiresManualGrading: !allManualGraded,
+      isGraded: allManualGraded,
+      gradedAt: allManualGraded ? new Date() : undefined
     }
   });
 

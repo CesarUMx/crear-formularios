@@ -196,6 +196,7 @@ export interface ExamSection {
   title: string;
   description?: string;
   order: number;
+  timeLimit?: number; // Tiempo límite en minutos para esta sección
   questions: ExamQuestion[];
   fileUrl?: string;
   fileName?: string;
@@ -272,6 +273,7 @@ export interface ExamSectionInput {
   id?: string;
   title: string;
   description?: string;
+  timeLimit?: number; // Tiempo límite en minutos para esta sección
   fileUrl?: string;
   fileName?: string;
   fileType?: string;
@@ -323,6 +325,13 @@ export interface ExamAttempt {
   
   // Seguridad
   tabSwitches?: number;
+  
+  // Tiempos de secciones (para timer por sección)
+  sectionTimes?: Record<string, {
+    started: number;
+    completed: boolean;
+    ended?: number;
+  }>;
   
   // Relaciones
   exam?: Exam;

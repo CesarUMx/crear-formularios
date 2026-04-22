@@ -50,6 +50,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
   // Formulario de identificación
   const [studentName, setStudentName] = useState('');
   const [studentEmail, setStudentEmail] = useState('');
+  const [emailConfirm, setEmailConfirm] = useState('');
   const [studentPassword, setStudentPassword] = useState('');
   const [studentId, setStudentId] = useState<string | null>(null);
   const [hasActiveAttempt, setHasActiveAttempt] = useState(false); // Para controlar UI de reanudación
@@ -265,6 +266,12 @@ export default function AIExamTaker({ slug }: { slug: string }) {
       // Examen público
       if (!studentName.trim() || !studentEmail.trim()) {
         toast.error('Error', 'Nombre y correo son obligatorios');
+        return;
+      }
+
+      // Validar confirmación de correo
+      if (studentEmail.trim().toLowerCase() !== emailConfirm.trim().toLowerCase()) {
+        toast.error('Error', 'Los correos no coinciden. Por favor verifica.');
         return;
       }
 
@@ -560,7 +567,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
             </div>
           </div>
 
-          <div className="space-y-4">
+          <form method="post" action="javascript:void(0);" onSubmit={(e) => { e.preventDefault(); handleStartExam(); }} className="space-y-4">
             {examInfo?.accessType === 'PRIVATE' ? (
               <>
                 {/* Formulario de Login para Exámenes Privados */}
@@ -628,32 +635,57 @@ export default function AIExamTaker({ slug }: { slug: string }) {
                     required
                   />
                 </div>
-              </>
-            )}
-          </div>
 
-          <button
-            onClick={handleStartExam}
-            disabled={loading}
-            className="w-full bg-purple-600 text-white mt-4 py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <Loader className="w-5 h-5 animate-spin" />
-                Cargando...
-              </>
-            ) : hasActiveAttempt ? (
-              <>
-                <RefreshCw className="w-5 h-5" />
-                Reanudar Examen
-              </>
-            ) : (
-              <>
-                <CheckCircle className="w-5 h-5" />
-                Iniciar Examen
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Confirmar Correo Electrónico *
+                  </label>
+                  <input
+                    type="email"
+                    value={emailConfirm}
+                    onChange={(e) => setEmailConfirm(e.target.value)}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      toast.error('Error', 'Por favor escribe el correo manualmente para confirmar');
+                    }}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition ${
+                      emailConfirm && studentEmail.trim().toLowerCase() !== emailConfirm.trim().toLowerCase()
+                        ? 'border-red-300 bg-red-50'
+                        : 'border-gray-300'
+                    }`}
+                    placeholder="Confirma tu correo"
+                    required
+                  />
+                  {emailConfirm && studentEmail.trim().toLowerCase() !== emailConfirm.trim().toLowerCase() && (
+                    <p className="mt-1 text-sm text-red-600">Los correos no coinciden</p>
+                  )}
+                </div>
               </>
             )}
-          </button>
+          
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-purple-600 text-white mt-4 py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <Loader className="w-5 h-5 animate-spin" />
+                  Cargando...
+                </>
+              ) : hasActiveAttempt ? (
+                <>
+                  <RefreshCw className="w-5 h-5" />
+                  Reanudar Examen
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  Iniciar Examen
+                </>
+              )}
+            </button>
+          </form>
         </div>
       </div>
     );

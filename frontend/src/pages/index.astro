@@ -1,6 +1,5 @@
 ---
 import LoginForm from '../components/auth/LoginForm';
-import LoginOrDashboard from '../components/common/LoginOrDashboard';
 import '../styles/global.css';
 ---
 
@@ -14,7 +13,6 @@ import '../styles/global.css';
     <title>Forms</title>
   </head>
   <body>
-    <LoginOrDashboard client:only="react" />
-    <LoginForm client:load />
+    <LoginForm client:only="react" />
   </body>
 </html>

@@ -18,6 +18,7 @@ import {
   saveAnswer,
   submitAttempt,
   getAttemptResult,
+  sendAttemptResult,
   getExamAttempts,
   getAttemptById,
   gradeQuestionManually,
@@ -35,7 +36,9 @@ import {
   saveStudentPhoto,
   createQuestionReport,
   getQuestionReports,
-  reviewQuestionReport
+  reviewQuestionReport,
+  startExamSection,
+  completeExamSection
 } from '../controllers/examController.js';
 import { requireAuth } from '../middleware/auth.js';
 import { upload, handleMulterError } from '../config/multer.js';
@@ -67,6 +70,9 @@ router.post('/attempts/:attemptId/submit', submitAttempt);
 
 // Obtener resultado del intento
 router.get('/attempts/:attemptId/result', getAttemptResult);
+
+// Enviar resultados por correo (público: el alumno se lo puede mandar a si mismo)
+router.post('/attempts/:attemptId/send-result', sendAttemptResult);
 
 // Seguridad: registrar cambio de pestaña
 router.post('/attempts/:attemptId/tab-switch', recordTabSwitch);
@@ -118,6 +124,10 @@ router.delete('/:id/students/:studentId', removeStudent);
 // Gestión de intentos (admin)
 router.get('/:id/attempts', getExamAttempts);
 router.get('/:id/attempts/:attemptId', getAttemptById);
+
+// Control de sección (para timers por sección)
+router.post('/attempts/:attemptId/sections/:sectionId/start', startExamSection);
+router.post('/attempts/:attemptId/sections/:sectionId/complete', completeExamSection);
 
 // Calificación manual
 router.put('/:id/attempts/:attemptId/answers/:answerId/grade', gradeQuestionManually);

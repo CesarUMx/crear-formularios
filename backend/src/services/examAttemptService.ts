@@ -425,6 +425,29 @@ export const submitExamAttempt = async (attemptId: string) => {
 };
 
 /**
+ * Obtener información resumen de un intento para enviar por correo
+ */
+export const getAttemptForEmail = async (attemptId: string) => {
+  const attempt = await prisma.examAttempt.findUnique({
+    where: { id: attemptId },
+    include: {
+      exam: {
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          passingScore: true,
+          showResults: true,
+        }
+      }
+    }
+  });
+  if (!attempt) throw new Error('Intento no encontrado');
+  if (!attempt.completedAt) throw new Error('El examen aún no ha sido completado');
+  return attempt;
+};
+
+/**
  * Obtener resultado de un intento
  */
 export const getAttemptResult = async (attemptId: string) => {
@@ -760,4 +783,97 @@ export const validateSessionToken = async (attemptId: string, sessionToken: stri
   });
   if (!attempt) return false;
   return attempt.sessionToken === sessionToken;
+};
+
+/**
+ * Registrar inicio de una sección
+ */
+export const startSection = async (attemptId: string, sectionId: string) => {
+  const attempt = await prisma.examAttempt.findUnique({ 
+    where: { id: attemptId },
+    select: { sectionTimes: true }
+  });
+
+  if (!attempt) {
+    throw new Error('Intento no encontrado');
+  }
+
+  const sectionTimes = (attempt.sectionTimes as any) || {};
+  sectionTimes[sectionId] = {
+    started: Date.now(),
+    completed: false
+  };
+
+  return await prisma.examAttempt.update({
+    where: { id: attemptId },
+    data: { sectionTimes }
+  });
+};
+
+/**
+ * Completar una sección
+ */
+export const completeSection = async (attemptId: string, sectionId: string) => {
+  const attempt = await prisma.examAttempt.findUnique({ 
+    where: { id: attemptId },
+    select: { sectionTimes: true }
+  });
+
+  if (!attempt) {
+    throw new Error('Intento no encontrado');
+  }
+
+  const sectionTimes = (attempt.sectionTimes as any) || {};
+  if (sectionTimes[sectionId]) {
+    sectionTimes[sectionId].completed = true;
+    sectionTimes[sectionId].ended = Date.now();
+  }
+
+  return await prisma.examAttempt.update({
+    where: { id: attemptId },
+    data: { sectionTimes }
+  });
+};
+
+/**
+ * Validar que los tiempos de las secciones no se hayan excedido
+ */
+export const validateSectionTimes = async (attemptId: string) => {
+  const attempt = await prisma.examAttempt.findUnique({
+    where: { id: attemptId },
+    include: {
+      exam: {
+        include: {
+          sections: { 
+            orderBy: { order: 'asc' }
+          }
+        }
+      }
+    }
+  });
+
+  if (!attempt) {
+    throw new Error('Intento no encontrado');
+  }
+
+  const sectionTimes = (attempt.sectionTimes as any) || {};
+  const violations: string[] = [];
+
+  for (const section of attempt.exam.sections) {
+    if (section.timeLimit && sectionTimes[section.id]) {
+      const elapsed = (sectionTimes[section.id].ended || Date.now()) - sectionTimes[section.id].started;
+      const allowedMs = section.timeLimit * 60 * 1000;
+
+      if (elapsed > allowedMs + 5000) { // 5s de tolerancia
+        const exceededBy = Math.round((elapsed - allowedMs) / 1000);
+        violations.push(`Sección "${section.title}" excedió el tiempo límite por ${exceededBy} segundos`);
+        console.warn(`⚠️ Sección ${section.id} excedió tiempo límite: ${exceededBy}s`);
+      }
+    }
+  }
+
+  return {
+    isValid: violations.length === 0,
+    violations
+  };
 };

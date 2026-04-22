@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { examService } from '../../lib/examService';
 import type { ExamAttempt, ExamSection, ExamQuestion } from '../../lib/types';
 import { useToast, ToastContainer, Dialog, useDialog, QuestionRenderer, FileAttachment } from '../common';
@@ -25,6 +25,9 @@ const formatTime = (seconds: number) => {
   const secs = seconds % 60;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
+
+// Tiempo máximo permitido en pantalla intermedia (en segundos)
+const MAX_PAUSE_TIME = 300; // 5 minutos
 
 // Mapear respuesta de QuestionRenderer al formato de examService.saveAnswer
 function mapAnswerForSave(questionType: string, answer: any): { textValue?: string; selectedOptionIds?: string[]; jsonValue?: any } {
@@ -82,8 +85,25 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [warningShown5Min, setWarningShown5Min] = useState(false);
-  const [warningShown1Min, setWarningShown1Min] = useState(false);
+  
+  // Advertencias globales usando useRef para no causar re-renders
+  const warningShown5MinRef = useRef(false);
+  const warningShown1MinRef = useRef(false);
+  
+  // Advertencias por sección usando useRef para no causar re-renders
+  const sectionWarning30sRef = useRef<Record<string, boolean>>({});
+  const sectionWarning10sRef = useRef<Record<string, boolean>>({});
+
+  // Navegación por secciones con timers
+  const [showingSectionIntro, setShowingSectionIntro] = useState(false);
+  const [sectionTimeRemaining, setSectionTimeRemaining] = useState<number | null>(null);
+  const [globalTimerPaused, setGlobalTimerPaused] = useState(false);
+  const [sectionStartTimes, setSectionStartTimes] = useState<Record<string, number>>({});
+  
+  // Control de tiempo pausado
+  const [totalPausedTime, setTotalPausedTime] = useState(0); // Total acumulado en ms
+  const [pauseStartTime, setPauseStartTime] = useState<number | null>(null); // Cuando inició la pausa actual
+  const [pauseTimeRemaining, setPauseTimeRemaining] = useState<number | null>(null); // Tiempo restante en pantalla intermedia
 
   // Seguridad
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
@@ -92,6 +112,43 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
   const submitDialog = useDialog();
   const unansweredDialog = useDialog();
   const [unansweredCount, setUnansweredCount] = useState(0);
+
+  // ==================== CALCULOS DE TIEMPO DINAMICO ====================
+
+  const calculateDynamicLimit = (): { available: number; required: number; recommended: number } => {
+    const sections: ExamSection[] = attempt?.exam?.sections || [];
+    const globalRemaining = timeRemaining || 0; // En segundos
+    
+    // Calcular tiempo requerido por secciones futuras
+    const futureSections = sections.slice(currentSectionIndex + 1);
+    const futureRequiredTime = futureSections.reduce((sum, s) => sum + (s.timeLimit || 0), 0) * 60; // En segundos
+    
+    // Tiempo disponible para esta sección
+    const availableTime = Math.max(0, globalRemaining - futureRequiredTime);
+    
+    return {
+      available: Math.floor(availableTime / 60), // En minutos
+      required: Math.floor(futureRequiredTime / 60), // En minutos
+      recommended: Math.floor(availableTime / 60) // En minutos
+    };
+  };
+
+  const checkNeedPreventiveAdvance = (): boolean => {
+    if (!timeRemaining || !attempt?.exam?.timeLimit) return false;
+    
+    const sections: ExamSection[] = attempt?.exam?.sections || [];
+    const currentSection = sections[currentSectionIndex];
+    
+    // Si la sección actual tiene límite, no forzar avance (su propio timer lo manejará)
+    if (currentSection?.timeLimit) return false;
+    
+    // Calcular tiempo necesario para secciones futuras
+    const futureSections = sections.slice(currentSectionIndex + 1);
+    const futureRequiredTime = futureSections.reduce((sum, s) => sum + (s.timeLimit || 0), 0) * 60; // En segundos
+    
+    // Si el tiempo restante es menor o igual al tiempo necesario futuro, forzar avance
+    return timeRemaining <= futureRequiredTime && currentSectionIndex < sections.length - 1;
+  };
 
   const loadAttempt = useCallback(async () => {
     try {
@@ -117,6 +174,34 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
         setAnswers(restoredAnswers);
       }
 
+      // Restaurar tiempos de secciones desde el backend
+      if (data.sectionTimes) {
+        const restoredSectionTimes: Record<string, number> = {};
+        Object.entries(data.sectionTimes).forEach(([sectionId, timeData]: [string, any]) => {
+          if (timeData.started) {
+            restoredSectionTimes[sectionId] = timeData.started;
+          }
+        });
+        setSectionStartTimes(restoredSectionTimes);
+      }
+
+      // Verificar si la primera sección tiene timeLimit para mostrar pantalla intermedia
+      const firstSection = data.exam?.sections?.[0];
+      if (firstSection?.timeLimit) {
+        setShowingSectionIntro(true);
+        setGlobalTimerPaused(true);
+        setPauseStartTime(Date.now()); // Registrar inicio de pausa
+        setTimeRemaining(null); // NO mostrar timer hasta que inicie
+      } else {
+        // Si la primera sección NO tiene timeLimit, inicializar el timer global
+        if (data.exam?.timeLimit) {
+          const startTime = new Date(data.startedAt).getTime();
+          const endTime = startTime + data.exam.timeLimit * 60 * 1000;
+          const remaining = Math.max(0, endTime - Date.now());
+          setTimeRemaining(Math.floor(remaining / 1000));
+        }
+      }
+
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar el examen');
@@ -128,6 +213,34 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
   useEffect(() => {
     if (!initialAttempt && attemptId) {
       loadAttempt();
+    } else if (initialAttempt) {
+      // Restaurar tiempos de secciones si existen
+      if (initialAttempt.sectionTimes) {
+        const restoredSectionTimes: Record<string, number> = {};
+        Object.entries(initialAttempt.sectionTimes).forEach(([sectionId, timeData]: [string, any]) => {
+          if (timeData.started) {
+            restoredSectionTimes[sectionId] = timeData.started;
+          }
+        });
+        setSectionStartTimes(restoredSectionTimes);
+      }
+      
+      // Si se proporciona initialAttempt, verificar primera sección
+      const firstSection = initialAttempt.exam?.sections?.[0];
+      if (firstSection?.timeLimit) {
+        setShowingSectionIntro(true);
+        setGlobalTimerPaused(true);
+        setPauseStartTime(Date.now()); // Registrar inicio de pausa
+        setTimeRemaining(null); // NO mostrar timer hasta que inicie
+      } else {
+        // Si la primera sección NO tiene timeLimit, inicializar el timer global
+        if (initialAttempt.exam?.timeLimit) {
+          const startTime = new Date(initialAttempt.startedAt).getTime();
+          const endTime = startTime + initialAttempt.exam.timeLimit * 60 * 1000;
+          const remaining = Math.max(0, endTime - Date.now());
+          setTimeRemaining(Math.floor(remaining / 1000));
+        }
+      }
     }
   }, [attemptId, initialAttempt, loadAttempt]);
 
@@ -156,12 +269,17 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [attempt, tabSwitchCount]);
 
-  // Timer
+  // Timer global (con compensación por tiempo pausado)
   useEffect(() => {
-    if (!attempt?.exam?.timeLimit || !attempt) return;
+    if (!attempt?.exam?.timeLimit || !attempt || globalTimerPaused) {
+      // Si está pausado, NO actualizar timeRemaining
+      return;
+    }
 
     const startTime = new Date(attempt.startedAt).getTime();
-    const endTime = startTime + attempt.exam.timeLimit * 60 * 1000;
+    const examDuration = attempt.exam.timeLimit * 60 * 1000; // En ms
+    // Ajustar endTime sumando el tiempo pausado acumulado
+    const endTime = startTime + examDuration + totalPausedTime;
 
     const timer = setInterval(() => {
       const now = Date.now();
@@ -169,14 +287,29 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
       const remainingSeconds = Math.floor(remaining / 1000);
       setTimeRemaining(remainingSeconds);
 
-      if (remainingSeconds <= 300 && remainingSeconds > 299 && !warningShown5Min) {
+      if (remainingSeconds <= 300 && remainingSeconds > 299 && !warningShown5MinRef.current) {
         toast.warning('Tiempo restante', 'Quedan 5 minutos para terminar el examen', 10000);
-        setWarningShown5Min(true);
+        warningShown5MinRef.current = true;
       }
 
-      if (remainingSeconds <= 60 && remainingSeconds > 59 && !warningShown1Min) {
+      if (remainingSeconds <= 60 && remainingSeconds > 59 && !warningShown1MinRef.current) {
         toast.warning('Ultimo minuto', 'El examen se enviara automaticamente cuando termine el tiempo', 15000);
-        setWarningShown1Min(true);
+        warningShown1MinRef.current = true;
+      }
+
+      // ==================== AUTO-AVANCE PREVENTIVO ====================
+      // Si se está acabando el tiempo y quedan secciones con límite, forzar avance
+      if (checkNeedPreventiveAdvance()) {
+        const sections: ExamSection[] = attempt?.exam?.sections || [];
+        const currentSection = sections[currentSectionIndex];
+        
+        if (!currentSection?.timeLimit && !showingSectionIntro) {
+          toast.warning('Avance automático',
+            'Se está acabando el tiempo. Avanzando para que puedas completar las secciones con límite definido.',
+            0
+          );
+          goToNextQuestion(); // Forzar avance
+        }
       }
 
       if (remaining === 0) {
@@ -186,7 +319,85 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [attempt, warningShown5Min, warningShown1Min]);
+  }, [attempt, globalTimerPaused, totalPausedTime, currentSectionIndex, showingSectionIntro]);
+
+  // Timer por sección
+  useEffect(() => {
+    const sections: ExamSection[] = attempt?.exam?.sections || [];
+    const currentSection = sections[currentSectionIndex];
+    
+    if (!currentSection?.timeLimit || !currentSection.id || showingSectionIntro) return;
+    if (!sectionStartTimes[currentSection.id]) return;
+
+    const startTime = sectionStartTimes[currentSection.id];
+    const endTime = startTime + currentSection.timeLimit * 60 * 1000;
+    let hasAdvanced = false; // Flag para evitar múltiples avances
+
+    const timer = setInterval(async () => {
+      const remaining = Math.max(0, endTime - Date.now());
+      const remainingSeconds = Math.floor(remaining / 1000);
+      setSectionTimeRemaining(remainingSeconds);
+
+      // Advertencias de tiempo (usando refs para no causar re-renders)
+      if (currentSection.id && remainingSeconds === 30 && !sectionWarning30sRef.current[currentSection.id]) {
+        sectionWarning30sRef.current[currentSection.id] = true;
+        toast.warning('Tiempo de sección', 'Quedan 30 segundos para completar esta sección', 5000);
+      }
+
+      if (currentSection.id && remainingSeconds === 10 && !sectionWarning10sRef.current[currentSection.id]) {
+        sectionWarning10sRef.current[currentSection.id] = true;
+        toast.warning('Últimos segundos', 'Quedan 10 segundos. La sección avanzará automáticamente', 8000);
+      }
+
+      if (remainingSeconds === 0 && !hasAdvanced) {
+        hasAdvanced = true; // Marcar que ya se está avanzando
+        clearInterval(timer); // Limpiar el timer inmediatamente
+        
+        toast.warning('Tiempo de sección agotado', 'Pasando a siguiente sección automáticamente...', 3000);
+        
+        try {
+          // Guardar respuesta actual antes de avanzar
+          await saveCurrentAnswer();
+        } catch (err) {
+          console.error('Error guardando respuesta:', err);
+        }
+        
+        // Forzar avance a siguiente sección (no siguiente pregunta)
+        await forceNextSection();
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [attempt, currentSectionIndex, sectionStartTimes, showingSectionIntro]);
+
+  // Timer de pantalla intermedia (límite de tiempo en pausa)
+  useEffect(() => {
+    if (!showingSectionIntro) {
+      setPauseTimeRemaining(null);
+      return;
+    }
+
+    // Inicializar countdown de MAX_PAUSE_TIME
+    setPauseTimeRemaining(MAX_PAUSE_TIME);
+
+    const timer = setInterval(() => {
+      setPauseTimeRemaining(prev => {
+        if (prev === null || prev <= 0) {
+          clearInterval(timer);
+          // Tiempo de pausa agotado - auto-avanzar
+          toast.warning('Tiempo de pausa agotado', 
+            'Se ha excedido el tiempo máximo en la pantalla intermedia. Continuando automáticamente...', 
+            5000
+          );
+          setTimeout(() => handleStartSection(), 500);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [showingSectionIntro]);
 
   // Loading / Error
   if (loading) {
@@ -226,11 +437,11 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
     );
   }
 
-  const saveCurrentAnswer = async () => {
-    if (!currentQuestion?.id) return;
+  const saveCurrentAnswer = async (): Promise<void> => {
+    if (!currentQuestion?.id) return Promise.resolve();
     const questionId = currentQuestion.id;
     let answer = answers[questionId];
-    if (answer === null || answer === undefined) return;
+    if (answer === null || answer === undefined) return Promise.resolve();
 
     // Para ORDERING: convertir array de índices a array de textos en orden
     if (currentQuestion.type === 'ORDERING' && Array.isArray(answer)) {
@@ -263,26 +474,165 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
 
   const goToNextQuestion = async () => {
     await saveCurrentAnswer();
+    const sections: ExamSection[] = attempt?.exam?.sections || [];
+    const currentSection = sections[currentSectionIndex];
+    
     if (currentQuestionIndex < currentSection.questions.length - 1) {
+      // Siguiente pregunta en la misma sección
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else if (currentSectionIndex < sections.length - 1) {
-      setCurrentSectionIndex(currentSectionIndex + 1);
+      // Completar sección actual y mostrar intro de siguiente
+      await handleSectionComplete();
+      
+      const nextSectionIndex = currentSectionIndex + 1;
+      const nextSection = sections[nextSectionIndex];
+      
+      setCurrentSectionIndex(nextSectionIndex);
       setCurrentQuestionIndex(0);
+      
+      // Mostrar pantalla intermedia y pausar timer global
+      if (nextSection) {
+        setShowingSectionIntro(true);
+        setGlobalTimerPaused(true);
+        setPauseStartTime(Date.now()); // Registrar inicio de pausa
+        setSectionTimeRemaining(null);
+      }
+    }
+  };
+
+  const forceNextSection = async () => {
+    // Función específica para forzar avance a siguiente sección cuando se acaba el tiempo
+    const sections: ExamSection[] = attempt?.exam?.sections || [];
+    
+    if (currentSectionIndex >= sections.length - 1) {
+      // Ya estamos en la última sección - auto-enviar el examen
+      console.log('Última sección completada por tiempo - enviando examen automáticamente');
+      toast.warning('Tiempo de sección agotado', 'Enviando examen automáticamente...', 3000);
+      await handleSectionComplete();
+      setTimeout(() => handleAutoSubmit(), 1000);
+      return;
+    }
+    
+    // Completar sección actual
+    await handleSectionComplete();
+    
+    const nextSectionIndex = currentSectionIndex + 1;
+    const nextSection = sections[nextSectionIndex];
+    
+    console.log('Avanzando de sección', currentSectionIndex, 'a sección', nextSectionIndex);
+    
+    // Avanzar a siguiente sección
+    setCurrentSectionIndex(nextSectionIndex);
+    setCurrentQuestionIndex(0);
+    
+    // Mostrar pantalla intermedia y pausar timer global
+    if (nextSection) {
+      setShowingSectionIntro(true);
+      setGlobalTimerPaused(true);
+      setPauseStartTime(Date.now()); // Registrar inicio de pausa
+      setSectionTimeRemaining(null);
     }
   };
 
   const goToPreviousQuestion = async () => {
     await saveCurrentAnswer();
+    const sections: ExamSection[] = attempt?.exam?.sections || [];
+    const currentSection = sections[currentSectionIndex];
+    
     if (currentQuestionIndex > 0) {
+      // Pregunta anterior en la misma sección
       setCurrentQuestionIndex(currentQuestionIndex - 1);
     } else if (currentSectionIndex > 0) {
-      setCurrentSectionIndex(currentSectionIndex - 1);
+      // Validar si la sección anterior tenía timeLimit
       const prevSection = sections[currentSectionIndex - 1];
-      setCurrentQuestionIndex(prevSection.questions.length - 1);
+      if (prevSection.timeLimit) {
+        toast.warning('No puedes regresar', 'La sección anterior tenía límite de tiempo');
+        return;
+      }
+      // Ir a última pregunta de sección anterior
+      setCurrentSectionIndex(currentSectionIndex - 1);
+      const prevSectionQuestions = prevSection.questions.length;
+      setCurrentQuestionIndex(prevSectionQuestions - 1);
+    }
+  };
+
+  const handleSectionComplete = async () => {
+    const sections: ExamSection[] = attempt?.exam?.sections || [];
+    const currentSection = sections[currentSectionIndex];
+    
+    if (!currentSection?.id) return;
+
+    try {
+      // Guardar respuestas pendientes
+      await saveCurrentAnswer();
+      
+      // Notificar al servidor que la sección se completó
+      await examService.completeSection(attemptId, currentSection.id);
+    } catch (err) {
+      console.error('Error al completar sección:', err);
+    }
+  };
+
+  const handleStartSection = async () => {
+    const sections: ExamSection[] = attempt?.exam?.sections || [];
+    const currentSection = sections[currentSectionIndex];
+    
+    if (!currentSection?.id) return;
+
+    try {
+      // Calcular tiempo pausado y acumularlo
+      if (pauseStartTime !== null) {
+        const pauseDuration = Date.now() - pauseStartTime;
+        setTotalPausedTime(prev => prev + pauseDuration);
+        setPauseStartTime(null); // Limpiar timestamp de inicio de pausa
+      }
+      
+      // Notificar al servidor que la sección inicia (solo si no ha iniciado antes)
+      if (!sectionStartTimes[currentSection.id]) {
+        await examService.startSection(attemptId, currentSection.id);
+        
+        // Registrar tiempo de inicio si tiene timeLimit
+        if (currentSection.timeLimit) {
+          setSectionStartTimes(prev => ({
+            ...prev,
+            [currentSection.id!]: Date.now()
+          }));
+        }
+      }
+      
+      // Ocultar intro y reanudar timers
+      setShowingSectionIntro(false);
+      setGlobalTimerPaused(false);
+      
+      // Inicializar timer global si es la primera vez
+      if (timeRemaining === null && attempt?.exam?.timeLimit) {
+        const startTime = new Date(attempt.startedAt).getTime();
+        const endTime = startTime + attempt.exam.timeLimit * 60 * 1000;
+        const remaining = Math.max(0, endTime - Date.now());
+        setTimeRemaining(Math.floor(remaining / 1000));
+      }
+    } catch (err) {
+      console.error('Error al iniciar sección:', err);
+      toast.error('Error', 'No se pudo iniciar la sección');
     }
   };
 
   const goToQuestion = async (sIdx: number, qIdx: number) => {
+    // Si estamos en intro de sección, no permitir saltar
+    if (showingSectionIntro) {
+      toast.warning('Debes iniciar la sección primero', 'Presiona "Comenzar Sección" para continuar');
+      return;
+    }
+
+    // No permitir saltar a secciones anteriores con timeLimit
+    if (sIdx < currentSectionIndex) {
+      const targetSection = sections[sIdx];
+      if (targetSection?.timeLimit) {
+        toast.warning('No puedes regresar', 'Esa sección tenía límite de tiempo');
+        return;
+      }
+    }
+
     await saveCurrentAnswer();
     setCurrentSectionIndex(sIdx);
     setCurrentQuestionIndex(qIdx);
@@ -394,12 +744,37 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
                 <span className="font-medium">{getAnsweredCount()}</span> / {getTotalQuestions()} respondidas
               </div>
 
-              {timeRemaining !== null && (
+              {/* Timer de sección (prioridad visual) */}
+              {sectionTimeRemaining !== null && !showingSectionIntro && (
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg font-semibold ${
+                  sectionTimeRemaining < 60 ? 'bg-red-100 text-red-800 ring-2 ring-red-300' : 'bg-amber-100 text-amber-800'
+                }`}>
+                  <Clock className="w-4 h-4" />
+                  <div className="flex flex-col items-start">
+                    <span className="text-xs opacity-75">Sección</span>
+                    <span className="font-mono">{formatTime(sectionTimeRemaining)}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Timer global */}
+              {timeRemaining !== null && !globalTimerPaused && (
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
                   timeRemaining < 300 ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
                 }`}>
                   <Clock className="w-4 h-4" />
-                  <span className="font-mono font-semibold">{formatTime(timeRemaining)}</span>
+                  <div className="flex flex-col items-start">
+                    <span className="text-xs opacity-75">Total</span>
+                    <span className="font-mono font-semibold">{formatTime(timeRemaining)}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Timer pausado */}
+              {globalTimerPaused && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-600">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-sm">Pausado</span>
                 </div>
               )}
 
@@ -468,6 +843,173 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto p-6">
+        {/* Pantalla intermedia de sección */}
+        {showingSectionIntro ? (
+          <div className="bg-white rounded-lg shadow-lg p-8">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-4">
+                <FileText className="w-8 h-8 text-blue-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                {currentSection?.title}
+              </h2>
+              {currentSection?.description && (
+                <p className="text-gray-600 text-lg">
+                  {currentSection.description}
+                </p>
+              )}
+            </div>
+
+            {/* Info de la sección */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                <FileText className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+                <div className="text-2xl font-bold text-blue-900">{currentSection?.questions.length}</div>
+                <div className="text-sm text-blue-700">Preguntas</div>
+              </div>
+              
+              {currentSection?.timeLimit && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+                  <Clock className="w-6 h-6 text-amber-600 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-amber-900">{currentSection.timeLimit}</div>
+                  <div className="text-sm text-amber-700">Minutos</div>
+                </div>
+              )}
+              
+              {!currentSection?.timeLimit && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                  <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-2" />
+                  <div className="text-lg font-bold text-green-900">Sin límite</div>
+                  <div className="text-sm text-green-700">de tiempo</div>
+                </div>
+              )}
+
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
+                <AlertCircle className="w-6 h-6 text-purple-600 mx-auto mb-2" />
+                <div className="text-2xl font-bold text-purple-900">{currentSectionIndex + 1} / {sections.length}</div>
+                <div className="text-sm text-purple-700">Sección</div>
+              </div>
+            </div>
+
+            {/* Archivo adjunto de sección */}
+            {currentSection?.fileUrl && currentSection.fileName && currentSection.fileType && (
+              <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <p className="text-sm font-medium text-gray-700 mb-2">Archivo adjunto de la sección:</p>
+                <FileAttachment
+                  fileUrl={currentSection.fileUrl}
+                  fileName={currentSection.fileName}
+                  fileType={currentSection.fileType}
+                />
+              </div>
+            )}
+
+            {/* Mensajes importantes */}
+            <div className="space-y-3 mb-6">
+              <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <Clock className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <strong>Descanso:</strong> Puedes tomar un descanso aquí. Los temporizadores están pausados y se reanudarán cuando presiones "Comenzar Sección".
+                </div>
+              </div>
+
+              {currentSection?.timeLimit && (
+                <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-amber-800">
+                    <strong>Tiempo limitado:</strong> Esta sección tiene un límite de {currentSection.timeLimit} minutos. El contador iniciará cuando presiones "Comenzar Sección".
+                  </div>
+                </div>
+              )}
+
+              {/* Advertencia de límite dinámico para secciones sin timeLimit */}
+              {!currentSection?.timeLimit && attempt?.exam?.timeLimit && timeRemaining && (() => {
+                const { available, required, recommended } = calculateDynamicLimit();
+                const isInsufficient = available < 5;
+                const isLow = available < 10 && available >= 5;
+                
+                return (
+                  <div className={`flex items-start gap-3 p-4 rounded-lg border-2 ${
+                    isInsufficient ? 'bg-red-50 border-red-300' :
+                    isLow ? 'bg-amber-50 border-amber-300' :
+                    'bg-blue-50 border-blue-300'
+                  }`}>
+                    <AlertCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
+                      isInsufficient ? 'text-red-600' :
+                      isLow ? 'text-amber-600' :
+                      'text-blue-600'
+                    }`} />
+                    <div className={`text-sm ${
+                      isInsufficient ? 'text-red-800' :
+                      isLow ? 'text-amber-800' :
+                      'text-blue-800'
+                    }`}>
+                      <strong>{isInsufficient ? 'Tiempo critico:' : isLow ? 'Tiempo limitado:' : 'Administra tu tiempo:'}</strong>
+                      <ul className="mt-2 space-y-1 text-xs">
+                        <li>• Tiempo global restante: <strong>{formatTime(timeRemaining)}</strong></li>
+                        {required > 0 && (
+                          <li>• Secciones futuras requieren: <strong>{required} min</strong></li>
+                        )}
+                        <li>• Tiempo recomendado para esta sección: <strong className="text-base">máx. {recommended} min</strong></li>
+                      </ul>
+                      {isInsufficient && (
+                        <p className="mt-2 font-semibold text-red-900">
+                          El examen avanzará automáticamente si el tiempo se agota.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {currentSectionIndex > 0 && sections[currentSectionIndex - 1]?.timeLimit && (
+                <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <Shield className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-red-800">
+                    <strong>No podrás regresar:</strong> La sección anterior tenía límite de tiempo, por lo que no podrás volver a ella.
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-green-800">
+                  <strong>Progreso guardado:</strong> Tus respuestas de la sección anterior se guardaron correctamente.
+                </div>
+              </div>
+            </div>
+
+            {/* Contador de tiempo en pantalla intermedia */}
+            {pauseTimeRemaining !== null && (
+              <div className="mb-6 p-4 bg-orange-50 border-2 border-orange-300 rounded-lg">
+                <div className="flex items-center justify-center gap-3">
+                  <Clock className={`w-6 h-6 ${pauseTimeRemaining <= 30 ? 'text-red-600 animate-pulse' : 'text-orange-600'}`} />
+                  <div className="text-center">
+                    <div className={`text-3xl font-bold ${pauseTimeRemaining <= 30 ? 'text-red-700' : 'text-orange-700'}`}>
+                      {formatTime(pauseTimeRemaining)}
+                    </div>
+                    <div className={`text-sm ${pauseTimeRemaining <= 30 ? 'text-red-600 font-semibold' : 'text-orange-600'}`}>
+                      {pauseTimeRemaining <= 30 
+                        ? '¡Presiona "Comenzar Sección" o se iniciará automáticamente!' 
+                        : 'Tiempo máximo en esta pantalla (se iniciará automáticamente al terminar)'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Botón para iniciar sección */}
+            <div className="text-center">
+              <button
+                onClick={handleStartSection}
+                className="inline-flex items-center gap-2 px-8 py-4 rounded-lg text-white font-semibold text-lg transition hover:opacity-90 shadow-md"
+                style={{ backgroundColor: colors.primaryColor }}
+              >
+                Comenzar Sección
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="bg-white rounded-lg shadow-sm p-8">
           {/* Section info */}
           {currentSection && (
@@ -547,13 +1089,15 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
             )}
           </div>
         </div>
+        )}
+      </div>
 
-        {/* Dialogs */}
-        <Dialog
-          isOpen={unansweredDialog.isOpen}
-          onClose={unansweredDialog.close}
-          onConfirm={() => { unansweredDialog.close(); submitDialog.open(); }}
-          title="Preguntas sin responder"
+      {/* Dialogs */}
+      <Dialog
+        isOpen={unansweredDialog.isOpen}
+        onClose={unansweredDialog.close}
+        onConfirm={() => { unansweredDialog.close(); submitDialog.open(); }}
+        title="Preguntas sin responder"
           message={`Tienes ${unansweredCount} pregunta(s) sin responder. Deseas continuar y enviar el examen de todas formas?`}
           type="warning"
           confirmText="Continuar"
@@ -574,6 +1118,5 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
 
         <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
       </div>
-    </div>
   );
 }

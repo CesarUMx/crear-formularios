@@ -163,6 +163,13 @@ export const examService = {
     return api.get<ExamAttemptResult>(`/exams/attempts/${attemptId}/result`);
   },
 
+  async sendAttemptResult(attemptId: string, email?: string): Promise<{ message: string; email: string }> {
+    return api.post<{ message: string; email: string }>(
+      `/exams/attempts/${attemptId}/send-result`,
+      email ? { email } : {}
+    );
+  },
+
   async getExamAttempts(id: string): Promise<ExamAttempt[]> {
     return api.get<ExamAttempt[]>(`/exams/${id}/attempts`);
   },
@@ -197,6 +204,16 @@ export const examService = {
 
   async saveStudentPhoto(attemptId: string, photo: string): Promise<any> {
     return api.post(`/exams/attempts/${attemptId}/photo`, { photo });
+  },
+
+  //  ==================== TIMERS POR SECCION ====================
+
+  async startSection(attemptId: string, sectionId: string): Promise<any> {
+    return api.post(`/exams/attempts/${attemptId}/sections/${sectionId}/start`, {});
+  },
+
+  async completeSection(attemptId: string, sectionId: string): Promise<any> {
+    return api.post(`/exams/attempts/${attemptId}/sections/${sectionId}/complete`, {});
   },
 
   // ==================== REPORTES ====================

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import * as examService from '../services/examService.js';
 import * as examAttemptService from '../services/examAttemptService.js';
 import * as examGradingService from '../services/examGradingService.js';
+import { sendExamResults } from '../utils/email-results.js';
 
 /**
  * Obtener todos los exámenes del usuario
@@ -424,6 +425,18 @@ export const startAttempt = async (req: Request, res: Response, next: NextFuncti
       });
     }
 
+    // Verificar tipo de examen para exigir correo en exámenes públicos
+    const examInfo = await examService.getExamBySlug(String(slug));
+    if (examInfo && examInfo.accessType === 'PUBLIC') {
+      if (!email || String(email).trim() === '') {
+        return res.status(400).json({ error: 'El correo electrónico es requerido' });
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(String(email).trim())) {
+        return res.status(400).json({ error: 'El correo electrónico no es válido' });
+      }
+    }
+
     const attempt = await examAttemptService.startExamAttempt(
       String(slug),
       { name, email, studentId },
@@ -515,6 +528,73 @@ export const getAttemptResult = async (req: Request, res: Response, next: NextFu
     return res.json(result);
   } catch (error) {
     console.error('Error in getAttemptResult:', error);
+    return next(error);
+  }
+};
+
+/**
+ * Enviar resultados de un intento por correo
+ * Siempre envía al correo registrado en el intento.
+ */
+export const sendAttemptResult = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { attemptId } = req.params;
+    const { email: emailOverride } = req.body || {};
+
+    const attempt = await examAttemptService.getAttemptForEmail(String(attemptId));
+
+    // Resolver correo destino: prioridad al override (si es válido), sino el registrado.
+    let targetEmail: string | null = attempt.studentEmail;
+    if (typeof emailOverride === 'string' && emailOverride.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailOverride.trim())) {
+        return res.status(400).json({ error: 'El correo proporcionado no es válido' });
+      }
+      targetEmail = emailOverride.trim();
+    }
+
+    if (!targetEmail) {
+      return res.status(400).json({
+        error: 'Este intento no tiene correo registrado'
+      });
+    }
+
+    if (!attempt.exam.showResults) {
+      return res.status(400).json({
+        error: 'Los resultados no están disponibles para este examen'
+      });
+    }
+
+    const maxScore = attempt.maxScore || 0;
+    const score = attempt.score || 0;
+    const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
+
+    const frontendBase = process.env.FRONTEND_URL || '';
+    const resultUrl = frontendBase
+      ? `${frontendBase}/e/${attempt.exam.slug}/result/${attempt.id}`
+      : undefined;
+
+    await sendExamResults({
+      studentName: attempt.studentName || 'Estudiante',
+      studentEmail: targetEmail,
+      examTitle: attempt.exam.title,
+      score,
+      maxScore,
+      percentage,
+      passingScore: attempt.exam.passingScore,
+      passed: attempt.passed,
+      requiresManualGrading: !!attempt.requiresManualGrading,
+      completedAt: attempt.completedAt,
+      timeSpent: attempt.timeSpent,
+      resultUrl,
+    });
+
+    return res.json({
+      message: 'Resultados enviados correctamente',
+      email: targetEmail,
+    });
+  } catch (error) {
+    console.error('Error en sendAttemptResult:', error);
     return next(error);
   }
 };
@@ -956,6 +1036,42 @@ export const reviewQuestionReport = async (req: Request, res: Response, next: Ne
     });
 
     return res.json({ message: 'Reporte actualizado', report });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Iniciar una sección (registrar timestamp de inicio)
+ */
+export const startExamSection = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { attemptId, sectionId } = req.params;
+
+    const attempt = await examAttemptService.startSection(String(attemptId), String(sectionId));
+
+    return res.json({
+      message: 'Sección iniciada',
+      sectionTimes: attempt.sectionTimes
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Completar una sección (registrar timestamp de finalización)
+ */
+export const completeExamSection = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { attemptId, sectionId } = req.params;
+
+    const attempt = await examAttemptService.completeSection(String(attemptId), String(sectionId));
+
+    return res.json({
+      message: 'Sección completada',
+      sectionTimes: attempt.sectionTimes
+    });
   } catch (error) {
     return next(error);
   }

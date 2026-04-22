@@ -1282,6 +1282,96 @@ router.get('/:id/students', requireAuth, async (req, res) => {
 });
 
 /**
+ * POST /api/ai-exams/attempts/:attemptId/send-result
+ * Enviar resultados de un intento por correo
+ */
+router.post('/attempts/:attemptId/send-result', requireAuth, async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+    const { email: emailOverride } = req.body || {};
+
+    // Obtener el intento con datos del examen
+    const attempt = await prisma.aIExamAttempt.findUnique({
+      where: { id: String(attemptId) },
+      include: {
+        aiExam: {
+          select: {
+            id: true,
+            slug: true,
+            title: true,
+            passingScore: true,
+            showResults: true,
+            createdById: true,
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      return res.status(404).json({ error: 'Intento no encontrado' });
+    }
+
+    // Verificar permisos (solo creador o admin)
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
+    if (attempt.aiExam.createdById !== userId && userRole !== 'ADMIN') {
+      return res.status(403).json({ error: 'No tienes permisos para enviar resultados de este intento' });
+    }
+
+    // Resolver correo destino
+    let targetEmail: string | null = attempt.studentEmail;
+    if (typeof emailOverride === 'string' && emailOverride.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailOverride.trim())) {
+        return res.status(400).json({ error: 'El correo proporcionado no es válido' });
+      }
+      targetEmail = emailOverride.trim();
+    }
+
+    if (!targetEmail) {
+      return res.status(400).json({ error: 'Este intento no tiene correo registrado' });
+    }
+
+    if (!attempt.aiExam.showResults) {
+      return res.status(400).json({ error: 'Los resultados no están disponibles para este examen' });
+    }
+
+    // Importar función de email
+    const { sendExamResults } = await import('../utils/email-results.js');
+
+    const frontendBase = process.env.FRONTEND_URL || '';
+    const resultUrl = frontendBase
+      ? `${frontendBase}/ai-exam/${attempt.aiExam.slug}/result/${attempt.id}`
+      : undefined;
+
+    await sendExamResults({
+      studentName: attempt.studentName || 'Estudiante',
+      studentEmail: targetEmail,
+      examTitle: attempt.aiExam.title,
+      score: attempt.score || 0,
+      maxScore: 100,
+      percentage: attempt.score || 0,
+      passingScore: attempt.aiExam.passingScore,
+      passed: attempt.passed,
+      requiresManualGrading: false,
+      completedAt: attempt.completedAt,
+      timeSpent: attempt.timeSpent,
+      resultUrl,
+    });
+
+    return res.json({
+      message: 'Resultados enviados correctamente',
+      email: targetEmail,
+    });
+  } catch (error: any) {
+    console.error('Error al enviar resultados:', error);
+    return res.status(500).json({
+      error: error.message || 'Error al enviar resultados',
+    });
+  }
+});
+
+/**
  * DELETE /api/ai-exams/:id/students/:studentId
  * Eliminar un estudiante autorizado
  */

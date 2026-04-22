@@ -68,6 +68,7 @@ export default function ExamEditorLoader({ examId }: ExamEditorLoaderProps) {
           id: section.id,
           title: section.title,
           description: section.description,
+          timeLimit: section.timeLimit,
           fileUrl: section.fileUrl,
           fileName: section.fileName,
           fileType: section.fileType,
