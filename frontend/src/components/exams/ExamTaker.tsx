@@ -3,6 +3,7 @@ import { examService } from '../../lib/examService';
 import type { ExamAttempt, ExamSection, ExamQuestion } from '../../lib/types';
 import { useToast, ToastContainer, Dialog, useDialog, QuestionRenderer, FileAttachment } from '../common';
 import { useColors } from '../../hooks/useColors';
+import SecurityLockModal from './SecurityLockModal';
 import {
   Clock,
   AlertCircle,
@@ -107,6 +108,11 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
 
   // Seguridad
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
+
+  // Seguridad Estricta
+  const [securityLocked, setSecurityLocked] = useState(false);
+  const [currentUnlockCode, setCurrentUnlockCode] = useState('');
+  const [currentEventType, setCurrentEventType] = useState('');
 
   const toast = useToast();
   const submitDialog = useDialog();
@@ -246,28 +252,80 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
 
   // Deteccion de cambio de pestana
   useEffect(() => {
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (document.hidden && attempt) {
         const newCount = tabSwitchCount + 1;
         setTabSwitchCount(newCount);
 
-        // Registrar en servidor
-        examService.recordTabSwitch(attemptId).catch(() => {});
+        // Si strictSecurity está activado, mostrar modal bloqueante
+        if (attempt.exam?.strictSecurity) {
+          try {
+            // Crear evento de seguridad y obtener código único
+            const result = await examService.createSecurityEvent({
+              attemptId,
+              attemptType: 'EXAM',
+              eventType: 'TAB_SWITCH',
+              metadata: { count: newCount },
+            });
+            
+            // Mostrar modal bloqueante
+            setCurrentUnlockCode(result.event.unlockCode);
+            setCurrentEventType(result.event.eventType);
+            setSecurityLocked(true);
+            
+            console.log('Código de desbloqueo generado:', result.event.unlockCode);
+            
+          } catch (error) {
+            console.error('Error creating security event:', error);
+          }
+        } else {
+          // Comportamiento anterior (sin seguridad estricta)
+          examService.recordTabSwitch(attemptId).catch(() => {});
 
-        if (newCount === 1) {
-          toast.warning('Advertencia', 'Se detecto que cambiaste de pestana. Esto quedara registrado.');
-        } else if (newCount === 3) {
-          toast.error('Ultima advertencia', 'Si cambias de pestana nuevamente, el examen se enviara automaticamente.');
-        } else if (newCount >= 4) {
-          toast.error('Examen enviado', 'Cambiaste de pestana demasiadas veces.');
-          setTimeout(() => handleAutoSubmit(), 500);
+          if (newCount === 1) {
+            toast.warning('Advertencia', 'Se detecto que cambiaste de pestana. Esto quedara registrado.');
+          } else if (newCount === 3) {
+            toast.error('Ultima advertencia', 'Si cambias de pestana nuevamente, el examen se enviara automaticamente.');
+          } else if (newCount >= 4) {
+            toast.error('Examen enviado', 'Cambiaste de pestana demasiadas veces.');
+            setTimeout(() => handleAutoSubmit(), 500);
+          }
         }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [attempt, tabSwitchCount]);
+  }, [attempt, tabSwitchCount, attemptId]);
+
+  // Polling para verificar conclusión remota (solo si strictSecurity está activo)
+  useEffect(() => {
+    if (!attempt?.exam?.strictSecurity || !attemptId) return;
+
+    const checkCompletion = async () => {
+      try {
+        const result = await examService.checkForceCompletion(attemptId);
+        
+        if (result.forceCompleted) {
+          // Cerrar modal de seguridad si está abierto
+          setSecurityLocked(false);
+          
+          // Notificar al estudiante
+          toast.info('Examen concluido', 'El profesor ha concluido tu examen. Enviando automáticamente...');
+          
+          // Auto-enviar después de 2 segundos
+          setTimeout(() => handleAutoSubmit(), 2000);
+        }
+      } catch (error) {
+        console.error('Error checking force completion:', error);
+      }
+    };
+
+    // Verificar cada 3 segundos
+    const interval = setInterval(checkCompletion, 3000);
+
+    return () => clearInterval(interval);
+  }, [attempt?.exam?.strictSecurity, attemptId]);
 
   // Timer global (con compensación por tiempo pausado)
   useEffect(() => {
@@ -658,6 +716,23 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
       if (Array.isArray(a) && a.length === 0) return false;
       return true;
     }).length;
+  };
+
+  // Funciones de seguridad estricta
+  const handleValidateUnlockCode = async (code: string): Promise<boolean> => {
+    try {
+      const result = await examService.validateUnlockCode(attemptId, code);
+      return result.success;
+    } catch (error: any) {
+      throw new Error(error.message || 'Error al validar código');
+    }
+  };
+
+  const handleUnlock = () => {
+    setSecurityLocked(false);
+    setCurrentUnlockCode('');
+    setCurrentEventType('');
+    toast.success('Desbloqueado', 'Puedes continuar con el examen');
   };
 
   const handleAutoSubmit = async () => {
@@ -1091,6 +1166,18 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
         </div>
         )}
       </div>
+
+      {/* Modal de seguridad estricta */}
+      {attempt?.exam?.strictSecurity && (
+        <SecurityLockModal
+          isOpen={securityLocked}
+          unlockCode={currentUnlockCode}
+          attemptId={attemptId}
+          eventType={currentEventType}
+          onUnlock={handleUnlock}
+          onValidate={handleValidateUnlockCode}
+        />
+      )}
 
       {/* Dialogs */}
       <Dialog

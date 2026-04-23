@@ -52,6 +52,7 @@ interface CreateExamData {
   instructions?: string;
   questionsPerAttempt?: number;
   accessType?: string;
+  strictSecurity?: boolean;
   sections: ExamSection[];
 }
 
@@ -205,6 +206,7 @@ export const createExam = async (userId: string, data: CreateExamData) => {
     instructions,
     questionsPerAttempt,
     accessType,
+    strictSecurity,
     sections 
   } = data;
 
@@ -236,6 +238,7 @@ export const createExam = async (userId: string, data: CreateExamData) => {
       instructions: instructions || null,
       questionsPerAttempt: questionsPerAttempt || null,
       accessType: (accessType as any) || 'PUBLIC',
+      strictSecurity: strictSecurity || false,
       autoGrade: checkIfAutoGradable(sections),
       createdById: userId,
       sections: {
@@ -304,6 +307,7 @@ export const updateExam = async (examId: string, data: UpdateExamData) => {
     instructions,
     questionsPerAttempt,
     accessType,
+    strictSecurity,
     sections 
   } = data;
 
@@ -334,6 +338,7 @@ export const updateExam = async (examId: string, data: UpdateExamData) => {
       instructions: instructions || null,
       questionsPerAttempt: questionsPerAttempt || null,
       accessType: accessType ? (accessType as any) : undefined,
+      strictSecurity: strictSecurity !== undefined ? strictSecurity : undefined,
       autoGrade: checkIfAutoGradable(sections),
       sections: {
         create: sections.map((section, sectionIndex) => ({

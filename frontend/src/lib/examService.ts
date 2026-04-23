@@ -206,6 +206,37 @@ export const examService = {
     return api.post(`/exams/attempts/${attemptId}/photo`, { photo });
   },
 
+  // ==================== SEGURIDAD ESTRICTA ====================
+
+  async createSecurityEvent(data: {
+    attemptId: string;
+    attemptType: 'EXAM' | 'AI_EXAM';
+    eventType: 'TAB_SWITCH' | 'WINDOW_BLUR' | 'CONTEXT_MENU' | 'COPY_PASTE' | 'FULLSCREEN_EXIT';
+    metadata?: any;
+  }): Promise<{ success: boolean; event: { id: string; unlockCode: string; eventType: string; createdAt: string } }> {
+    return api.post('/security/events', data);
+  },
+
+  async validateUnlockCode(attemptId: string, code: string): Promise<{ success: boolean; message: string }> {
+    return api.post('/security/validate-code', { attemptId, code });
+  },
+
+  async getPendingSecurityEvents(examId: string): Promise<any[]> {
+    return api.get(`/security/exams/${examId}/events`);
+  },
+
+  async getSecurityEventsByAttempt(attemptId: string): Promise<any[]> {
+    return api.get(`/security/attempts/${attemptId}/events`);
+  },
+
+  async forceCompleteAttempt(attemptId: string): Promise<{ success: boolean; message: string; attempt: any }> {
+    return api.post(`/security/attempts/${attemptId}/force-complete`, {});
+  },
+
+  async checkForceCompletion(attemptId: string): Promise<{ forceCompleted: boolean; forceCompletedBy?: string; forceCompletedAt?: string }> {
+    return api.get(`/security/attempts/${attemptId}/check-completion`);
+  },
+
   //  ==================== TIMERS POR SECCION ====================
 
   async startSection(attemptId: string, sectionId: string): Promise<any> {

@@ -298,6 +298,9 @@ model Exam {
   // Pool de preguntas (opcional)
   questionsPerAttempt Int? // null = todas las preguntas
 
+  // Seguridad estricta
+  strictSecurity Boolean @default(false) // Modal bloqueante con código único por evento
+
   // Relaciones
   createdById String
   createdAt   DateTime @default(now())
@@ -441,12 +444,16 @@ model ExamAttempt {
   studentPhoto String?  // Foto capturada del estudiante
   ipAddress    String?
   userAgent    String?
+  forceCompleted Boolean @default(false) // Si el profesor concluyó el examen remotamente
+  forceCompletedBy String? // ID del profesor que concluyó remotamente
+  forceCompletedAt DateTime? // Momento en que se concluyó remotamente
 
   exam    Exam          @relation(fields: [examId], references: [id], onDelete: Cascade)
   user    User?         @relation(fields: [userId], references: [id])
   student ExamStudent?  @relation(fields: [studentId], references: [id])
   answers ExamAnswer[]
   reports ExamQuestionReport[]
+  securityEvents SecurityEvent[]
 
   @@index([examId, attemptNumber])
   @@index([sessionToken])
@@ -534,6 +541,43 @@ model ExamQuestionReport {
   @@map("exam_question_reports")
 }
 
+// Eventos de seguridad para seguridad estricta
+model SecurityEvent {
+  id          String   @id @default(cuid())
+  attemptId   String
+  attemptType SecurityAttemptType // EXAM o AI_EXAM
+  eventType   SecurityEventType // TAB_SWITCH, WINDOW_BLUR, etc
+  unlockCode  String // Código de 4 dígitos generado automáticamente
+  resolved    Boolean  @default(false)
+  resolvedAt  DateTime?
+  resolvedBy  SecurityResolveMethod? // CODE_ENTRY o REMOTE_COMPLETION
+  metadata    Json? // Información adicional del evento
+  createdAt   DateTime @default(now())
+  
+  examAttempt ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  
+  @@index([attemptId, createdAt])
+  @@map("security_events")
+}
+
+enum SecurityAttemptType {
+  EXAM
+  AI_EXAM
+}
+
+enum SecurityEventType {
+  TAB_SWITCH
+  WINDOW_BLUR
+  CONTEXT_MENU
+  COPY_PASTE
+  FULLSCREEN_EXIT
+}
+
+enum SecurityResolveMethod {
+  CODE_ENTRY // Estudiante ingresó código correcto
+  REMOTE_COMPLETION // Profesor concluyó examen remotamente
+}
+
 // ==================== MODELOS DE EXÁMENES CON IA ====================
 
 model AIExam {
@@ -567,6 +611,9 @@ model AIExam {
   sourceDocument   String? // URL del PDF/documento fuente
   generationPrompt String? // Prompt usado para generar
   validated        Boolean  @default(false) // Si el profesor validó las preguntas
+  
+  // Seguridad estricta
+  strictSecurity Boolean @default(false) // Modal bloqueante con código único por evento
   
   // Relaciones
   createdById String

@@ -237,6 +237,7 @@ export interface Exam {
   showResults: boolean;
   autoGrade: boolean;
   questionsPerAttempt?: number;
+  strictSecurity?: boolean; // Modal bloqueante con código único por evento
   
   // Relaciones
   createdAt: string;
@@ -266,6 +267,7 @@ export interface ExamInput {
   showResults?: boolean;
   accessType?: ExamAccessType;
   questionsPerAttempt?: number;
+  strictSecurity?: boolean;
   sections: ExamSectionInput[];
 }
 

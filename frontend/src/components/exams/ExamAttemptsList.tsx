@@ -4,6 +4,7 @@ import type { ExamAttempt } from '../../lib/types';
 import { useColors } from '../../hooks/useColors';
 import { PageHeader, Table, StatsCard, EmptyState, useToast, ToastContainer } from '../common';
 import ExamAttemptDetailsModal from './ExamAttemptDetailsModal';
+import SecurityMonitorPanel from './SecurityMonitorPanel';
 import {
   BarChart3,
   Users,
@@ -21,6 +22,7 @@ import {
   Loader,
   X,
   Send,
+  Shield,
 } from 'lucide-react';
 
 interface ExamAttemptsListProps {
@@ -67,6 +69,7 @@ export default function ExamAttemptsList({ examId }: ExamAttemptsListProps) {
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
   const [emailSentIds, setEmailSentIds] = useState<Set<string>>(new Set());
   const [emailModal, setEmailModal] = useState<{ attempt: ExamAttempt; email: string } | null>(null);
+  const [showSecurityPanel, setShowSecurityPanel] = useState(false);
 
   const openEmailModal = (attempt: ExamAttempt) => {
     setEmailModal({ attempt, email: attempt.studentEmail || '' });
@@ -323,7 +326,14 @@ export default function ExamAttemptsList({ examId }: ExamAttemptsListProps) {
       />
 
       {/* Export Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setShowSecurityPanel(!showSecurityPanel)}
+          className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
+        >
+          <Shield className="w-5 h-5" />
+          Monitor de Seguridad
+        </button>
         <button
           onClick={handleExport}
           disabled={attempts.length === 0}
@@ -513,6 +523,16 @@ export default function ExamAttemptsList({ examId }: ExamAttemptsListProps) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Security Monitor Panel */}
+      {showSecurityPanel && (
+        <div className="fixed top-4 right-4 w-full max-w-md z-50">
+          <SecurityMonitorPanel 
+            examId={examId} 
+            onClose={() => setShowSecurityPanel(false)}
+          />
         </div>
       )}
 

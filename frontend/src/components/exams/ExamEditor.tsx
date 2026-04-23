@@ -31,6 +31,7 @@ import {
   CheckCircle,
   Paperclip,
   Minus,
+  Shield,
 } from 'lucide-react';
 import { useToast, ToastContainer } from '../common';
 
@@ -87,6 +88,7 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
   const [accessType, setAccessType] = useState<ExamAccessType>(initialData?.accessType || 'PUBLIC');
   const [poolEnabled, setPoolEnabled] = useState(!!initialData?.questionsPerAttempt);
   const [questionsPerAttempt, setQuestionsPerAttempt] = useState(initialData?.questionsPerAttempt || 0);
+  const [strictSecurity, setStrictSecurity] = useState(initialData?.strictSecurity || false);
 
   // Preguntas (Paso 2)
   const [sections, setSections] = useState<ExamSectionInput[]>(
@@ -302,6 +304,7 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
         showResults,
         accessType,
         questionsPerAttempt: poolEnabled ? questionsPerAttempt : undefined,
+        strictSecurity,
         sections: sections.map(s => ({
           title: s.title,
           description: s.description,
@@ -453,6 +456,7 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
           accessType={accessType} setAccessType={setAccessType}
           poolEnabled={poolEnabled} setPoolEnabled={setPoolEnabled}
           questionsPerAttempt={questionsPerAttempt} setQuestionsPerAttempt={setQuestionsPerAttempt}
+          strictSecurity={strictSecurity} setStrictSecurity={setStrictSecurity}
           onNext={() => { if (validateStep1()) setStep(2); }}
           primaryColor={colors.primaryColor}
         />
@@ -562,6 +566,7 @@ interface Step1Props {
   accessType: ExamAccessType; setAccessType: (v: ExamAccessType) => void;
   poolEnabled: boolean; setPoolEnabled: (v: boolean) => void;
   questionsPerAttempt: number; setQuestionsPerAttempt: (v: number) => void;
+  strictSecurity: boolean; setStrictSecurity: (v: boolean) => void;
   onNext: () => void;
   primaryColor: string;
 }
@@ -715,6 +720,13 @@ function Step1Configuration(props: Step1Props) {
             icon={Shuffle}
             checked={props.poolEnabled}
             onChange={props.setPoolEnabled}
+          />
+          <ToggleField
+            label="Seguridad estricta"
+            description="Modal bloqueante con codigo unico"
+            icon={Shield}
+            checked={props.strictSecurity}
+            onChange={props.setStrictSecurity}
           />
         </div>
 

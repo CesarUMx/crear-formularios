@@ -19,6 +19,7 @@ import aiExamRoutes from './routes/aiExamRoutes.js';
 import questionReportsRouter from './routes/questionReports.js';
 import progressRoutes from './routes/progressRoutes.js';
 import gradingRoutes from './routes/gradingRoutes.js';
+import securityRoutes from './routes/securityRoutes.js';
 import { startAbandonedAttemptsCleanup } from './utils/cronJobs.js';
 
 dotenv.config();
@@ -116,6 +117,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/ai-exams', aiExamRoutes);
 app.use('/api/question-reports', questionReportsRouter);
 app.use('/api/grading', gradingRoutes);
+app.use('/api/security', securityRoutes);
 app.use('/api', progressRoutes);
 
 // 404 handler

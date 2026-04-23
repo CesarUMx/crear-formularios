@@ -82,7 +82,8 @@ export const createExam = async (req: Request, res: Response, next: NextFunction
       showResults,
       instructions,
       questionsPerAttempt,
-      accessType
+      accessType,
+      strictSecurity
     } = req.body;
 
     if (!title || title.trim() === '') {
@@ -140,6 +141,7 @@ export const createExam = async (req: Request, res: Response, next: NextFunction
       instructions,
       questionsPerAttempt,
       accessType,
+      strictSecurity,
       sections
     });
 
@@ -170,7 +172,8 @@ export const updateExam = async (req: Request, res: Response, next: NextFunction
       showResults,
       instructions,
       questionsPerAttempt,
-      accessType
+      accessType,
+      strictSecurity
     } = req.body;
 
     const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
@@ -198,6 +201,7 @@ export const updateExam = async (req: Request, res: Response, next: NextFunction
       instructions,
       questionsPerAttempt,
       accessType,
+      strictSecurity,
       sections
     });
 
