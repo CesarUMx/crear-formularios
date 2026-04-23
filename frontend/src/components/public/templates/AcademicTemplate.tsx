@@ -52,27 +52,6 @@ export default function AcademicTemplate({ form, template, children }: AcademicT
             Juntos, convertimos los desafíos de hoy en las soluciones del mañana.
           </p>
         </div>
-
-        <div className="mx-auto max-w-5xl px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-[#0E5088] sm:text-4xl">Video</h2>
-            <p className="mt-4 text-lg text-muted-foreground">
-              Conozca más sobre nuestra visión de colaboración universidad-empresa
-            </p>
-          </div>
-
-          <div className="mt-12 aspect-video w-full overflow-hidden rounded-lg bg-muted shadow-xl">
-            {/* Placeholder for video - replace with actual video embed */}
-            <div className="flex h-full items-center justify-center bg-gradient-to-br from-[#0E5088] to-[#0E5088]/80">
-              <div className="text-center text-white">
-                <svg className="mx-auto h-20 w-20 opacity-80" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-                <p className="mt-4 text-sm opacity-80">Video</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </section>
 
       <section className="bg-gradient-to-b from-white to-muted/30 py-24">
