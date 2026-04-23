@@ -392,6 +392,25 @@ class AIExamService {
     return response.json();
   }
 
+  async sendAttemptResult(attemptId: string, email?: string): Promise<{ message: string; email: string }> {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/ai-exams/attempts/${attemptId}/send-result`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(email ? { email } : {}),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Error al enviar resultados');
+    }
+
+    return response.json();
+  }
+
   // Gestión de estudiantes para exámenes privados
   async addStudents(examId: string, students: { name: string; email: string; password: string }[]) {
     const token = localStorage.getItem('token');

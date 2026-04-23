@@ -31,6 +31,7 @@ import {
   CheckCircle,
   Paperclip,
   Minus,
+  Shield,
 } from 'lucide-react';
 import { useToast, ToastContainer } from '../common';
 
@@ -87,6 +88,7 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
   const [accessType, setAccessType] = useState<ExamAccessType>(initialData?.accessType || 'PUBLIC');
   const [poolEnabled, setPoolEnabled] = useState(!!initialData?.questionsPerAttempt);
   const [questionsPerAttempt, setQuestionsPerAttempt] = useState(initialData?.questionsPerAttempt || 0);
+  const [strictSecurity, setStrictSecurity] = useState(initialData?.strictSecurity || false);
 
   // Preguntas (Paso 2)
   const [sections, setSections] = useState<ExamSectionInput[]>(
@@ -175,6 +177,48 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
     setSections(newSections);
   };
 
+  // ==================== DISTRIBUCION AUTOMATICA DE TIEMPO ====================
+
+  const handleAutoDistribute = () => {
+    if (!timeLimit) {
+      toast.warning('Aviso', 'Primero define el tiempo limite del examen');
+      return;
+    }
+
+    // Calcular tiempo ya asignado
+    const assignedTime = sections.reduce((sum, s) => sum + (s.timeLimit || 0), 0);
+    const availableTime = timeLimit - assignedTime;
+
+    // Contar secciones sin tiempo
+    const sectionsWithoutLimit = sections.filter(s => !s.timeLimit);
+
+    if (sectionsWithoutLimit.length === 0) {
+      toast.info('Info', 'Todas las secciones ya tienen tiempo asignado');
+      return;
+    }
+
+    if (availableTime <= 0) {
+      toast.error('Error', 'No hay tiempo disponible para distribuir. Reduce el tiempo de otras secciones.');
+      return;
+    }
+
+    // Distribuir equitativamente
+    const timePerSection = Math.floor(availableTime / sectionsWithoutLimit.length);
+    const remainder = availableTime % sectionsWithoutLimit.length;
+
+    const newSections = sections.map((s, index) => {
+      if (!s.timeLimit) {
+        // Asignar tiempo base más 1 extra si hay residuo
+        const extraMin = remainder > 0 && sectionsWithoutLimit.indexOf(s) < remainder ? 1 : 0;
+        return { ...s, timeLimit: timePerSection + extraMin };
+      }
+      return s;
+    });
+
+    setSections(newSections);
+    toast.success('Distribuido', `${timePerSection} min asignados a ${sectionsWithoutLimit.length} secci${sectionsWithoutLimit.length > 1 ? 'ones' : 'on'}`);
+  };
+
   const validateStep2 = (): boolean => {
     for (const section of sections) {
       if (!section.title.trim()) {
@@ -210,6 +254,36 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
       toast.error('Error', 'Los puntos totales deben ser mayores a 0');
       return false;
     }
+
+    // ==================== VALIDACIONES MEJORADAS DE TIEMPO ====================
+    const totalSectionTime = sections.reduce((sum, s) => sum + (s.timeLimit || 0), 0);
+    const sectionsWithoutLimit = sections.filter(s => !s.timeLimit);
+
+    // Si hay tiempo global, TODAS las secciones deben tener tiempo
+    if (timeLimit && sectionsWithoutLimit.length > 0) {
+      toast.error('Error critico',
+        `Todas las secciones deben tener tiempo limite cuando el examen tiene limite global. ` +
+        `Usa el boton "Distribuir automaticamente" o asigna tiempo manualmente.`
+      );
+      return false;
+    }
+
+    // La suma no puede exceder el global
+    if (timeLimit && totalSectionTime > timeLimit) {
+      toast.error('Error',
+        `La suma de tiempos de secciones (${totalSectionTime} min) excede el tiempo total del examen (${timeLimit} min)`
+      );
+      return false;
+    }
+
+    // Advertencia si sobra tiempo (pero ya no debería pasar con la validación anterior)
+    if (timeLimit && totalSectionTime < timeLimit) {
+      toast.warning('Advertencia',
+        `Sobran ${timeLimit - totalSectionTime} min sin asignar. Considera ajustar los tiempos de las secciones.`,
+        5000
+      );
+    }
+
     return true;
   };
 
@@ -230,9 +304,14 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
         showResults,
         accessType,
         questionsPerAttempt: poolEnabled ? questionsPerAttempt : undefined,
+        strictSecurity,
         sections: sections.map(s => ({
           title: s.title,
           description: s.description,
+          timeLimit: s.timeLimit,
+          fileUrl: s.fileUrl,
+          fileName: s.fileName,
+          fileType: s.fileType,
           questions: s.questions.map(q => ({
             type: q.type,
             text: q.text,
@@ -241,7 +320,10 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
             options: q.options,
             correctAnswer: q.correctAnswer,
             metadata: q.metadata,
-            feedback: q.feedback
+            feedback: q.feedback,
+            fileUrl: q.fileUrl,
+            fileName: q.fileName,
+            fileType: q.fileType
           }))
         }))
       };
@@ -374,6 +456,7 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
           accessType={accessType} setAccessType={setAccessType}
           poolEnabled={poolEnabled} setPoolEnabled={setPoolEnabled}
           questionsPerAttempt={questionsPerAttempt} setQuestionsPerAttempt={setQuestionsPerAttempt}
+          strictSecurity={strictSecurity} setStrictSecurity={setStrictSecurity}
           onNext={() => { if (validateStep1()) setStep(2); }}
           primaryColor={colors.primaryColor}
         />
@@ -393,6 +476,8 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
           removeQuestion={removeQuestion}
           updateQuestion={updateQuestion}
           totalPoints={totalPoints}
+          timeLimit={timeLimit}
+          handleAutoDistribute={handleAutoDistribute}
           onPrev={() => setStep(1)}
           onNext={() => { if (validateStep2()) setStep(3); }}
           primaryColor={colors.primaryColor}
@@ -481,6 +566,7 @@ interface Step1Props {
   accessType: ExamAccessType; setAccessType: (v: ExamAccessType) => void;
   poolEnabled: boolean; setPoolEnabled: (v: boolean) => void;
   questionsPerAttempt: number; setQuestionsPerAttempt: (v: number) => void;
+  strictSecurity: boolean; setStrictSecurity: (v: boolean) => void;
   onNext: () => void;
   primaryColor: string;
 }
@@ -550,6 +636,11 @@ function Step1Configuration(props: Step1Props) {
               placeholder="Sin limite"
               min={1}
             />
+            {props.timeLimit && (
+              <p className="text-xs text-blue-600 mt-1">
+                La distribucion de tiempo se configurara en el siguiente paso
+              </p>
+            )}
           </div>
 
           <div>
@@ -630,6 +721,13 @@ function Step1Configuration(props: Step1Props) {
             checked={props.poolEnabled}
             onChange={props.setPoolEnabled}
           />
+          <ToggleField
+            label="Seguridad estricta"
+            description="Modal bloqueante con codigo unico"
+            icon={Shield}
+            checked={props.strictSecurity}
+            onChange={props.setStrictSecurity}
+          />
         </div>
 
         {props.poolEnabled && (
@@ -682,6 +780,8 @@ interface Step2Props {
   removeQuestion: (sectionIndex: number, questionIndex: number) => void;
   updateQuestion: (sectionIndex: number, questionIndex: number, updates: Partial<ExamQuestionInput>) => void;
   totalPoints: number;
+  timeLimit?: number;
+  handleAutoDistribute: () => void;
   onPrev: () => void;
   onNext: () => void;
   primaryColor: string;
@@ -703,6 +803,100 @@ function Step2Questions(props: Step2Props) {
 
   return (
     <div className="space-y-4">
+      {/* Panel de Distribucion de Tiempo */}
+      {props.timeLimit && (() => {
+        const totalSectionTime = props.sections.reduce((sum, s) => sum + (s.timeLimit || 0), 0);
+        const sectionsWithoutLimit = props.sections.filter(s => !s.timeLimit);
+        const availableTime = props.timeLimit - totalSectionTime;
+        const isValid = availableTime >= 0;
+        
+        return (
+          <div className={`bg-white rounded-lg shadow-sm p-4 border-2 ${
+            !isValid ? 'border-red-300' : 
+            sectionsWithoutLimit.length > 0 || availableTime > 0 ? 'border-amber-300' : 
+            'border-green-300'
+          }`}>
+            <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Distribucion de Tiempo
+            </h4>
+            
+            <div className="space-y-2 text-xs mb-3">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700">Tiempo global del examen:</span>
+                <span className="font-mono font-bold text-gray-900">{props.timeLimit} min</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700">Asignado en secciones:</span>
+                <span className="font-mono font-semibold text-blue-700">{totalSectionTime} min</span>
+              </div>
+              <div className="flex justify-between items-center border-t border-gray-300 pt-2">
+                <span className="font-medium text-gray-800">Tiempo disponible:</span>
+                <span className={`font-mono font-bold text-base ${
+                  availableTime < 0 ? 'text-red-600' : 
+                  availableTime === 0 ? 'text-green-600' : 
+                  'text-amber-600'
+                }`}>
+                  {availableTime} min
+                </span>
+              </div>
+              {sectionsWithoutLimit.length > 0 && (
+                <div className="flex justify-between items-center text-amber-800 bg-amber-100 rounded px-2 py-1">
+                  <span className="font-medium">Secciones sin limite:</span>
+                  <span className="font-bold">{sectionsWithoutLimit.length} de {props.sections.length}</span>
+                </div>
+              )}
+            </div>
+            
+            {sectionsWithoutLimit.length > 0 && availableTime > 0 && (
+              <button
+                type="button"
+                onClick={props.handleAutoDistribute}
+                className="w-full px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2"
+              >
+                <ArrowRight className="w-4 h-4" />
+                Distribuir automaticamente ({Math.floor(availableTime / sectionsWithoutLimit.length)} min por seccion)
+              </button>
+            )}
+            
+            {!isValid && (
+              <div className="mt-2 flex items-start gap-1.5 text-xs text-red-700 bg-red-100 rounded px-2 py-1.5">
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                <span>
+                  <strong>Error:</strong> La suma de tiempos de secciones excede el limite global. 
+                  Reduce los tiempos de las secciones o aumenta el tiempo del examen.
+                </span>
+              </div>
+            )}
+            
+            {isValid && sectionsWithoutLimit.length > 0 && (
+              <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-100 rounded px-2 py-1.5">
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                <span>
+                  Todas las secciones deben tener tiempo limite. Usa el boton de arriba para distribuir automaticamente.
+                </span>
+              </div>
+            )}
+            
+            {isValid && sectionsWithoutLimit.length === 0 && availableTime > 0 && (
+              <div className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 bg-amber-100 rounded px-2 py-1.5">
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                <span>
+                  Sobran {availableTime} minutos sin asignar. Considera distribuirlos entre las secciones o reducir el tiempo global del examen.
+                </span>
+              </div>
+            )}
+            
+            {isValid && sectionsWithoutLimit.length === 0 && availableTime === 0 && (
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-green-700 bg-green-100 rounded px-2 py-1.5">
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span><strong>Perfecto:</strong> Tiempo completamente distribuido</span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Resumen */}
       <div className="bg-white rounded-lg shadow-sm px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4 text-sm">
@@ -744,9 +938,17 @@ function Step2Questions(props: Step2Props) {
                   placeholder="Nombre de la seccion"
                 />
               </div>
-              <span className="text-xs text-gray-500">
-                {section.questions.length} preg. | {sectionPoints} pts
-              </span>
+              <div className="flex items-center gap-2">
+                {section.timeLimit && (
+                  <span className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+                    <Clock className="w-3 h-3" />
+                    {section.timeLimit} min
+                  </span>
+                )}
+                <span className="text-xs text-gray-500">
+                  {section.questions.length} preg. | {sectionPoints} pts
+                </span>
+              </div>
               <button
                 onClick={(e) => { e.stopPropagation(); props.removeSection(sIdx); }}
                 className="p-1 text-gray-400 hover:text-red-500 transition"
@@ -766,6 +968,33 @@ function Step2Questions(props: Step2Props) {
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500"
                   placeholder="Descripcion de la seccion (opcional)"
                 />
+
+                {/* Campo de tiempo limite por seccion */}
+                <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-blue-900 mb-1">
+                      Tiempo limite para esta seccion (opcional)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        value={section.timeLimit || ''}
+                        onChange={(e) => props.updateSection(sIdx, 'timeLimit', e.target.value ? parseInt(e.target.value) : undefined)}
+                        className="w-24 px-2 py-1 text-sm border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Min"
+                      />
+                      <span className="text-sm text-blue-700">minutos</span>
+                    </div>
+                    <p className="text-xs text-blue-600 mt-1">
+                      {section.timeLimit 
+                        ? `Los estudiantes tendran ${section.timeLimit} min para completar esta seccion`
+                        : 'Sin limite de tiempo especifico para esta seccion'
+                      }
+                    </p>
+                  </div>
+                </div>
 
                 {/* Archivo de seccion - Toggle */}
                 {!showFileUploader.has(sIdx) ? (
@@ -900,6 +1129,38 @@ function Step2Questions(props: Step2Props) {
         Agregar Seccion
       </button>
 
+      {/* Resumen de tiempos de secciones */}
+      {(() => {
+        const sectionsWithTime = props.sections.filter(s => s.timeLimit && s.timeLimit > 0);
+        const totalSectionTime = props.sections.reduce((sum, s) => sum + (s.timeLimit || 0), 0);
+        
+        if (sectionsWithTime.length > 0) {
+          return (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Clock className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-semibold text-blue-900 mb-2">Resumen de Tiempos por Seccion</h4>
+                  <div className="space-y-1 mb-3">
+                    {props.sections.map((s, idx) => s.timeLimit ? (
+                      <div key={idx} className="flex items-center gap-2 text-sm text-blue-800">
+                        <span className="font-medium">{s.title}:</span>
+                        <span>{s.timeLimit} min</span>
+                      </div>
+                    ) : null)}
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium text-blue-900">Total de secciones con tiempo:</span>
+                    <span className="font-bold text-blue-700">{totalSectionTime} minutos</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
       {/* Navegacion */}
       <div className="flex justify-between">
         <button
@@ -910,15 +1171,57 @@ function Step2Questions(props: Step2Props) {
           <ChevronLeft className="w-4 h-4" />
           Anterior
         </button>
-        <button
-          type="button"
-          onClick={props.onNext}
-          className="flex items-center gap-2 px-6 py-3 text-white rounded-lg font-medium transition hover:opacity-90"
-          style={{ backgroundColor: props.primaryColor }}
-        >
-          Vista Previa
-          <ChevronRight className="w-4 h-4" />
-        </button>
+        
+        {(() => {
+          // Calcular si la distribución es válida
+          const hasTimeLimit = !!props.timeLimit;
+          const totalSectionTime = props.sections.reduce((sum, s) => sum + (s.timeLimit || 0), 0);
+          const sectionsWithoutLimit = props.sections.filter(s => !s.timeLimit);
+          const availableTime = (props.timeLimit || 0) - totalSectionTime;
+          
+          // Deshabilitar si hay tiempo global y (hay secciones sin límite o sobra tiempo)
+          const isDisabled = hasTimeLimit && (sectionsWithoutLimit.length > 0 || availableTime !== 0);
+          
+          return (
+            <>
+              <button
+                type="button"
+                onClick={isDisabled ? undefined : props.onNext}
+                disabled={isDisabled}
+                className={`flex items-center gap-2 px-6 py-3 text-white rounded-lg font-medium transition ${
+                  isDisabled 
+                    ? 'opacity-50 cursor-not-allowed bg-gray-400' 
+                    : 'hover:opacity-90'
+                }`}
+                style={!isDisabled ? { backgroundColor: props.primaryColor } : {}}
+                title={isDisabled ? 'Completa la distribución de tiempo antes de continuar' : ''}
+              >
+                Vista Previa
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              
+              {isDisabled && (
+                <div className="fixed bottom-4 right-4 max-w-md bg-red-50 border-2 border-red-300 rounded-lg p-3 shadow-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-red-800">
+                      <strong>Distribución incompleta:</strong>
+                      {sectionsWithoutLimit.length > 0 && (
+                        <p className="mt-1">• Hay {sectionsWithoutLimit.length} sección(es) sin tiempo límite</p>
+                      )}
+                      {availableTime > 0 && (
+                        <p className="mt-1">• Sobran {availableTime} minutos sin asignar</p>
+                      )}
+                      {availableTime < 0 && (
+                        <p className="mt-1">• Exceso de {Math.abs(availableTime)} minutos</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
     </div>
   );

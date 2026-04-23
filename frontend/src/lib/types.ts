@@ -196,6 +196,7 @@ export interface ExamSection {
   title: string;
   description?: string;
   order: number;
+  timeLimit?: number; // Tiempo límite en minutos para esta sección
   questions: ExamQuestion[];
   fileUrl?: string;
   fileName?: string;
@@ -236,6 +237,7 @@ export interface Exam {
   showResults: boolean;
   autoGrade: boolean;
   questionsPerAttempt?: number;
+  strictSecurity?: boolean; // Modal bloqueante con código único por evento
   
   // Relaciones
   createdAt: string;
@@ -265,6 +267,7 @@ export interface ExamInput {
   showResults?: boolean;
   accessType?: ExamAccessType;
   questionsPerAttempt?: number;
+  strictSecurity?: boolean;
   sections: ExamSectionInput[];
 }
 
@@ -272,6 +275,7 @@ export interface ExamSectionInput {
   id?: string;
   title: string;
   description?: string;
+  timeLimit?: number; // Tiempo límite en minutos para esta sección
   fileUrl?: string;
   fileName?: string;
   fileType?: string;
@@ -323,6 +327,13 @@ export interface ExamAttempt {
   
   // Seguridad
   tabSwitches?: number;
+  
+  // Tiempos de secciones (para timer por sección)
+  sectionTimes?: Record<string, {
+    started: number;
+    completed: boolean;
+    ended?: number;
+  }>;
   
   // Relaciones
   exam?: Exam;

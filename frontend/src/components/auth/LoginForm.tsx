@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { authService } from '../../lib/auth';
 import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react';
-import { AnimatedCharacters } from './';
+import AnimatedCharacters from './AnimatedCharacters';
 
 export default function LoginForm() {
   const [email, setEmail] = useState('');
@@ -49,7 +49,7 @@ export default function LoginForm() {
           </h2>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form className="mt-8 space-y-6" method="post" action="javascript:void(0);" onSubmit={handleSubmit}>
           {error && (
             <div className="rounded-md bg-red-50 p-4 flex items-start">
               <AlertCircle className="h-5 w-5 text-red-400 mr-3 flex-shrink-0" />

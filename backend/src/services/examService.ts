@@ -12,6 +12,11 @@ type Permission = 'VIEW' | 'EDIT' | 'FULL';
 interface ExamSection {
   title: string;
   description?: string;
+  timeLimit?: number; // NUEVO: Tiempo límite en minutos para esta sección
+  fileUrl?: string | null;
+  fileName?: string | null;
+  fileType?: string | null;
+  fileSize?: number | null;
   questions: ExamQuestion[];
 }
 
@@ -23,6 +28,10 @@ interface ExamQuestion {
   correctAnswer?: any;
   metadata?: any;
   feedback?: string;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  fileType?: string | null;
+  fileSize?: number | null;
   options?: ExamOption[];
 }
 
@@ -43,6 +52,7 @@ interface CreateExamData {
   instructions?: string;
   questionsPerAttempt?: number;
   accessType?: string;
+  strictSecurity?: boolean;
   sections: ExamSection[];
 }
 
@@ -196,6 +206,7 @@ export const createExam = async (userId: string, data: CreateExamData) => {
     instructions,
     questionsPerAttempt,
     accessType,
+    strictSecurity,
     sections 
   } = data;
 
@@ -227,6 +238,7 @@ export const createExam = async (userId: string, data: CreateExamData) => {
       instructions: instructions || null,
       questionsPerAttempt: questionsPerAttempt || null,
       accessType: (accessType as any) || 'PUBLIC',
+      strictSecurity: strictSecurity || false,
       autoGrade: checkIfAutoGradable(sections),
       createdById: userId,
       sections: {
@@ -234,6 +246,11 @@ export const createExam = async (userId: string, data: CreateExamData) => {
           title: section.title,
           description: section.description || null,
           order: sectionIndex,
+          timeLimit: section.timeLimit || null,
+          fileUrl: section.fileUrl || null,
+          fileName: section.fileName || null,
+          fileType: section.fileType || null,
+          fileSize: section.fileSize || null,
           questions: {
             create: section.questions.map((question, questionIndex) => ({
               type: question.type,
@@ -244,6 +261,10 @@ export const createExam = async (userId: string, data: CreateExamData) => {
               correctAnswer: question.correctAnswer || null,
               metadata: question.metadata || null,
               feedback: question.feedback || null,
+              fileUrl: question.fileUrl || null,
+              fileName: question.fileName || null,
+              fileType: question.fileType || null,
+              fileSize: question.fileSize || null,
               options: question.options?.length ? {
                 create: question.options.map((option, optionIndex) => ({
                   text: option.text,
@@ -286,6 +307,7 @@ export const updateExam = async (examId: string, data: UpdateExamData) => {
     instructions,
     questionsPerAttempt,
     accessType,
+    strictSecurity,
     sections 
   } = data;
 
@@ -316,12 +338,18 @@ export const updateExam = async (examId: string, data: UpdateExamData) => {
       instructions: instructions || null,
       questionsPerAttempt: questionsPerAttempt || null,
       accessType: accessType ? (accessType as any) : undefined,
+      strictSecurity: strictSecurity !== undefined ? strictSecurity : undefined,
       autoGrade: checkIfAutoGradable(sections),
       sections: {
         create: sections.map((section, sectionIndex) => ({
           title: section.title,
           description: section.description || null,
           order: sectionIndex,
+          timeLimit: section.timeLimit || null,
+          fileUrl: section.fileUrl || null,
+          fileName: section.fileName || null,
+          fileType: section.fileType || null,
+          fileSize: section.fileSize || null,
           questions: {
             create: section.questions.map((question, questionIndex) => ({
               type: question.type,
@@ -332,6 +360,10 @@ export const updateExam = async (examId: string, data: UpdateExamData) => {
               correctAnswer: question.correctAnswer || null,
               metadata: question.metadata || null,
               feedback: question.feedback || null,
+              fileUrl: question.fileUrl || null,
+              fileName: question.fileName || null,
+              fileType: question.fileType || null,
+              fileSize: question.fileSize || null,
               options: question.options?.length ? {
                 create: question.options.map((option, optionIndex) => ({
                   text: option.text,
