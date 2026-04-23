@@ -20,6 +20,7 @@ export default function PublicExamSteps({ slug }: PublicExamStepsProps) {
   // Formulario
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [emailConfirm, setEmailConfirm] = useState('');
   const [password, setPassword] = useState('');
   const [starting, setStarting] = useState(false);
 
@@ -63,6 +64,19 @@ export default function PublicExamSteps({ slug }: PublicExamStepsProps) {
     } else {
       if (!name.trim()) {
         toast.error('Error', 'El nombre es obligatorio');
+        return;
+      }
+      if (!email.trim()) {
+        toast.error('Error', 'El correo electrónico es obligatorio');
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        toast.error('Error', 'El correo electrónico no es válido');
+        return;
+      }
+      if (email.trim().toLowerCase() !== emailConfirm.trim().toLowerCase()) {
+        toast.error('Error', 'Los correos no coinciden, verifica que sean iguales');
         return;
       }
     }
@@ -228,7 +242,7 @@ export default function PublicExamSteps({ slug }: PublicExamStepsProps) {
           )}
 
           {/* Form */}
-          <form onSubmit={handleStartExam} className="space-y-4">
+          <form method="post" action="javascript:void(0);" onSubmit={handleStartExam} className="space-y-4">
             {isPrivate ? (
               <>
                 <div>
@@ -275,15 +289,50 @@ export default function PublicExamSteps({ slug }: PublicExamStepsProps) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Correo Electronico (opcional)
+                    Correo Electronico *
                   </label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onPaste={(e) => {
+                      // Impedir pegar para evitar errores de tipeo silenciosos
+                      e.preventDefault();
+                      toast.error('Error', 'Por favor escribe tu correo manualmente');
+                    }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="tu@email.com"
+                    required
+                    autoComplete="off"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirmar Correo Electronico *
+                  </label>
+                  <input
+                    type="email"
+                    value={emailConfirm}
+                    onChange={(e) => setEmailConfirm(e.target.value)}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      toast.error('Error', 'Por favor escribe el correo manualmente para confirmar');
+                    }}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:border-transparent ${
+                      emailConfirm && email.trim().toLowerCase() !== emailConfirm.trim().toLowerCase()
+                        ? 'border-red-400 focus:ring-red-500'
+                        : 'border-gray-300 focus:ring-blue-500'
+                    }`}
+                    placeholder="Vuelve a escribir tu correo"
+                    required
+                    autoComplete="off"
+                  />
+                  {emailConfirm && email.trim().toLowerCase() !== emailConfirm.trim().toLowerCase() && (
+                    <p className="mt-1 text-xs text-red-600">Los correos no coinciden</p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Recibirás tus resultados en este correo si optas por enviarlos al finalizar.
+                  </p>
                 </div>
               </>
             )}

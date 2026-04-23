@@ -12,9 +12,11 @@ import {
   ChevronDown,
   ChevronUp,
   Send,
+  Mail,
   AlertTriangle,
   Flag,
-  X
+  X,
+  Loader
 } from 'lucide-react';
 
 interface ExamResultsProps {
@@ -36,6 +38,8 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
   } | null>(null);
   const [reportReason, setReportReason] = useState('');
   const [submittingReport, setSubmittingReport] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -91,6 +95,20 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
     if (sa.selectedOptions?.length) return sa.selectedOptions.map((o: any) => o.text).join(', ');
     if (sa.jsonValue) return JSON.stringify(sa.jsonValue);
     return 'Sin respuesta';
+  };
+
+  const handleSendEmail = async () => {
+    if (sendingEmail || emailSent) return;
+    try {
+      setSendingEmail(true);
+      const res = await examService.sendAttemptResult(attemptId);
+      setEmailSent(true);
+      toast.success('Enviado', `Resultados enviados a ${res.email}`);
+    } catch (err) {
+      toast.error('Error', err instanceof Error ? err.message : 'No se pudieron enviar los resultados');
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   /** Resumen de la respuesta correcta para el modal de reporte */
@@ -374,7 +392,37 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
         )}
 
         {/* Acciones */}
-        <div className="mt-8 flex gap-4">
+        <div className="mt-8 flex flex-col sm:flex-row gap-4">
+          {result.studentEmail && (
+            <button
+              type="button"
+              onClick={handleSendEmail}
+              disabled={sendingEmail || emailSent}
+              className="flex-1 py-3 px-6 rounded-lg border-2 transition flex items-center justify-center gap-2 font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{
+                borderColor: emailSent ? '#16a34a' : colors.primaryColor,
+                color: emailSent ? '#16a34a' : colors.primaryColor,
+                backgroundColor: '#fff',
+              }}
+            >
+              {sendingEmail ? (
+                <>
+                  <Loader className="w-5 h-5 animate-spin" />
+                  Enviando...
+                </>
+              ) : emailSent ? (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  Resultados enviados
+                </>
+              ) : (
+                <>
+                  <Mail className="w-5 h-5" />
+                  Enviar resultados por correo
+                </>
+              )}
+            </button>
+          )}
           <a
             href={result.exam ? `/e/${result.exam.slug}` : '/'}
             style={{ backgroundColor: colors.primaryColor }}

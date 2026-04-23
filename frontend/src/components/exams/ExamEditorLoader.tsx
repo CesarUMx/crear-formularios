@@ -64,10 +64,12 @@ export default function ExamEditorLoader({ examId }: ExamEditorLoaderProps) {
         showResults: exam.showResults,
         accessType: (exam.accessType as ExamAccessType) || 'PUBLIC',
         questionsPerAttempt: exam.questionsPerAttempt,
+        strictSecurity: exam.strictSecurity,
         sections: (exam.sections || []).map((section: any) => ({
           id: section.id,
           title: section.title,
           description: section.description,
+          timeLimit: section.timeLimit,
           fileUrl: section.fileUrl,
           fileName: section.fileName,
           fileType: section.fileType,

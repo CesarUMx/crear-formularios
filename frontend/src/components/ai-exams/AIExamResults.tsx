@@ -17,6 +17,9 @@ import {
   XCircle,
   AlertCircle,
   Loader,
+  Mail,
+  X,
+  Send,
 } from 'lucide-react';
 
 export default function AIExamResults({ examId }: { examId: string }) {
@@ -32,8 +35,38 @@ export default function AIExamResults({ examId }: { examId: string }) {
     averageTime: 0,
   });
   const [viewingAttemptId, setViewingAttemptId] = useState<string | null>(null);
+  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
+  const [emailSentIds, setEmailSentIds] = useState<Set<string>>(new Set());
+  const [emailModal, setEmailModal] = useState<{ attempt: AIExamAttempt; email: string } | null>(null);
 
   const toast = useToast();
+
+  const openEmailModal = (attempt: AIExamAttempt) => {
+    setEmailModal({ attempt, email: attempt.studentEmail || '' });
+  };
+
+  const confirmSendEmail = async () => {
+    if (!emailModal) return;
+    const { attempt, email } = emailModal;
+    const trimmed = email.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      toast.error('Error', 'El correo no es válido');
+      return;
+    }
+    if (sendingEmailId) return;
+    try {
+      setSendingEmailId(attempt.id);
+      const res = await aiExamService.sendAttemptResult(attempt.id, trimmed);
+      setEmailSentIds((prev) => new Set(prev).add(attempt.id));
+      toast.success('Enviado', `Resultados enviados a ${res.email}`);
+      setEmailModal(null);
+    } catch (err) {
+      toast.error('Error', err instanceof Error ? err.message : 'No se pudieron enviar los resultados');
+    } finally {
+      setSendingEmailId(null);
+    }
+  };
 
   useEffect(() => {
     loadResults();
@@ -304,13 +337,36 @@ export default function AIExamResults({ examId }: { examId: string }) {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button 
-                        onClick={() => setViewingAttemptId(attempt.id)}
-                        className="text-purple-600 hover:text-purple-900 flex items-center gap-1 transition"
-                      >
-                        <Eye className="w-4 h-4" />
-                        Ver
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => setViewingAttemptId(attempt.id)}
+                          className="text-purple-600 hover:text-purple-900 flex items-center gap-1 transition"
+                        >
+                          <Eye className="w-4 h-4" />
+                          Ver
+                        </button>
+                        {attempt.completedAt && attempt.studentEmail && (
+                          <button
+                            onClick={() => openEmailModal(attempt)}
+                            disabled={sendingEmailId === attempt.id}
+                            title={emailSentIds.has(attempt.id) ? 'Reenviar resultados' : `Enviar resultados a ${attempt.studentEmail}`}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-sm font-medium transition disabled:opacity-60 disabled:cursor-not-allowed ${
+                              emailSentIds.has(attempt.id)
+                                ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                            }`}
+                          >
+                            {sendingEmailId === attempt.id ? (
+                              <Loader className="w-4 h-4 animate-spin" />
+                            ) : emailSentIds.has(attempt.id) ? (
+                              <CheckCircle className="w-4 h-4" />
+                            ) : (
+                              <Mail className="w-4 h-4" />
+                            )}
+                            {sendingEmailId === attempt.id ? 'Enviando' : emailSentIds.has(attempt.id) ? 'Enviado' : 'Enviar'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -329,6 +385,120 @@ export default function AIExamResults({ examId }: { examId: string }) {
           attemptId={viewingAttemptId}
           onClose={() => setViewingAttemptId(null)}
         />
+      )}
+
+      {/* Modal de confirmación de envío de resultados */}
+      {emailModal && (
+        <div
+          className="fixed inset-0 z-50 bg-gray-800/60 flex items-center justify-center p-4"
+          onClick={() => {
+            if (!sendingEmailId) setEmailModal(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: colors.primaryColor + '20' }}
+                >
+                  <Mail className="w-5 h-5" style={{ color: colors.primaryColor }} />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Enviar resultados por correo</h3>
+              </div>
+              <button
+                onClick={() => setEmailModal(null)}
+                disabled={!!sendingEmailId}
+                className="p-1 rounded text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                title="Cerrar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+              <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="text-gray-500">Estudiante:</span>
+                  <span className="text-gray-900 font-medium text-right truncate">
+                    {emailModal.attempt.studentName || 'Anónimo'}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2 mt-1">
+                  <span className="text-gray-500">Intento:</span>
+                  <span className="text-gray-900">#{emailModal.attempt.attemptNumber}</span>
+                </div>
+                {emailModal.attempt.score !== undefined && (
+                  <div className="flex justify-between gap-2 mt-1">
+                    <span className="text-gray-500">Calificación:</span>
+                    <span className="text-gray-900 font-medium">
+                      {(emailModal.attempt.score ?? 0).toFixed(1)}%
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Correo destino *
+                </label>
+                <input
+                  type="email"
+                  value={emailModal.email}
+                  onChange={(e) =>
+                    setEmailModal((prev) => (prev ? { ...prev, email: e.target.value } : prev))
+                  }
+                  disabled={!!sendingEmailId}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm disabled:bg-gray-50"
+                  placeholder="correo@ejemplo.com"
+                  autoFocus
+                />
+                {emailModal.attempt.studentEmail &&
+                  emailModal.email.trim().toLowerCase() !==
+                    emailModal.attempt.studentEmail.trim().toLowerCase() && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      Vas a enviar a un correo distinto al registrado (
+                      {emailModal.attempt.studentEmail}).
+                    </p>
+                  )}
+                <p className="mt-1 text-xs text-gray-500">
+                  Puedes editar el correo antes de enviar. El correo modificado no se guarda en el intento.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+              <button
+                onClick={() => setEmailModal(null)}
+                disabled={!!sendingEmailId}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmSendEmail}
+                disabled={!!sendingEmailId || !emailModal.email.trim()}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ backgroundColor: colors.primaryColor }}
+              >
+                {sendingEmailId ? (
+                  <>
+                    <Loader className="w-4 h-4 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Enviar resultados
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

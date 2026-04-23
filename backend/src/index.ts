@@ -19,6 +19,7 @@ import aiExamRoutes from './routes/aiExamRoutes.js';
 import questionReportsRouter from './routes/questionReports.js';
 import progressRoutes from './routes/progressRoutes.js';
 import gradingRoutes from './routes/gradingRoutes.js';
+import securityRoutes from './routes/securityRoutes.js';
 import { startAbandonedAttemptsCleanup } from './utils/cronJobs.js';
 
 dotenv.config();
@@ -38,7 +39,10 @@ app.set('trust proxy', 1);
 
 // Middleware
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginEmbedderPolicy: false
 }));
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:4321',
@@ -79,12 +83,25 @@ app.use('/uploads', (req: Request, res: Response, next: NextFunction) => {
   res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Range');
   res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
-  
+  // Permitir que estos recursos se embeban en iframes desde cualquier origen.
+  // Se elimina cualquier CSP heredada (Helmet, Nginx, etc.) y se reemplaza por una permisiva.
+  res.removeHeader('Content-Security-Policy');
+  res.removeHeader('X-Frame-Options');
+  res.header('Content-Security-Policy', "frame-ancestors *;");
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
   return next();
-}, express.static('uploads'));
+}, express.static('uploads', {
+  setHeaders: (res) => {
+    res.removeHeader('Content-Security-Policy');
+    res.removeHeader('X-Frame-Options');
+    res.setHeader('Content-Security-Policy', "frame-ancestors *;");
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -100,6 +117,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/ai-exams', aiExamRoutes);
 app.use('/api/question-reports', questionReportsRouter);
 app.use('/api/grading', gradingRoutes);
+app.use('/api/security', securityRoutes);
 app.use('/api', progressRoutes);
 
 // 404 handler
