@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { examService } from '../../lib/examService';
 import type { ExamQuestionType, ExamSectionInput, ExamQuestionInput, ExamAccessType } from '../../lib/types';
-import { PageHeader, QuestionRenderer, FileUploader } from '../common';
+import { PageHeader, QuestionRenderer, FileUploader, RichTextEditor } from '../common';
 import { useColors } from '../../hooks/useColors';
 import {
   Plus,
@@ -1307,10 +1307,9 @@ function QuestionEditor({ examId, sectionId, question, questionNumber, onUpdate,
       </div>
 
       {/* Texto de pregunta */}
-      <textarea
+      <RichTextEditor
         value={question.text}
-        onChange={(e) => onUpdate({ text: e.target.value })}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 text-sm"
+        onChange={(html) => onUpdate({ text: html })}
         rows={2}
         placeholder={question.type === 'FILL_BLANK' ? 'Texto con _____ para espacios en blanco...' : 'Escribe la pregunta...'}
       />

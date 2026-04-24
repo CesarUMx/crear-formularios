@@ -1,5 +1,24 @@
 @import "tailwindcss";
 
+/* ===== Rich text: estilos para texto formateado en preguntas ===== */
+.rich-text strong,
+.rich-text b { font-weight: 700; }
+
+.rich-text em,
+.rich-text i { font-style: italic; }
+
+.rich-text u { text-decoration: underline; }
+
+.rich-text p { margin-bottom: 0.25rem; }
+.rich-text p:last-child { margin-bottom: 0; }
+
+/* ===== Editor contenteditable: placeholder ===== */
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
 :root {
   --color-primary: #2563eb;
   --color-secondary: #1e40af;
