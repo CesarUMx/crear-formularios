@@ -163,7 +163,12 @@ export default function QuestionRenderer({
               <span className="text-xs text-gray-500">{question.points} pts</span>
             )}
           </div>
-          <h3 className="text-lg font-semibold text-gray-900">{type !== 'fill_blank' ? question.text : ''}</h3>
+          {type !== 'fill_blank' && (
+            <h3
+              className="text-lg font-semibold text-gray-900 rich-text"
+              dangerouslySetInnerHTML={{ __html: question.text }}
+            />
+          )}
           {question.helpText && (
             <p className="text-sm text-gray-500 mt-1">{question.helpText}</p>
           )}

@@ -7,6 +7,7 @@ export { default as StatsCard } from './StatsCard';
 export { default as FileAttachment } from './FileAttachment';
 export { default as FileUploader } from './FileUploader';
 export { default as QuestionRenderer } from './QuestionRenderer';
+export { default as RichTextEditor } from './RichTextEditor';
 export { default as ShareExamModal } from './ShareExamModal';
 
 // Toast notifications
