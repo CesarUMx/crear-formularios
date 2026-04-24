@@ -40,7 +40,7 @@ export const sendExamInvitation = async (
     const transporter = createTransporter();
 
     const mailOptions: SendMailOptions = {
-      from: process.env.EMAIL_FROM || '"Forms - Exámenes IA" <noreply@mail.com>',
+      from: process.env.EMAIL_FROM || '"Evaluo - Exámenes IA" <noreply@mail.com>',
       to: studentEmail,
       subject: `Invitación al Examen: ${examTitle}`,
       html: `
@@ -170,7 +170,7 @@ export const sendExamInvitation = async (
           
           <div class="footer">
             <p>Este es un mensaje automático, por favor no respondas a este correo.</p>
-            <p>© ${new Date().getFullYear()} Forms - Sistema de Exámenes con IA</p>
+            <p>© ${new Date().getFullYear()} Evaluo - Sistema de Exámenes con IA</p>
           </div>
         </body>
         </html>

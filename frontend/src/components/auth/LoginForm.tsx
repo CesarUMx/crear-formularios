@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { authService } from '../../lib/auth';
-import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react';
-import AnimatedCharacters from './AnimatedCharacters';
+import { AlertCircle, ArrowRight, Lock, Mail } from 'lucide-react';
+//import AnimatedCharacters from './AnimatedCharacters';
 
 export default function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  //const [isPasswordFocused, setIsPasswordFocused] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,45 +26,60 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Columna Izquierda - Formulario */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white px-4 sm:px-6 lg:px-20 xl:px-24">
-        <div className="max-w-md w-full space-y-8">
-        <div>
+    <div className="min-h-screen flex bg-white">
+      {/* Columna izquierda */}
+      <div
+        className="w-full lg:w-[46%] flex items-center justify-center px-6 sm:px-8 lg:px-16 xl:px-20"
+        style={{ backgroundColor: '#F8FAFC' }}
+      >
+        <div className="w-full max-w-md">
           {/* Logo */}
-          <div className="flex justify-center mb-6">
-            <img 
-              src="/images/logo.svg" 
-              alt="Forms Logo" 
-              className="h-32 w-32 object-contain"
+          <div className="flex justify-center lg:justify-center mb-8">
+            <img
+              src="/images/logo_login.svg"
+              alt="Evaluo Logo"
+              className="w-80 h-auto object-contain"
               onError={(e) => {
                 console.error('Error loading logo');
                 e.currentTarget.style.display = 'none';
               }}
             />
           </div>
-          
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Iniciar Sesión
-          </h2>
-        </div>
 
-        <form className="mt-8 space-y-6" method="post" action="javascript:void(0);" onSubmit={handleSubmit}>
+          {/* Encabezado */}
+          <div className="mb-8 text-center lg:text-center">
+            <h1
+              className="text-3xl sm:text-4xl font-extrabold tracking-tight"
+              style={{ color: '#0F172A' }}
+            >
+              Iniciar sesión
+            </h1>
+            <p className="mt-3 text-sm sm:text-base leading-6" style={{ color: '#64748B' }}>
+              Accede a tu plataforma de formularios, evaluación y analítica inteligente.
+            </p>
+          </div>
+
+          {/* Error */}
           {error && (
-            <div className="rounded-md bg-red-50 p-4 flex items-start">
-              <AlertCircle className="h-5 w-5 text-red-400 mr-3 flex-shrink-0" />
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
               <div className="text-sm text-red-700">{error}</div>
             </div>
           )}
 
-          <div className="rounded-md shadow-sm space-y-4">
+          {/* Formulario */}
+          <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium mb-2"
+                style={{ color: '#334155' }}
+              >
                 Email
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
                   id="email"
@@ -74,19 +89,29 @@ export default function LoginForm() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                   placeholder="tu@email.com"
+                  className="block w-full rounded-xl border bg-white pl-12 pr-4 py-3 text-sm outline-none transition focus:ring-2"
+                  style={{
+                    borderColor: '#E5E7EB',
+                    color: '#0F172A',
+                    backgroundColor: '#FFFFFF',
+                    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+                  }}
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium mb-2"
+                style={{ color: '#334155' }}
+              >
                 Contraseña
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
                   id="password"
@@ -96,34 +121,82 @@ export default function LoginForm() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  onFocus={() => setIsPasswordFocused(true)}
-                  onBlur={() => setIsPasswordFocused(false)}
-                  className="appearance-none relative block w-full pl-10 px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                   placeholder="••••••••"
+                  className="block w-full rounded-xl border bg-white pl-12 pr-4 py-3 text-sm outline-none transition focus:ring-2"
+                  style={{
+                    borderColor: '#E5E7EB',
+                    color: '#0F172A',
+                    backgroundColor: '#FFFFFF',
+                    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+                  }}
                 />
               </div>
             </div>
-          </div>
 
-          <div>
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70"
+              style={{
+                background: loading
+                  ? '#60A5FA'
+                  : 'linear-gradient(135deg, #2563EB 0%, #1E40AF 100%)',
+                boxShadow: '0 10px 24px rgba(37, 99, 235, 0.22)',
+              }}
             >
-              <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                <LogIn className="h-5 w-5 text-blue-500 group-hover:text-blue-400" />
-              </span>
-              {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+              {loading ? 'Ingresando...' : 'Iniciar sesión'}
+              <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
             </button>
+          </form>
+
+          {/* Pie */}
+          <div className="mt-8 text-center lg:text-left">
+            <p className="text-xs" style={{ color: '#94A3B8' }}>
+              Plataforma segura para formularios, exámenes y monitoreo institucional.
+            </p>
           </div>
-        </form>
         </div>
       </div>
 
-      {/* Columna Derecha - Personajes Animados */}
-      <div className="hidden lg:block lg:w-1/2">
-        <AnimatedCharacters isPasswordFocused={isPasswordFocused} />
+      {/* Columna derecha */}
+      <div className="hidden lg:flex lg:w-[54%] relative overflow-hidden items-center justify-center">
+
+        {/* Fondo degradado */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(180deg, #2563EB 0%, #1E40AF 60%, #312E81 100%)',
+          }}
+        />
+
+        {/* Glow moderno */}
+        <div className="absolute top-[-80px] left-[-40px] w-96 h-96 bg-blue-400/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-[-80px] right-[-40px] w-96 h-96 bg-indigo-400/20 rounded-full blur-3xl" />
+
+        {/* Contenido */}
+        <div className="relative z-10 text-center text-white px-10 max-w-lg">
+
+          <h2 className="text-4xl xl:text-5xl font-bold leading-tight">
+            Captura, evalúa y analiza
+          </h2>
+
+          <p className="mt-4 text-lg text-blue-100">
+            Todo en una sola plataforma.
+          </p>
+
+        </div>
+
+        {/* Elementos flotantes sutiles */}
+        <div className="absolute w-full h-full pointer-events-none">
+
+          {/* Círculos suaves */}
+          <div className="absolute top-[20%] left-[30%] w-3 h-3 bg-white/30 rounded-full" />
+          <div className="absolute top-[40%] left-[60%] w-2 h-2 bg-white/30 rounded-full" />
+          <div className="absolute top-[70%] left-[45%] w-2 h-2 bg-white/20 rounded-full" />
+
+        </div>
+
       </div>
     </div>
   );

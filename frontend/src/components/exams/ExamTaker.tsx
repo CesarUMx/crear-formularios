@@ -463,7 +463,7 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando examen...</p>
+          <p className="mt-4" style={{ color: '#334155' }}>Cargando examen...</p>
         </div>
       </div>
     );
@@ -796,26 +796,25 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
 
   return (
     <div
-      className="min-h-screen bg-gray-50"
+      className="min-h-screen" style={{ backgroundColor: '#F8FAFC' }}
       onCopy={(e) => { e.preventDefault(); }}
       onCut={(e) => { e.preventDefault(); }}
       onPaste={(e) => { e.preventDefault(); }}
       onContextMenu={(e) => { e.preventDefault(); }}
-      style={{ userSelect: 'none' }}
     >
       {/* Header sticky */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+      <div className="sticky top-0 z-10 shadow-sm" style={{ backgroundColor: '#ffffff', borderBottom: '1px solid #E5E7EB' }}>
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">{exam.title}</h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <h1 className="text-xl font-bold" style={{ color: '#0F172A' }}>{exam.title}</h1>
+              <p className="text-sm mt-1" style={{ color: '#334155' }}>
                 Pregunta {getCurrentQuestionNumber()} de {getTotalQuestions()}
               </p>
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm" style={{ color: '#334155' }}>
                 <span className="font-medium">{getAnsweredCount()}</span> / {getTotalQuestions()} respondidas
               </div>
 
@@ -847,7 +846,7 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
 
               {/* Timer pausado */}
               {globalTimerPaused && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-600">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: '#F8FAFC', color: '#334155', border: '1px solid #E5E7EB' }}>
                   <Clock className="w-4 h-4" />
                   <span className="text-sm">Pausado</span>
                 </div>
@@ -861,7 +860,7 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
               )}
 
               {saving && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
+                <div className="flex items-center gap-2 text-sm" style={{ color: '#334155' }}>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                   Guardando...
                 </div>
@@ -877,7 +876,7 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
 
           {/* Progress Bar */}
           <div className="mt-3">
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full rounded-full h-2" style={{ backgroundColor: '#E5E7EB' }}>
               <div
                 className="h-2 rounded-full transition-all duration-300"
                 style={{
@@ -903,8 +902,9 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
                         ? 'ring-2 ring-offset-1 ring-blue-500 bg-blue-600 text-white'
                         : isAnswered
                         ? 'bg-green-500 text-white'
-                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                        : ''
                     }`}
+                    style={!isActive && !isAnswered ? { backgroundColor: '#E5E7EB', color: '#334155' } : {}}
                     title={`Pregunta ${sections.slice(0, sIdx).reduce((c, s) => c + s.questions.length, 0) + qIdx + 1}`}
                   >
                     {sections.slice(0, sIdx).reduce((c, s) => c + s.questions.length, 0) + qIdx + 1}
@@ -925,11 +925,11 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-4">
                 <FileText className="w-8 h-8 text-blue-600" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              <h2 className="text-2xl font-bold mb-2" style={{ color: '#0F172A' }}>
                 {currentSection?.title}
               </h2>
               {currentSection?.description && (
-                <p className="text-gray-600 text-lg">
+                <p className="text-lg" style={{ color: '#334155' }}>
                   {currentSection.description}
                 </p>
               )}
@@ -968,8 +968,8 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
 
             {/* Archivo adjunto de sección */}
             {currentSection?.fileUrl && currentSection.fileName && currentSection.fileType && (
-              <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                <p className="text-sm font-medium text-gray-700 mb-2">Archivo adjunto de la sección:</p>
+              <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: '#F8FAFC', border: '1px solid #E5E7EB' }}>
+                <p className="text-sm font-medium mb-2" style={{ color: '#334155' }}>Archivo adjunto de la sección:</p>
                 <FileAttachment
                   fileUrl={currentSection.fileUrl}
                   fileName={currentSection.fileName}
@@ -1088,10 +1088,10 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
         <div className="bg-white rounded-lg shadow-sm p-8">
           {/* Section info */}
           {currentSection && (
-            <div className="mb-6 pb-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">{currentSection.title}</h2>
+            <div className="mb-6 pb-4" style={{ borderBottom: '1px solid #E5E7EB' }}>
+              <h2 className="text-lg font-semibold" style={{ color: '#0F172A' }}>{currentSection.title}</h2>
               {currentSection.description && (
-                <p className="text-sm text-gray-600 mt-1">{currentSection.description}</p>
+                <p className="text-sm mt-1" style={{ color: '#334155' }}>{currentSection.description}</p>
               )}
               {currentSection.fileUrl && currentSection.fileName && currentSection.fileType && (
                 <div className="mt-3">
@@ -1123,11 +1123,12 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
           )}
 
           {/* Navigation */}
-          <div className="mt-8 pt-6 border-t border-gray-200 flex items-center justify-between">
+          <div className="mt-8 pt-6 flex items-center justify-between" style={{ borderTop: '1px solid #E5E7EB' }}>
             <button
               onClick={goToPreviousQuestion}
               disabled={isFirstQuestion}
-              className="flex items-center gap-2 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="flex items-center gap-2 px-6 py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+              style={{ border: '1px solid #E5E7EB', color: '#334155', backgroundColor: '#ffffff' }}
             >
               <ChevronLeft className="w-5 h-5" />
               Anterior
@@ -1136,7 +1137,8 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
             <button
               onClick={saveCurrentAnswer}
               disabled={saving}
-              className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition"
+              className="flex items-center gap-2 px-6 py-3 rounded-lg disabled:opacity-50 transition"
+              style={{ backgroundColor: '#F8FAFC', color: '#334155', border: '1px solid #E5E7EB' }}
             >
               <Save className="w-5 h-5" />
               {saving ? 'Guardando...' : 'Guardar'}

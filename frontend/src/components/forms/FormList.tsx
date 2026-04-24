@@ -163,12 +163,13 @@ export default function FormList() {
           {forms.map((form) => (
             <div
               key={form.id}
-              className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow min-w-[280px] w-full"
+              className="bg-white rounded-lg border  hover:shadow-lg transition-shadow min-w-[280px] w-full"
+              style={{ borderColor: '#E5E7EB' }}
             >
               {/* Card Header */}
-              <div className="p-6 border-b border-gray-200">
+              <div className="p-6 border-b" style={{ borderColor: '#E5E7EB' }}>
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
+                  <h3 className="text-lg font-semibold" style={{ color: '#0F172A' }}>
                     {form.title}
                   </h3>
                   <button
@@ -184,14 +185,14 @@ export default function FormList() {
                   </button>
                 </div>
                 {form.description && (
-                  <p className="text-sm text-gray-600 line-clamp-2">{form.description}</p>
+                  <p className="text-sm line-clamp-2" style={{ color: '#334155' }}>{form.description}</p>
                 )}
               </div>
 
               {/* Card Body */}
               <div className="p-6 space-y-3">
                 {/* Stats */}
-                <div className="flex items-center gap-4 text-sm text-gray-600">
+                <div className="flex items-center gap-4 text-sm" style={{ color: '#334155' }}>
                   <div className="flex items-center gap-1">
                     <Users className="w-4 h-4" />
                     <span>{form._count?.responses || 0} respuestas</span>
@@ -203,7 +204,7 @@ export default function FormList() {
                 </div>
 
                 {/* Metadata */}
-                <div className="flex items-center gap-2 text-xs text-gray-500">
+                <div className="flex items-center gap-2 text-xs" style={{ color: '#334155' }}>
                   <Calendar className="w-3 h-3" />
                   <span>
                     {new Date(form.updatedAt).toLocaleDateString('es-MX', {
@@ -215,7 +216,7 @@ export default function FormList() {
                 </div>
 
                 {/* Creator */}
-                <div className="text-xs text-gray-500">
+                <div className="text-xs" style={{ color: '#334155' }}>
                   Por: <span className="font-medium">{form.createdBy.name}</span>
                 </div>
 

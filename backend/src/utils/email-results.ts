@@ -201,7 +201,7 @@ ${resultUrl ? `\nVer resultados: ${resultUrl}\n` : ''}
   `.trim();
 
   const mailOptions: SendMailOptions = {
-    from: process.env.EMAIL_FROM || '"Forms - Exámenes" <noreply@mail.com>',
+    from: process.env.EMAIL_FROM || '"Evaluo - Exámenes" <noreply@mail.com>',
     to: studentEmail,
     subject: `Resultados: ${examTitle}`,
     html,

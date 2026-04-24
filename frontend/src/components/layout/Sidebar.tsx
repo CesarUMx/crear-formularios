@@ -144,26 +144,21 @@ export default function Sidebar({ currentPath = '', onToggle }: SidebarProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/10">
           {isOpen ? (
-            <div className="flex items-center gap-3">
               <img 
-                src="/images/logo.svg" 
-                alt="Forms Logo" 
-                className="w-12 h-12 object-contain"
+                src="/images/evaluo_transparent.png" 
+                alt="Evaluo Logo" 
+                className="w-40 object-contain"
               />
-              <span className="text-xl font-bold text-white">Forms</span>
-            </div>
           ) : (
-            <div className="flex justify-center w-full">
               <img 
-                src="/images/logo.svg" 
-                alt="Forms Logo" 
-                className="w-12 h-12 object-contain"
+                src="/images/log.png" 
+                alt="Evaluo Logo" 
+                className="h-10 object-contain mx-auto pl-1"
               />
-            </div>
           )}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className={`hidden lg:block p-2 hover:bg-gray-700 rounded-lg transition ${!isOpen && 'absolute right-2'}`}
+            className={`hidden lg:block p-2 rounded-lg transition flex-shrink-0 ${!isOpen && '-translate-x-2'}`}
           >
             <ChevronLeft className={`w-5 h-5 transition-transform ${!isOpen && 'rotate-180'}`} />
           </button>
@@ -203,15 +198,15 @@ export default function Sidebar({ currentPath = '', onToggle }: SidebarProps) {
                 <a
                   key={item.path}
                   href={item.path}
-                  style={isActive ? { backgroundColor: 'var(--color-primary)' } : undefined}
                   className={`
                     flex items-center gap-3 px-3 py-3 rounded-lg transition-all
                     ${isActive 
-                      ? 'text-white shadow-lg' 
-                      : 'text-gray-200 hover:bg-white/10 hover:text-white'
+                      ? 'shadow-lg' 
+                      : 'hover:bg-white/10'
                     }
                     ${!isOpen ? 'justify-center' : ''}
                   `}
+                  style={isActive ? { backgroundColor: 'var(--color-primary)', color: '#FFFFFF' } : { color: '#E0E7FF' }}
                   title={!isOpen ? item.name : ''}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
@@ -232,9 +227,10 @@ export default function Sidebar({ currentPath = '', onToggle }: SidebarProps) {
               }}
               className={`
                 w-full flex items-center gap-3 px-3 py-3 rounded-lg
-                text-gray-200 hover:bg-white/10 hover:text-white transition-all
+                hover:bg-white/10 transition-all
                 ${!isOpen ? 'justify-center' : ''}
               `}
+              style={{ color: '#E0E7FF' }}
               title={!isOpen ? 'Configuración' : ''}
             >
               <Settings className="w-5 h-5 flex-shrink-0" />
@@ -249,7 +245,8 @@ export default function Sidebar({ currentPath = '', onToggle }: SidebarProps) {
                     setShowProfileModal(true);
                     setShowConfigMenu(false);
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-200 hover:bg-white/10 hover:text-white transition-all text-left"
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 transition-all text-left"
+                  style={{ color: '#E0E7FF' }}
                 >
                   <User className="w-4 h-4" />
                   <span className="text-sm">Mi Perfil</span>
@@ -259,7 +256,8 @@ export default function Sidebar({ currentPath = '', onToggle }: SidebarProps) {
                     setShowPasswordModal(true);
                     setShowConfigMenu(false);
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-gray-200 hover:bg-white/10 hover:text-white transition-all text-left"
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 transition-all text-left"
+                  style={{ color: '#E0E7FF' }}
                 >
                   <Lock className="w-4 h-4" />
                   <span className="text-sm">Cambiar Contraseña</span>
@@ -273,9 +271,10 @@ export default function Sidebar({ currentPath = '', onToggle }: SidebarProps) {
             onClick={handleLogoutClick}
             className={`
               w-full flex items-center gap-3 px-3 py-3 rounded-lg
-              text-gray-300 hover:bg-red-600 hover:text-white transition-all
+              hover:bg-red-600 hover:text-white transition-all
               ${!isOpen ? 'justify-center' : ''}
             `}
+            style={{ color: '#E0E7FF' }}
             title={!isOpen ? 'Cerrar Sesión' : ''}
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />

@@ -1,4 +1,9 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+* {
+  font-family: 'Inter', sans-serif;
+}
 
 :root {
   --color-primary: #2563eb;
@@ -33,3 +38,33 @@
 .text-accent {
   color: var(--color-accent);
 }
+
+/* ===== DESIGN SYSTEM OVERRIDES =====
+   Remapea la escala de grises de Tailwind al sistema de color del proyecto.
+   Excluye: sidebar/menú (text-gray-200, text-gray-300 sobre fondos oscuros),
+   placeholders/iconos sutiles (text-gray-400), fondos oscuros (bg-gray-800/900).
+   ===================================== */
+
+/* Textos */
+.text-gray-900 { color: #0F172A; }
+.text-gray-800 { color: #0F172A; }
+.text-gray-700 { color: #334155; }
+.text-gray-600 { color: #334155; }
+.text-gray-500 { color: #334155; }
+
+/* Fondos de sección / cards internas */
+.bg-gray-50  { background-color: #F8FAFC; }
+.bg-gray-100 { background-color: #F8FAFC; }
+
+/* Fondos hover (ligeramente más oscuros que #F8FAFC para que se noten) */
+.hover\:bg-gray-50:hover  { background-color: #EEF2F6; }
+.hover\:bg-gray-100:hover { background-color: #EEF2F6; }
+
+/* Bordes */
+.border-gray-300 { border-color: #E5E7EB; }
+
+/* Divisores en tablas */
+.divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #E5E7EB; }
+
+/* Anillo de focus */
+.focus\:ring-gray-300:focus { --tw-ring-color: #E5E7EB; }

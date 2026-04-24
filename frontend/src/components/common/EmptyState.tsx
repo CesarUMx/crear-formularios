@@ -20,7 +20,7 @@ export default function EmptyState({
   primaryColor = '#006eff'
 }: EmptyStateProps) {
   return (
-    <div className="bg-white rounded-lg border-2 border-dashed border-gray-300 p-12">
+    <div className="bg-white rounded-lg border-2 border-dashed p-12" style={{ borderColor: '#E5E7EB' }}>
       <div className="flex flex-col items-center justify-center text-center">
         <div 
           className="p-4 rounded-full mb-4"
@@ -31,8 +31,8 @@ export default function EmptyState({
             style={{ color: `${primaryColor}80` }}
           />
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">{title}</h3>
-        <p className="text-gray-600 mb-6 max-w-md">{description}</p>
+        <h3 className="text-xl font-semibold" style={{ color: '#0F172A' }}>{title}</h3>
+        <p className="mb-6 max-w-md" style={{ color: '#334155' }}>{description}</p>
         {buttonText && onButtonClick && (
           <button
             onClick={onButtonClick}

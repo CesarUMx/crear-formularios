@@ -1,3 +1,4 @@
+import { color } from 'chart.js/helpers';
 import type { LucideIcon } from 'lucide-react';
 
 interface PageHeaderProps {
@@ -20,7 +21,7 @@ export default function PageHeader({
   primaryColor = '#006eff'
 }: PageHeaderProps) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+    <div className="bg-white rounded-lg shadow-sm border p-6 mb-6" style={{ borderColor: '#E5E7EB' }}>
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
           <div 
@@ -33,8 +34,8 @@ export default function PageHeader({
             />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">{title}</h1>
-            <p className="text-gray-600">{description}</p>
+            <h1 className="text-2xl font-bold" style={{ color: '#0F172A' }}>{title}</h1>
+            <p style={{ color: '#334155' }}>{description}</p>
           </div>
         </div>
         {buttonText && onButtonClick && (

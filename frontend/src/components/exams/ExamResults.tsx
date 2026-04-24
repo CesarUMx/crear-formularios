@@ -125,7 +125,7 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando resultados...</p>
+          <p className="mt-4" style={{ color: '#334155' }}>Cargando resultados...</p>
         </div>
       </div>
     );
@@ -145,12 +145,12 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
   // showResults=false: el backend devuelve solo { message }
   if (result?.message && !result.sections) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center py-8 px-4">
+      <div className="min-h-screen flex items-center justify-center py-8 px-4" style={{ backgroundColor: '#F8FAFC' }}>
         <div className="max-w-lg w-full text-center">
           <div className="bg-white rounded-lg shadow-lg p-10">
             <Send className="w-16 h-16 mx-auto mb-4 text-green-500" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-3">Examen Entregado</h1>
-            <p className="text-gray-600 mb-6">{result.message}</p>
+            <h1 className="text-2xl font-bold mb-3" style={{ color: '#0F172A' }}>Examen Entregado</h1>
+            <p className="mb-6" style={{ color: '#334155' }}>{result.message}</p>
             <p className="text-sm text-gray-500">
               Tu profesor revisara las respuestas y publicara los resultados cuando esten disponibles.
             </p>
@@ -187,7 +187,7 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
     : 'Examen no aprobado';
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen py-8" style={{ backgroundColor: '#F8FAFC' }}>
       <div className="max-w-4xl mx-auto px-6">
         {/* Header con resultado */}
         <div className={`rounded-lg shadow-lg p-8 mb-6 ${headerClass}`}>
@@ -241,16 +241,16 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex items-center gap-3">
-              <Calendar className="w-5 h-5 text-gray-600" />
+              <Calendar className="w-5 h-5" style={{ color: '#334155' }} />
               <div>
-                <p className="text-sm text-gray-600">Fecha de realizacion</p>
+                <p className="text-sm" style={{ color: '#334155' }}>Fecha de realizacion</p>
                 <p className="font-medium">{result.completedAt ? new Date(result.completedAt).toLocaleString() : 'N/A'}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Award className="w-5 h-5 text-gray-600" />
+              <Award className="w-5 h-5" style={{ color: '#334155' }} />
               <div>
-                <p className="text-sm text-gray-600">Estado</p>
+                <p className="text-sm" style={{ color: '#334155' }}>Estado</p>
                 <p className="font-medium">
                   {isPending
                     ? 'Parcialmente calificado - pendiente de revisión manual'
@@ -276,7 +276,8 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
           <div className="mb-6">
             <button
               onClick={() => setShowAnswers(!showAnswers)}
-              className="w-full py-3 px-6 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition flex items-center justify-center gap-2 font-medium"
+              className="w-full py-3 px-6 rounded-lg hover:opacity-90 transition flex items-center justify-center gap-2 font-medium"
+              style={{ backgroundColor: '#ffffff', border: '1px solid #E5E7EB', color: '#334155' }}
             >
               {showAnswers ? (
                 <>
@@ -300,7 +301,8 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
               <div key={sIdx} className="bg-white rounded-lg shadow-sm overflow-hidden">
                 <button
                   onClick={() => toggleSection(sIdx)}
-                  className="w-full p-4 bg-gray-50 border-b flex items-center justify-between hover:bg-gray-100 transition"
+                  className="w-full p-4 border-b flex items-center justify-between hover:opacity-90 transition"
+                  style={{ backgroundColor: '#F8FAFC', borderBottomColor: '#E5E7EB' }}
                 >
                   <div className="flex items-center gap-3">
                     {expandedSections.includes(sIdx) ? (
@@ -310,7 +312,7 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
                     )}
                     <h3 className="font-semibold text-lg">{section.title}</h3>
                   </div>
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm" style={{ color: '#334155' }}>
                     {section.questions.length} {section.questions.length === 1 ? 'pregunta' : 'preguntas'}
                   </span>
                 </button>
@@ -358,7 +360,8 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
                                 ? 'bg-green-100 text-green-800'
                                 : question.isCorrect === false
                                 ? 'bg-red-100 text-red-800'
-                                : 'bg-gray-100 text-gray-600'
+                                : 'text-xs font-medium'}
+                              style={question.isCorrect === undefined ? { backgroundColor: '#E5E7EB', color: '#334155' } : {}}
                             }`}>
                               {question.pointsEarned} / {question.points} pts
                               {question.isCorrect === true && ' — Correcta'}
@@ -438,19 +441,19 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
         <div className="fixed inset-0 bg-gray-800/80 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: '#0F172A' }}>
                 <Flag className="w-5 h-5 text-orange-500" />
                 Reportar Pregunta
               </h3>
-              <button onClick={() => { setReportQuestion(null); setReportReason(''); }} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => { setReportQuestion(null); setReportReason(''); }} style={{ color: '#334155' }}>
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-3 mb-4 text-sm">
-              <div className="bg-gray-50 rounded-lg p-3">
-                <p className="font-medium text-gray-700 mb-1">Pregunta:</p>
-                <p className="text-gray-600">{reportQuestion.questionText}</p>
+              <div className="rounded-lg p-3" style={{ backgroundColor: '#F8FAFC' }}>
+                <p className="font-medium mb-1" style={{ color: '#334155' }}>Pregunta:</p>
+                <p style={{ color: '#334155' }}>{reportQuestion.questionText}</p>
               </div>
               <div className="bg-blue-50 rounded-lg p-3">
                 <p className="font-medium text-blue-700 mb-1">Tu respuesta:</p>
@@ -490,7 +493,8 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
                 onChange={(e) => setReportReason(e.target.value)}
                 rows={3}
                 placeholder="Describe por que consideras que la respuesta es incorrecta..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none mb-4"
+                  className="w-full px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none mb-4"
+                  style={{ border: '1px solid #E5E7EB', color: '#0F172A', backgroundColor: '#ffffff' }}
                 required
               />
               <div className="flex gap-2">
@@ -504,7 +508,8 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
                 <button
                   type="button"
                   onClick={() => { setReportQuestion(null); setReportReason(''); }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                  className="px-4 py-2 rounded-lg transition"
+                  style={{ border: '1px solid #E5E7EB', color: '#334155', backgroundColor: '#ffffff' }}
                 >
                   Cancelar
                 </button>
