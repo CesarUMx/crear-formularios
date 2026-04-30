@@ -9,6 +9,7 @@ export { default as FileUploader } from './FileUploader';
 export { default as QuestionRenderer } from './QuestionRenderer';
 export { default as RichTextEditor } from './RichTextEditor';
 export { default as ShareExamModal } from './ShareExamModal';
+export { default as QuestionReportsList } from './QuestionReportsList';
 
 // Toast notifications
 export { Toast, ToastContainer } from './Toast';

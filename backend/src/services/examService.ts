@@ -391,6 +391,108 @@ export const updateExam = async (examId: string, data: UpdateExamData) => {
 };
 
 /**
+ * Duplicar un examen (clonar sin intentos ni respuestas)
+ */
+export const duplicateExam = async (examId: string, userId: string) => {
+  // Obtener examen original con todas sus relaciones
+  const originalExam = await prisma.exam.findUnique({
+    where: { id: examId },
+    include: {
+      sections: {
+        include: {
+          questions: {
+            include: {
+              options: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (!originalExam) {
+    throw new Error('Examen no encontrado');
+  }
+
+  // Generar nuevo slug único
+  let newSlug = `${originalExam.slug}-copia`;
+  let counter = 1;
+  while (await prisma.exam.findUnique({ where: { slug: newSlug } })) {
+    newSlug = `${originalExam.slug}-copia-${counter}`;
+    counter++;
+  }
+
+  // Crear nuevo examen con los mismos datos pero sin intentos
+  const duplicatedExam = await prisma.exam.create({
+    data: {
+      title: `${originalExam.title} (Copia)`,
+      slug: newSlug,
+      description: originalExam.description,
+      instructions: originalExam.instructions,
+      timeLimit: originalExam.timeLimit,
+      maxAttempts: originalExam.maxAttempts,
+      passingScore: originalExam.passingScore,
+      shuffleQuestions: originalExam.shuffleQuestions,
+      shuffleOptions: originalExam.shuffleOptions,
+      showResults: originalExam.showResults,
+      showCorrectAnswers: originalExam.showCorrectAnswers,
+      accessType: originalExam.accessType,
+      strictSecurity: originalExam.strictSecurity,
+      isActive: false, // Duplicado inicia como inactivo
+      createdById: userId,
+      sections: {
+        create: originalExam.sections.map((section, sIdx) => ({
+          title: section.title,
+          description: section.description,
+          order: sIdx,
+          timeLimit: section.timeLimit,
+          fileUrl: section.fileUrl,
+          fileName: section.fileName,
+          fileType: section.fileType,
+          fileSize: section.fileSize,
+          questions: {
+            create: section.questions.map((question, qIdx) => ({
+              type: question.type,
+              text: question.text,
+              helpText: question.helpText,
+              points: question.points,
+              correctAnswer: question.correctAnswer,
+              metadata: question.metadata,
+              feedback: question.feedback,
+              order: qIdx,
+              fileUrl: question.fileUrl,
+              fileName: question.fileName,
+              fileType: question.fileType,
+              fileSize: question.fileSize,
+              options: {
+                create: question.options.map((option, oIdx) => ({
+                  text: option.text,
+                  isCorrect: option.isCorrect,
+                  order: oIdx
+                }))
+              }
+            }))
+          }
+        }))
+      }
+    },
+    include: {
+      sections: {
+        include: {
+          questions: {
+            include: {
+              options: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  return duplicatedExam;
+};
+
+/**
  * Eliminar un examen
  */
 export const deleteExam = async (examId: string) => {

@@ -36,6 +36,10 @@ export const examService = {
     return api.delete<{ message: string }>(`/exams/${id}`);
   },
 
+  async duplicateExam(id: string): Promise<{ message: string; exam: Exam }> {
+    return api.post<{ message: string; exam: Exam }>(`/exams/${id}/duplicate`, {});
+  },
+
   async toggleExamPublish(id: string, isActive: boolean): Promise<{ message: string; exam: Exam }> {
     return api.patch<{ message: string; exam: Exam }>(`/exams/${id}/publish`, { isActive });
   },

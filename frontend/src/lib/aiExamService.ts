@@ -214,6 +214,23 @@ class AIExamService {
   }
 
   /**
+   * Duplicar un examen
+   */
+  async duplicateAIExam(id: string): Promise<{ message: string; exam: AIExam }> {
+    const response = await fetch(`${API_URL}/ai-exams/${id}/duplicate`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Error al duplicar examen');
+    }
+
+    return response.json();
+  }
+
+  /**
    * Publicar un examen
    */
   async publishAIExam(examId: string): Promise<AIExam> {
