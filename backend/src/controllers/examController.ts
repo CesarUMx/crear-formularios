@@ -239,6 +239,31 @@ export const deleteExam = async (req: Request, res: Response, next: NextFunction
 };
 
 /**
+ * Duplicar un examen
+ */
+export const duplicateExam = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
+    if (!permission) {
+      return res.status(403).json({ 
+        error: 'No tienes permisos para duplicar este examen' 
+      });
+    }
+
+    const duplicatedExam = await examService.duplicateExam(String(id), String(req.user!.id));
+
+    return res.json({
+      message: 'Examen duplicado exitosamente',
+      exam: duplicatedExam
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
  * Publicar/despublicar examen (activa o desactiva)
  */
 export const toggleExamPublish = async (req: Request, res: Response, next: NextFunction) => {

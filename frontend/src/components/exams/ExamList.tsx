@@ -7,7 +7,7 @@ import ManageStudentsModal from './ManageStudentsModal';
 import { 
   Plus, FileText, Users, UserCog, Calendar, ToggleLeft, ToggleRight, Trash2,
   Edit, BarChart3, AlertCircle, ExternalLink, Copy, Check, Clock, Award,
-  Search, Globe, Lock, Eye, EyeOff, Share2
+  Search, Globe, Lock, Eye, EyeOff, Share2, Files, MessageSquare
 } from 'lucide-react';
 
 type AccessFilter = 'all' | 'PUBLIC' | 'PRIVATE';
@@ -96,6 +96,16 @@ export default function ExamList() {
       toast.error('Error al eliminar', err instanceof Error ? err.message : 'Error inesperado');
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const handleDuplicate = async (id: string, title: string) => {
+    try {
+      await examService.duplicateExam(id);
+      await loadExams();
+      toast.success('Examen duplicado', `"${title}" fue duplicado exitosamente`);
+    } catch (err) {
+      toast.error('Error al duplicar', err instanceof Error ? err.message : 'Error inesperado');
     }
   };
 
@@ -292,11 +302,17 @@ export default function ExamList() {
                       <button onClick={() => setSharingExam({ id: exam.id, title: exam.title })} className="p-2 rounded-lg text-indigo-600 hover:bg-indigo-50 transition" title="Compartir">
                         <Share2 className="w-4 h-4" />
                       </button>
+                      <button onClick={() => handleDuplicate(exam.id, exam.title)} className="p-2 rounded-lg text-amber-600 hover:bg-amber-50 transition" title="Duplicar">
+                        <Files className="w-4 h-4" />
+                      </button>
                       <a href={`/admin/exams/${exam.id}`} className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="Editar">
                         <Edit className="w-4 h-4" />
                       </a>
                       <a href={`/admin/exams/${exam.id}/attempts`} className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition" title="Resultados">
                         <BarChart3 className="w-4 h-4" />
+                      </a>
+                      <a href={`/admin/exams/${exam.id}/reports`} className="p-2 rounded-lg text-orange-600 hover:bg-orange-50 transition" title="Reportes">
+                        <MessageSquare className="w-4 h-4" />
                       </a>
                       <button onClick={() => handleDeleteClick(exam.id, exam.title)} className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition" title="Eliminar">
                         <Trash2 className="w-4 h-4" />

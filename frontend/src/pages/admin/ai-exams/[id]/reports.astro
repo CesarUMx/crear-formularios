@@ -1,0 +1,13 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../../../components/auth/ProtectedRoute';
+import QuestionReportsList from '../../../../components/common/QuestionReportsList';
+---
+
+<AdminLayout title="Reportes de Preguntas" currentPath="/admin/ai-exams">
+  <ProtectedRoute client:load>
+    <div class="max-w-7xl mx-auto">
+      <QuestionReportsList client:load examId={Astro.params.id!} examType="ai" />
+    </div>
+  </ProtectedRoute>
+</AdminLayout>

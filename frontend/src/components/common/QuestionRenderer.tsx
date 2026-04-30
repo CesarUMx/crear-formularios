@@ -147,7 +147,7 @@ export default function QuestionRenderer({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+    <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm notranslate" translate="no">
       {/* Header */}
       <div className="flex items-start gap-4 mb-4">
         <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">

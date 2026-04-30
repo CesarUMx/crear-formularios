@@ -7,7 +7,7 @@ import ManageStudentsModal from './ManageStudentsModal';
 import {
   Plus, FileText, Users, Calendar, ToggleLeft, ToggleRight, Trash2, Edit,
   BarChart3, AlertCircle, Brain, Clock, Target, ExternalLink, Copy, Check,
-  UserCog, MessageSquare, Search, Globe, Lock, Share2,
+  UserCog, MessageSquare, Search, Globe, Lock, Share2, Files,
 } from 'lucide-react';
 
 type AccessFilter = 'all' | 'PUBLIC' | 'PRIVATE';
@@ -105,6 +105,16 @@ export default function AIExamList() {
       toast.success('Enlace copiado', 'El enlace fue copiado al portapapeles');
     } catch {
       toast.error('Error', 'No se pudo copiar el enlace');
+    }
+  };
+
+  const handleDuplicate = async (id: string, title: string) => {
+    try {
+      await aiExamService.duplicateAIExam(id);
+      await loadExams();
+      toast.success('Examen duplicado', `"${title}" fue duplicado exitosamente`);
+    } catch (err) {
+      toast.error('Error al duplicar', err instanceof Error ? err.message : 'Error inesperado');
     }
   };
 
@@ -282,6 +292,9 @@ export default function AIExamList() {
                       )}
                       <button onClick={() => setSharingExam({ id: exam.id, title: exam.title })} className="p-2 rounded-lg text-indigo-600 hover:bg-indigo-50 transition" title="Compartir">
                         <Share2 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDuplicate(exam.id, exam.title)} className="p-2 rounded-lg text-amber-600 hover:bg-amber-50 transition" title="Duplicar">
+                        <Files className="w-4 h-4" />
                       </button>
                       <a href={`/admin/ai-exams/${exam.id}/edit`} className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="Editar">
                         <Edit className="w-4 h-4" />

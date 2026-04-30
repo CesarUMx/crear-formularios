@@ -6,6 +6,7 @@ import {
   createExam,
   updateExam,
   deleteExam,
+  duplicateExam,
   toggleExamPublish,
   toggleExamActive,
   shareExam,
@@ -93,6 +94,7 @@ router.get('/:id', getExamById);
 router.post('/', createExam);
 router.put('/:id', updateExam);
 router.delete('/:id', deleteExam);
+router.post('/:id/duplicate', duplicateExam);
 
 // Publicar/despublicar examen
 router.patch('/:id/publish', toggleExamPublish);

@@ -393,6 +393,107 @@ class AIExamService {
   }
 
   /**
+   * Duplicar un examen IA (clonar sin intentos ni respuestas)
+   */
+  async duplicateAIExam(id: string, userId: string) {
+    // Obtener examen original con todas sus relaciones
+    const originalExam = await prisma.aIExam.findUnique({
+      where: { id },
+      include: {
+        sections: {
+          include: {
+            questions: {
+              include: {
+                options: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!originalExam) {
+      throw new Error('Examen no encontrado');
+    }
+
+    // Generar nuevo slug único
+    let newSlug = `${originalExam.slug}-copia`;
+    let counter = 1;
+    while (await prisma.aIExam.findUnique({ where: { slug: newSlug } })) {
+      newSlug = `${originalExam.slug.split('-copia')[0]}-copia-${counter}`;
+      counter++;
+    }
+
+    // Crear nuevo examen con los mismos datos pero sin intentos
+    const duplicatedExam = await prisma.aIExam.create({
+      data: {
+        title: `${originalExam.title} (Copia)`,
+        slug: newSlug,
+        description: originalExam.description,
+        instructions: originalExam.instructions,
+        timeLimit: originalExam.timeLimit,
+        maxAttempts: originalExam.maxAttempts,
+        passingScore: originalExam.passingScore,
+        accessType: originalExam.accessType,
+        questionsPerAttempt: originalExam.questionsPerAttempt,
+        showResults: originalExam.showResults,
+        totalQuestionsInPool: originalExam.totalQuestionsInPool,
+        aiGenerated: originalExam.aiGenerated,
+        validated: originalExam.validated,
+        sourceDocument: originalExam.sourceDocument,
+        isActive: false, // Duplicado inicia como inactivo
+        createdById: userId,
+        publicUrl: `/ai-exam/${newSlug}`,
+        sections: {
+          create: originalExam.sections.map((section, sIdx) => ({
+            title: section.title,
+            description: section.description,
+            order: sIdx + 1,
+            questions: {
+              create: section.questions.map((question, qIdx) => ({
+                text: question.text,
+                feedback: question.feedback,
+                points: question.points,
+                order: qIdx + 1,
+                aiGenerated: question.aiGenerated,
+                validated: question.validated,
+                metadata: question.metadata || undefined,
+                options: {
+                  create: question.options.map((option, oIdx) => ({
+                    text: option.text,
+                    isCorrect: option.isCorrect,
+                    order: oIdx + 1,
+                  })),
+                },
+              })),
+            },
+          })),
+        },
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        sections: {
+          include: {
+            questions: {
+              include: {
+                options: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return duplicatedExam;
+  }
+
+  /**
    * Agregar estudiantes a un examen privado (desde CSV/Excel)
    */
   async addStudentsToPrivateExam(aiExamId: string, students: Student[]): Promise<CreatedStudent[]> {

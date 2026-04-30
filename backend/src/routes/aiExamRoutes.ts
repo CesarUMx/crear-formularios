@@ -181,6 +181,27 @@ router.delete('/:id', requireAuth, async (req, res) => {
 });
 
 /**
+ * POST /api/ai-exams/:id/duplicate
+ * Duplicar un examen
+ */
+router.post('/:id/duplicate', requireAuth, async (req, res) => {
+  try {
+    const id = String(req.params.id);
+    const userId = req.user!.id;
+    const duplicatedExam = await aiExamService.duplicateAIExam(id, userId);
+    return res.json({
+      message: 'Examen duplicado exitosamente',
+      exam: duplicatedExam,
+    });
+  } catch (error: any) {
+    console.error('Error al duplicar examen:', error);
+    return res.status(500).json({
+      error: error.message || 'Error al duplicar examen',
+    });
+  }
+});
+
+/**
  * POST /api/ai-exams/:id/publish
  * Publicar un examen
  */
