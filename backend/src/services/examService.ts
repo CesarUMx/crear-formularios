@@ -435,7 +435,6 @@ export const duplicateExam = async (examId: string, userId: string) => {
       shuffleQuestions: originalExam.shuffleQuestions,
       shuffleOptions: originalExam.shuffleOptions,
       showResults: originalExam.showResults,
-      showCorrectAnswers: originalExam.showCorrectAnswers,
       accessType: originalExam.accessType,
       strictSecurity: originalExam.strictSecurity,
       isActive: false, // Duplicado inicia como inactivo
@@ -456,8 +455,8 @@ export const duplicateExam = async (examId: string, userId: string) => {
               text: question.text,
               helpText: question.helpText,
               points: question.points,
-              correctAnswer: question.correctAnswer,
-              metadata: question.metadata,
+              correctAnswer: question.correctAnswer || undefined,
+              metadata: question.metadata || undefined,
               feedback: question.feedback,
               order: qIdx,
               fileUrl: question.fileUrl,
