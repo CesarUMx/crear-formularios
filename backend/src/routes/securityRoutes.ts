@@ -1,6 +1,6 @@
 import express from 'express';
-import { requireAuth } from '../middleware/auth';
-import * as securityService from '../services/securityService';
+import { requireAuth } from '../middleware/auth.js';
+import * as securityService from '../services/securityService.js';
 import { SecurityEventType, SecurityAttemptType } from '@prisma/client';
 
 const router = express.Router();

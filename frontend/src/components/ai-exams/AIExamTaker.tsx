@@ -316,8 +316,8 @@ export default function AIExamTaker({ slug }: { slug: string }) {
   };
 
   const handleResponseChange = (questionId: string, answer: any) => {
-    // Validar tiempo mínimo por pregunta (10 segundos)
-    const MIN_TIME_PER_QUESTION = 10000; // 10 segundos en milisegundos
+    // Validar tiempo mínimo por pregunta (1 segundo)
+    const MIN_TIME_PER_QUESTION = 1000; // 1 segundo en milisegundos
     const timeSpent = Date.now() - currentQuestionStartTime;
     
     // Solo validar si es la primera respuesta a esta pregunta
