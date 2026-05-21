@@ -84,6 +84,10 @@ router.post('/attempts/:attemptId/photo', saveStudentPhoto);
 // Reporte de pregunta (público - el alumno reporta)
 router.post('/:id/questions/:questionId/report', createQuestionReport);
 
+// Control de sección durante el examen (público - el alumno avanza secciones)
+router.post('/attempts/:attemptId/sections/:sectionId/start', startExamSection);
+router.post('/attempts/:attemptId/sections/:sectionId/complete', completeExamSection);
+
 // ==================== RUTAS PROTEGIDAS (requieren autenticación) ====================
 
 router.use(requireAuth);
@@ -126,10 +130,6 @@ router.delete('/:id/students/:studentId', removeStudent);
 // Gestión de intentos (admin)
 router.get('/:id/attempts', getExamAttempts);
 router.get('/:id/attempts/:attemptId', getAttemptById);
-
-// Control de sección (para timers por sección)
-router.post('/attempts/:attemptId/sections/:sectionId/start', startExamSection);
-router.post('/attempts/:attemptId/sections/:sectionId/complete', completeExamSection);
 
 // Calificación manual
 router.put('/:id/attempts/:attemptId/answers/:answerId/grade', gradeQuestionManually);

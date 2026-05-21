@@ -42,9 +42,21 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config);
-      
+
+      // Endpoints públicos que NO deben cerrar la sesión del admin si devuelven 401
+      // (ej: login de estudiante a examen privado, validación pública, etc.)
+      const isPublicEndpoint =
+        endpoint.includes('/exams/login') ||
+        endpoint.includes('/ai-exams/login') ||
+        endpoint.includes('/exams/public/') ||
+        endpoint.includes('/ai-exams/public/') ||
+        endpoint.includes('/forms/public/') ||
+        endpoint.includes('/auth/login') ||
+        endpoint.includes('/auth/register');
+
       // Si el token es inválido o expiró (401), cerrar sesión automáticamente
-      if (response.status === 401) {
+      // SOLO para endpoints autenticados (admin), no para endpoints públicos
+      if (response.status === 401 && !isPublicEndpoint) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/';
