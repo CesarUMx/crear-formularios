@@ -1076,17 +1076,14 @@ export const reviewQuestionReport = async (req: Request, res: Response, next: Ne
 export const startExamSection = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { attemptId, sectionId } = req.params;
-    console.log('[startExamSection] 🟢 Iniciando sección:', { attemptId, sectionId, hasUser: !!(req as any).user });
 
     const attempt = await examAttemptService.startSection(String(attemptId), String(sectionId));
-    console.log('[startExamSection] ✅ Sección iniciada OK');
 
     return res.json({
       message: 'Sección iniciada',
       sectionTimes: attempt.sectionTimes
     });
   } catch (error) {
-    console.error('[startExamSection] ❌ Error:', error);
     return next(error);
   }
 };
@@ -1097,17 +1094,14 @@ export const startExamSection = async (req: Request, res: Response, next: NextFu
 export const completeExamSection = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { attemptId, sectionId } = req.params;
-    console.log('[completeExamSection] 🟢 Completando sección:', { attemptId, sectionId, hasUser: !!(req as any).user });
 
     const attempt = await examAttemptService.completeSection(String(attemptId), String(sectionId));
-    console.log('[completeExamSection] ✅ Sección completada OK');
 
     return res.json({
       message: 'Sección completada',
       sectionTimes: attempt.sectionTimes
     });
   } catch (error) {
-    console.error('[completeExamSection] ❌ Error:', error);
     return next(error);
   }
 };

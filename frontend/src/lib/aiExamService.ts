@@ -103,6 +103,8 @@ export interface CreateAIExamData {
   accessType: 'PUBLIC' | 'PRIVATE';
   questionsPerAttempt: number;
   showResults?: boolean;
+  shuffleQuestions?: boolean;
+  shuffleOptions?: boolean;
 }
 
 export interface GenerateQuestionsData {

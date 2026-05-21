@@ -78,6 +78,8 @@ router.post('/', requireAuth, async (req, res) => {
       passingScore,
       accessType,
       questionsPerAttempt,
+      showResults,
+      shuffleQuestions,
     } = req.body;
 
     const aiExam = await aiExamService.createAIExam({
@@ -89,6 +91,8 @@ router.post('/', requireAuth, async (req, res) => {
       passingScore: passingScore ? parseFloat(passingScore) : 60,
       accessType: accessType || 'PUBLIC',
       questionsPerAttempt: parseInt(questionsPerAttempt) || 10,
+      showResults: showResults !== undefined ? showResults : true,
+      shuffleQuestions: shuffleQuestions !== undefined ? shuffleQuestions : true,
       createdById: userId,
     });
 
