@@ -41,7 +41,9 @@ class ApiClient {
     };
 
     try {
+      console.log('[API] Request:', options.method || 'GET', endpoint);
       const response = await fetch(url, config);
+      console.log('[API] Response:', response.status, endpoint);
 
       // Endpoints públicos que NO deben cerrar la sesión del admin si devuelven 401
       // (ej: login de estudiante a examen privado, validación pública, etc.)
@@ -50,17 +52,28 @@ class ApiClient {
         endpoint.includes('/ai-exams/login') ||
         endpoint.includes('/exams/public/') ||
         endpoint.includes('/ai-exams/public/') ||
+        endpoint.includes('/exams/attempts/') ||
+        endpoint.includes('/ai-exams/attempts/') ||
+        endpoint.includes('/security/events') ||
+        endpoint.includes('/security/validate-code') ||
+        endpoint.includes('/security/attempts/') ||
         endpoint.includes('/forms/public/') ||
+        endpoint.includes('/responses') ||
         endpoint.includes('/auth/login') ||
         endpoint.includes('/auth/register');
 
       // Si el token es inválido o expiró (401), cerrar sesión automáticamente
       // SOLO para endpoints autenticados (admin), no para endpoints públicos
       if (response.status === 401 && !isPublicEndpoint) {
+        console.warn('[API] 401 en endpoint protegido, redirigiendo a /', endpoint);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/';
         throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+      }
+
+      if (response.status === 401 && isPublicEndpoint) {
+        console.log('[API] 401 en endpoint público (NO redirige):', endpoint);
       }
 
       const data = await response.json();
