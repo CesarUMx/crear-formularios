@@ -632,10 +632,23 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
   };
 
   const handleStartSection = async () => {
+    console.log('[ExamTaker] 🟢 handleStartSection iniciado');
     const sections: ExamSection[] = attempt?.exam?.sections || [];
     const currentSection = sections[currentSectionIndex];
-    
-    if (!currentSection?.id) return;
+
+    console.log('[ExamTaker] currentSection:', {
+      sectionIndex: currentSectionIndex,
+      sectionId: currentSection?.id,
+      title: currentSection?.title,
+      timeLimit: currentSection?.timeLimit,
+      attemptId,
+      alreadyStarted: !!(currentSection?.id && sectionStartTimes[currentSection.id])
+    });
+
+    if (!currentSection?.id) {
+      console.warn('[ExamTaker] ❌ No hay currentSection.id, abortando');
+      return;
+    }
 
     try {
       // Calcular tiempo pausado y acumularlo
@@ -644,11 +657,13 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
         setTotalPausedTime(prev => prev + pauseDuration);
         setPauseStartTime(null); // Limpiar timestamp de inicio de pausa
       }
-      
+
       // Notificar al servidor que la sección inicia (solo si no ha iniciado antes)
       if (!sectionStartTimes[currentSection.id]) {
+        console.log('[ExamTaker] 📡 Llamando examService.startSection...');
         await examService.startSection(attemptId, currentSection.id);
-        
+        console.log('[ExamTaker] ✅ startSection completado OK');
+
         // Registrar tiempo de inicio si tiene timeLimit
         if (currentSection.timeLimit) {
           setSectionStartTimes(prev => ({
@@ -656,12 +671,14 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
             [currentSection.id!]: Date.now()
           }));
         }
+      } else {
+        console.log('[ExamTaker] ⏭️ Sección ya iniciada antes, no se llama backend');
       }
-      
+
       // Ocultar intro y reanudar timers
       setShowingSectionIntro(false);
       setGlobalTimerPaused(false);
-      
+
       // Inicializar timer global si es la primera vez
       if (timeRemaining === null && attempt?.exam?.timeLimit) {
         const startTime = new Date(attempt.startedAt).getTime();
@@ -669,8 +686,9 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
         const remaining = Math.max(0, endTime - Date.now());
         setTimeRemaining(Math.floor(remaining / 1000));
       }
+      console.log('[ExamTaker] 🎉 handleStartSection finalizado correctamente');
     } catch (err) {
-      console.error('Error al iniciar sección:', err);
+      console.error('[ExamTaker] ❌ Error al iniciar sección:', err);
       toast.error('Error', 'No se pudo iniciar la sección');
     }
   };
