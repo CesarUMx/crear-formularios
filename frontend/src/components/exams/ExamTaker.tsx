@@ -632,23 +632,10 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
   };
 
   const handleStartSection = async () => {
-    console.log('[ExamTaker] 🟢 handleStartSection iniciado');
     const sections: ExamSection[] = attempt?.exam?.sections || [];
     const currentSection = sections[currentSectionIndex];
 
-    console.log('[ExamTaker] currentSection:', {
-      sectionIndex: currentSectionIndex,
-      sectionId: currentSection?.id,
-      title: currentSection?.title,
-      timeLimit: currentSection?.timeLimit,
-      attemptId,
-      alreadyStarted: !!(currentSection?.id && sectionStartTimes[currentSection.id])
-    });
-
-    if (!currentSection?.id) {
-      console.warn('[ExamTaker] ❌ No hay currentSection.id, abortando');
-      return;
-    }
+    if (!currentSection?.id) return;
 
     try {
       // Calcular tiempo pausado y acumularlo
@@ -660,9 +647,7 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
 
       // Notificar al servidor que la sección inicia (solo si no ha iniciado antes)
       if (!sectionStartTimes[currentSection.id]) {
-        console.log('[ExamTaker] 📡 Llamando examService.startSection...');
         await examService.startSection(attemptId, currentSection.id);
-        console.log('[ExamTaker] ✅ startSection completado OK');
 
         // Registrar tiempo de inicio si tiene timeLimit
         if (currentSection.timeLimit) {
@@ -671,8 +656,6 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
             [currentSection.id!]: Date.now()
           }));
         }
-      } else {
-        console.log('[ExamTaker] ⏭️ Sección ya iniciada antes, no se llama backend');
       }
 
       // Ocultar intro y reanudar timers
@@ -686,9 +669,7 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
         const remaining = Math.max(0, endTime - Date.now());
         setTimeRemaining(Math.floor(remaining / 1000));
       }
-      console.log('[ExamTaker] 🎉 handleStartSection finalizado correctamente');
     } catch (err) {
-      console.error('[ExamTaker] ❌ Error al iniciar sección:', err);
       toast.error('Error', 'No se pudo iniciar la sección');
     }
   };
@@ -906,30 +887,41 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
             </div>
           </div>
 
-          {/* Question dots */}
-          <div className="mt-3 flex flex-wrap gap-1">
-            {sections.map((section, sIdx) =>
-              section.questions.map((q, qIdx) => {
-                const isActive = sIdx === currentSectionIndex && qIdx === currentQuestionIndex;
-                const isAnswered = q.id ? !!answers[q.id] : false;
-                return (
-                  <button
-                    key={`${sIdx}-${qIdx}`}
-                    onClick={() => goToQuestion(sIdx, qIdx)}
-                    className={`w-7 h-7 rounded-full text-xs font-medium transition ${
-                      isActive
-                        ? 'ring-2 ring-offset-1 ring-blue-500 bg-blue-600 text-white'
-                        : isAnswered
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                    }`}
-                    title={`Pregunta ${sections.slice(0, sIdx).reduce((c, s) => c + s.questions.length, 0) + qIdx + 1}`}
-                  >
-                    {sections.slice(0, sIdx).reduce((c, s) => c + s.questions.length, 0) + qIdx + 1}
-                  </button>
-                );
-              })
-            )}
+          {/* Question dots - solo sección activa, scroll vertical */}
+          <div className="mt-3">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs text-gray-500 font-medium">
+                {currentSection?.title || `Sección ${currentSectionIndex + 1}`}
+              </span>
+              <span className="text-xs text-gray-400">
+                ({currentSection?.questions.length} preguntas)
+              </span>
+            </div>
+            <div className="overflow-y-auto max-h-20" style={{ scrollbarWidth: 'thin' }}>
+              <div className="flex flex-wrap gap-1 p-1">
+                {currentSection?.questions.map((q, qIdx) => {
+                  const globalIdx = sections.slice(0, currentSectionIndex).reduce((c, s) => c + s.questions.length, 0) + qIdx;
+                  const isActive = qIdx === currentQuestionIndex;
+                  const isAnswered = q.id ? !!answers[q.id] : false;
+                  return (
+                    <button
+                      key={`${currentSectionIndex}-${qIdx}`}
+                      onClick={() => goToQuestion(currentSectionIndex, qIdx)}
+                      className={`w-7 h-7 rounded-full text-xs font-medium transition flex-shrink-0 ${
+                        isActive
+                          ? 'ring-2 ring-offset-1 ring-blue-500 bg-blue-600 text-white'
+                          : isAnswered
+                          ? 'bg-green-500 text-white'
+                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                      }`}
+                      title={`Pregunta ${globalIdx + 1}`}
+                    >
+                      {globalIdx + 1}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       </div>

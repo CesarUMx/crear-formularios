@@ -23,6 +23,7 @@ import {
   Lock,
   Clock,
   Eye,
+  Shuffle,
 } from 'lucide-react';
 
 interface GeneratedQuestion {
@@ -72,6 +73,7 @@ export default function AIExamGenerator({ examId: initialExamId }: AIExamGenerat
   const [accessType, setAccessType] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC');
   const [questionsPerAttempt, setQuestionsPerAttempt] = useState(10);
   const [showResults, setShowResults] = useState(true);
+  const [shuffleQuestions, setShuffleQuestions] = useState(true);
 
   // Step 2: Generación con IA
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -159,6 +161,7 @@ export default function AIExamGenerator({ examId: initialExamId }: AIExamGenerat
         accessType,
         questionsPerAttempt,
         showResults,
+        shuffleQuestions,
       });
 
       setExamId(exam.id);
@@ -608,6 +611,21 @@ export default function AIExamGenerator({ examId: initialExamId }: AIExamGenerat
                 type="checkbox"
                 checked={showResults}
                 onChange={(e) => setShowResults(e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded"
+              />
+            </label>
+
+            {/* Mezclar preguntas */}
+            <label className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition">
+              <Shuffle className="w-4 h-4 text-gray-500 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-700">Mezclar preguntas</p>
+                <p className="text-xs text-gray-400">Orden aleatorio en cada intento</p>
+              </div>
+              <input
+                type="checkbox"
+                checked={shuffleQuestions}
+                onChange={(e) => setShuffleQuestions(e.target.checked)}
                 className="w-4 h-4 text-blue-600 rounded"
               />
             </label>

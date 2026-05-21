@@ -51,6 +51,7 @@ interface ExamEditorProps {
     showResults?: boolean;
     accessType?: ExamAccessType;
     questionsPerAttempt?: number;
+    strictSecurity?: boolean;
     sections: ExamSectionInput[];
   };
 }
@@ -82,8 +83,8 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
   const [timeLimit, setTimeLimit] = useState<number | undefined>(initialData?.timeLimit);
   const [maxAttempts, setMaxAttempts] = useState(initialData?.maxAttempts || 1);
   const [passingScore, setPassingScore] = useState(initialData?.passingScore || 60);
-  const shuffleQuestions = true;
-  const shuffleOptions = true;
+  const [shuffleQuestions, setShuffleQuestions] = useState(initialData?.shuffleQuestions !== false);
+  const [shuffleOptions, setShuffleOptions] = useState(initialData?.shuffleOptions !== false);
   const [showResults, setShowResults] = useState(initialData?.showResults !== false);
   const [accessType, setAccessType] = useState<ExamAccessType>(initialData?.accessType || 'PUBLIC');
   const [poolEnabled, setPoolEnabled] = useState(!!initialData?.questionsPerAttempt);
@@ -457,6 +458,8 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
           poolEnabled={poolEnabled} setPoolEnabled={setPoolEnabled}
           questionsPerAttempt={questionsPerAttempt} setQuestionsPerAttempt={setQuestionsPerAttempt}
           strictSecurity={strictSecurity} setStrictSecurity={setStrictSecurity}
+          shuffleQuestions={shuffleQuestions} setShuffleQuestions={setShuffleQuestions}
+          shuffleOptions={shuffleOptions} setShuffleOptions={setShuffleOptions}
           onNext={() => { if (validateStep1()) setStep(2); }}
           primaryColor={colors.primaryColor}
         />
@@ -567,6 +570,8 @@ interface Step1Props {
   poolEnabled: boolean; setPoolEnabled: (v: boolean) => void;
   questionsPerAttempt: number; setQuestionsPerAttempt: (v: number) => void;
   strictSecurity: boolean; setStrictSecurity: (v: boolean) => void;
+  shuffleQuestions: boolean; setShuffleQuestions: (v: boolean) => void;
+  shuffleOptions: boolean; setShuffleOptions: (v: boolean) => void;
   onNext: () => void;
   primaryColor: string;
 }
@@ -720,6 +725,20 @@ function Step1Configuration(props: Step1Props) {
             icon={Shuffle}
             checked={props.poolEnabled}
             onChange={props.setPoolEnabled}
+          />
+          <ToggleField
+            label="Mezclar preguntas"
+            description="Orden aleatorio en cada intento"
+            icon={Shuffle}
+            checked={props.shuffleQuestions}
+            onChange={props.setShuffleQuestions}
+          />
+          <ToggleField
+            label="Mezclar opciones"
+            description="Aleatorizar opciones de respuesta"
+            icon={Shuffle}
+            checked={props.shuffleOptions}
+            onChange={props.setShuffleOptions}
           />
           <ToggleField
             label="Seguridad estricta"

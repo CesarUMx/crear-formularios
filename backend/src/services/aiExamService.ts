@@ -16,6 +16,7 @@ interface CreateAIExamParams {
   accessType: AIExamAccessType;
   questionsPerAttempt: number;
   showResults?: boolean;
+  shuffleQuestions?: boolean;
   createdById: string;
 }
 
@@ -38,6 +39,7 @@ interface UpdateAIExamData {
   questionsPerAttempt?: number;
   accessType?: AIExamAccessType;
   showResults?: boolean;
+  shuffleQuestions?: boolean;
 }
 
 interface Student {
@@ -99,6 +101,7 @@ class AIExamService {
         accessType: params.accessType,
         questionsPerAttempt: params.questionsPerAttempt,
         showResults: params.showResults !== undefined ? params.showResults : true,
+        shuffleQuestions: params.shuffleQuestions !== undefined ? params.shuffleQuestions : true,
         createdById: params.createdById,
         publicUrl: `/ai-exam/${slug}`,
       },
