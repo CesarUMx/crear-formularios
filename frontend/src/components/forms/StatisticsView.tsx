@@ -247,6 +247,18 @@ export default function StatisticsView({ formId }: StatisticsViewProps) {
             </p>
           </div>
         );
+
+      case 'BOOLEAN': {
+        const accepted = questionStat.data.accepted ?? 0;
+        const total = questionStat.totalAnswers ?? 0;
+        return (
+          <div className="mt-4">
+            <p className="text-sm text-gray-500">
+              {accepted} de {total} aceptaron ({total > 0 ? Math.round((accepted / total) * 100) : 0}%)
+            </p>
+          </div>
+        );
+      }
         
       default:
         return null;
@@ -298,20 +310,30 @@ export default function StatisticsView({ formId }: StatisticsViewProps) {
     );
   }
 
+  const MEASURABLE_TYPES = ['RADIO', 'SELECT', 'CHECKBOX', 'BOOLEAN'];
+  const measurableStats = statistics.statistics.filter(qs => MEASURABLE_TYPES.includes(qs.questionType));
+
+  if (measurableStats.length === 0) {
+    return (
+      <div className="py-10 text-center">
+        <p className="text-sm text-gray-500">Este formulario no tiene preguntas con opciones medibles (opción única, múltiple, desplegable o aceptación).</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
-      {statistics.statistics.map((questionStat) => (
+      {measurableStats.map((questionStat) => (
         <div key={questionStat.questionId} className="bg-white overflow-hidden sm:rounded-lg border border-gray-200">
           <div className="px-4 py-5 sm:px-6">
             <h3 className="text-lg leading-6 font-medium text-gray-900">
               {questionStat.questionText}
             </h3>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
-              Tipo: {questionStat.questionType === 'TEXT' ? 'Texto' : 
-                     questionStat.questionType === 'TEXTAREA' ? 'Texto largo' : 
-                     questionStat.questionType === 'RADIO' ? 'Selección única' : 
-                     questionStat.questionType === 'CHECKBOX' ? 'Selección múltiple' : 
-                     questionStat.questionType === 'FILE' ? 'Archivo' : questionStat.questionType}
+              Tipo: {questionStat.questionType === 'RADIO' ? 'Opción única' : 
+                     questionStat.questionType === 'CHECKBOX' ? 'Opción múltiple' : 
+                     questionStat.questionType === 'SELECT' ? 'Lista desplegable' :
+                     questionStat.questionType === 'BOOLEAN' ? 'Aceptación' : questionStat.questionType}
             </p>
           </div>
           <div className="border-t border-gray-200 px-4 py-5 sm:px-6">

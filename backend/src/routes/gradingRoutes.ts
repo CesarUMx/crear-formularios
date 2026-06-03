@@ -2,7 +2,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { calculateAttemptScore } from '../utils/gradingUtils.js';
 
-const router = express.Router();
+const router: import("express").Router = express.Router();
 const prisma = new PrismaClient();
 
 /**

@@ -139,6 +139,13 @@ export default function ResponseDetail({ formId, responseId, response: initialRe
           </ul>
         );
         
+      case 'BOOLEAN':
+        return (
+          <span className={answer.textValue === 'true' ? 'text-green-700 font-medium' : 'text-gray-500'}>
+            {answer.textValue === 'true' ? 'Sí (aceptado)' : 'No'}
+          </span>
+        );
+
       case 'FILE':
         if (!answer.fileUrl) {
           return <span className="text-gray-400">Sin archivo</span>;

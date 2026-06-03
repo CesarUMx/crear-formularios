@@ -4,7 +4,7 @@ import express from 'express';
 import * as shareService from '../services/shareService.js';
 import { requireAuth } from '../middleware/auth.js';
 
-const router = express.Router();
+const router: import("express").Router = express.Router();
 
 /**
  * POST /api/share/:formId

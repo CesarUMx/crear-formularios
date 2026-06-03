@@ -24,6 +24,15 @@ export interface PublicForm {
         allowedFileTypes?: string;
         maxFileSize?: number;
         order: number;
+        conditionalLogic?: {
+          combinator: 'AND' | 'OR';
+          rules: {
+            questionId: string;
+            operator: 'equals' | 'not_equals' | 'contains' | 'is_empty' | 'is_not_empty';
+            value?: string | string[];
+          }[];
+          action: 'SHOW' | 'HIDE' | 'REQUIRE';
+        };
         options: {
           id: string;
           text: string;
@@ -55,6 +64,17 @@ export interface ResponseOutput {
   submittedAt: string;
   formTitle: string;
   message: string;
+  registered?: boolean;
+  registration?: {
+    id: string;
+    scheduleId: string;
+    scheduleTitle: string;
+    studentName: string;
+    studentEmail: string;
+    startTime: string;
+    endTime: string;
+    location: string | null;
+  };
 }
 
 class PublicFormService {
@@ -89,6 +109,26 @@ class PublicFormService {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Error al enviar respuesta');
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Enviar respuesta de formulario de registro de examen
+   */
+  async submitExamRegistration(slug: string, data: { versionId: string; answers: any[] }): Promise<ResponseOutput> {
+    const response = await fetch(`${API_URL}/forms/public/${slug}/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Error al registrar');
     }
 
     return await response.json();
@@ -140,6 +180,12 @@ class PublicFormService {
               errors.push(`Debes subir un archivo para "${question.text}"`);
             }
             break;
+
+          case 'BOOLEAN':
+            if (answer.textAnswer !== 'true') {
+              errors.push(`Debes aceptar "${question.text}" para continuar`);
+            }
+            break;
         }
       }
     }
@@ -148,6 +194,24 @@ class PublicFormService {
       valid: errors.length === 0,
       errors
     };
+  }
+
+  /**
+   * Obtener horarios disponibles de un examen (publico)
+   */
+  async getAvailableSchedules(examId: string): Promise<any[]> {
+    const response = await fetch(`${API_URL}/exam-schedules/exam/${examId}/available`);
+    if (!response.ok) return [];
+    return await response.json();
+  }
+
+  /**
+   * Verificar si un email ya esta registrado en un examen (publico)
+   */
+  async checkEmailRegistered(examId: string, email: string): Promise<{ isRegistered: boolean }> {
+    const response = await fetch(`${API_URL}/exam-registrations/check-email?examId=${examId}&email=${encodeURIComponent(email)}`);
+    if (!response.ok) return { isRegistered: false };
+    return await response.json();
   }
 }
 

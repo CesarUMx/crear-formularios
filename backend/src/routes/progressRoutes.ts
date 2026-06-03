@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { progressTracker } from '../utils/progressTracker.js';
 
-const router = Router();
+const router: Router = Router();
 
 router.get('/progress/:jobId', (req, res) => {
   const { jobId } = req.params;

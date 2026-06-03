@@ -31,6 +31,13 @@ export const formService = {
   },
 
   /**
+   * Actualizar SOLO secciones/preguntas sin tocar configuración del formulario
+   */
+  async updateFormSections(id: string, sections: FormInput['sections']): Promise<{ message: string; form: Form }> {
+    return api.patch<{ message: string; form: Form }>(`/forms/${id}/sections`, { sections });
+  },
+
+  /**
    * Eliminar un formulario
    */
   async deleteForm(id: string): Promise<{ message: string }> {

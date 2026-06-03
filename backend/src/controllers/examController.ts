@@ -83,7 +83,8 @@ export const createExam = async (req: Request, res: Response, next: NextFunction
       instructions,
       questionsPerAttempt,
       accessType,
-      strictSecurity
+      strictSecurity,
+      enforceSchedule
     } = req.body;
 
     if (!title || title.trim() === '') {
@@ -142,6 +143,7 @@ export const createExam = async (req: Request, res: Response, next: NextFunction
       questionsPerAttempt,
       accessType,
       strictSecurity,
+      enforceSchedule,
       sections
     });
 
@@ -173,7 +175,8 @@ export const updateExam = async (req: Request, res: Response, next: NextFunction
       instructions,
       questionsPerAttempt,
       accessType,
-      strictSecurity
+      strictSecurity,
+      enforceSchedule
     } = req.body;
 
     const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
@@ -202,6 +205,7 @@ export const updateExam = async (req: Request, res: Response, next: NextFunction
       questionsPerAttempt,
       accessType,
       strictSecurity,
+      enforceSchedule,
       sections
     });
 
@@ -958,6 +962,30 @@ export const loginStudent = async (req: Request, res: Response, next: NextFuncti
     if (error.message === 'Credenciales inválidas') {
       return res.status(401).json({ error: error.message });
     }
+    return next(error);
+  }
+};
+
+/**
+ * Exportar estudiantes como CSV
+ * Query param: resetPasswords=true → genera nuevas contraseñas y las incluye en el CSV
+ */
+export const exportStudentsCSV = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const resetPasswords = req.query.resetPasswords === 'true';
+
+    const permission = await examService.checkExamPermission(String(id), String(req.user!.id), req.user!.role);
+    if (!permission) {
+      return res.status(403).json({ error: 'No tienes permisos para exportar estudiantes' });
+    }
+
+    const result = await examService.exportStudentsCSV(String(id), resetPasswords);
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="estudiantes-${id}.csv"`);
+    return res.send('\uFEFF' + result); // BOM para Excel
+  } catch (error) {
     return next(error);
   }
 };

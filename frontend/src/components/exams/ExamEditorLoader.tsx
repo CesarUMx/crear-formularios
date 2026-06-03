@@ -65,6 +65,7 @@ export default function ExamEditorLoader({ examId }: ExamEditorLoaderProps) {
         accessType: (exam.accessType as ExamAccessType) || 'PUBLIC',
         questionsPerAttempt: exam.questionsPerAttempt,
         strictSecurity: exam.strictSecurity,
+        enforceSchedule: exam.enforceSchedule,
         sections: (exam.sections || []).map((section: any) => ({
           id: section.id,
           title: section.title,

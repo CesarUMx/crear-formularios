@@ -15,6 +15,12 @@ export interface FormResponse {
   userAgent?: string;
   isComplete: boolean;
   answers: Answer[];
+  examRegistration?: {
+    id: string;
+    studentName: string;
+    studentEmail: string;
+    schedule?: { title: string; startTime: string };
+  } | null;
 }
 
 export interface Answer {
@@ -28,6 +34,7 @@ export interface Answer {
     id: string;
     text: string;
     type: string;
+    order?: number;
     sectionId?: string;
     section?: {
       id: string;
@@ -65,6 +72,11 @@ export interface Pagination {
 
 export interface ResponsesResult {
   data: FormResponse[];
+  formMeta: {
+    formType: string;
+    emailQuestionId: string | null;
+    nameQuestionId: string | null;
+  };
   pagination: Pagination;
 }
 

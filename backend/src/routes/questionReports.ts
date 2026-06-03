@@ -1,7 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 
-const router = express.Router();
+const router: import("express").Router = express.Router();
 const prisma = new PrismaClient();
 
 // Crear un reporte de pregunta

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { examService } from '../../lib/examService';
 import { useToast, ToastContainer, DeleteDialog, useDialog } from '../common';
-import { X, UserPlus, Trash2, Users, Mail, Key, Loader, AlertCircle, Copy, Check } from 'lucide-react';
+import { X, UserPlus, Trash2, Users, Mail, Key, Loader, AlertCircle, Copy, Check, Download } from 'lucide-react';
 
 interface Student {
   id: string;
@@ -33,6 +33,8 @@ export default function ManageStudentsModal({
   const [adding, setAdding] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const deleteDialog = useDialog();
   const [studentToDelete, setStudentToDelete] = useState<{ id: string; name: string } | null>(null);
 
@@ -100,6 +102,19 @@ export default function ManageStudentsModal({
       setStudentToDelete(null);
     } catch (err) {
       toast.error('Error', err instanceof Error ? err.message : 'Error al eliminar estudiante');
+    }
+  };
+
+  const handleExportCSV = async (resetPasswords: boolean) => {
+    try {
+      setExporting(true);
+      setShowExportOptions(false);
+      await examService.exportStudentsCSV(examId, resetPasswords);
+      toast.success('CSV descargado', resetPasswords ? 'Contraseñas reseteadas e incluidas en el archivo' : 'Archivo descargado correctamente');
+    } catch (err) {
+      toast.error('Error', err instanceof Error ? err.message : 'Error al exportar');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -297,9 +312,43 @@ export default function ManageStudentsModal({
             </div>
           ) : (
             <div className="space-y-2">
-              <h3 className="font-medium text-gray-900 mb-3">
-                Estudiantes ({students.length})
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium text-gray-900">Estudiantes ({students.length})</h3>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowExportOptions(v => !v)}
+                    disabled={exporting}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+                  >
+                    {exporting ? <Loader className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                    Exportar CSV
+                  </button>
+                  {showExportOptions && (
+                    <div className="absolute right-0 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                      <div className="p-3 border-b border-gray-100">
+                        <p className="text-xs font-medium text-gray-700">¿Qué incluir en el CSV?</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleExportCSV(false)}
+                        className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition"
+                      >
+                        <p className="font-medium text-gray-900">Nombre y correo</p>
+                        <p className="text-xs text-gray-500">Sin contraseñas</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExportCSV(true)}
+                        className="w-full text-left px-4 py-3 text-sm hover:bg-orange-50 transition border-t border-gray-100"
+                      >
+                        <p className="font-medium text-orange-700">Nombre, correo y contraseñas nuevas</p>
+                        <p className="text-xs text-orange-600">Se generan y reemplazan las contraseñas actuales</p>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
               {students.map((student) => (
                 <div
                   key={student.id}

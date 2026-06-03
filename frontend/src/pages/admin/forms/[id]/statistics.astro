@@ -2,7 +2,6 @@
 import AdminLayout from '../../../../layouts/AdminLayout.astro';
 import ProtectedRoute from '../../../../components/auth/ProtectedRoute';
 import StatisticsView from '../../../../components/forms/StatisticsView';
-import { formService } from '../../../../lib/formService';
 
 export const prerender = false;
 
@@ -11,70 +10,62 @@ const { id } = Astro.params;
 if (!id) {
   return Astro.redirect('/admin');
 }
-
-// Intentar obtener información básica del formulario
-let formTitle = 'Formulario';
-try {
-  const form = await formService.getFormById(id);
-  formTitle = form.title;
-} catch (error) {
-  console.error('Error al cargar información del formulario:', error);
-}
 ---
 
 <AdminLayout title="Estadísticas del Formulario" currentPath="/admin">
   <ProtectedRoute client:load>
-    <div class="max-w-7xl mx-auto">
+    <div>
       <!-- Header -->
-      <div class="mb-6">
-        <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-2xl font-bold text-gray-900">Estadísticas del Formulario</h1>
-            <p class="text-gray-600 mt-1">Análisis de las respuestas recibidas</p>
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <nav class="flex items-center gap-1 text-sm text-gray-500 mb-4">
+          <a href="/admin" class="hover:text-gray-700 transition">Admin</a>
+          <span class="mx-1">›</span>
+          <a href={`/admin/forms/${id}`} class="hover:text-gray-700 transition">Formulario</a>
+          <span class="mx-1">›</span>
+          <span class="text-gray-800 font-medium">Estadísticas</span>
+        </nav>
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex items-start gap-4">
+            <div class="p-3 rounded-lg bg-gray-100">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <div>
+              <h1 class="text-2xl font-bold text-gray-900">Estadísticas</h1>
+              <p class="text-gray-600 mt-1">Análisis de las respuestas recibidas</p>
+            </div>
           </div>
-          <a
-            href={`/admin/forms/${id}/responses`}
-            class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-          >
-            ← Volver a Respuestas
-          </a>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <a
+              href={`/admin/forms/${id}/responses`}
+              class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm font-medium"
+            >
+              Ver Respuestas
+            </a>
+            <a
+              href={`/admin/forms/${id}`}
+              class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm font-medium"
+            >
+              ← Volver al formulario
+            </a>
+          </div>
+        </div>
+
+        <div class="mt-5 pt-4 border-t border-gray-100">
+          <div class="flex flex-wrap gap-2">
+            <a href={`/admin/forms/${id}/questions`} class="px-3 py-1.5 rounded-md text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">Preguntas</a>
+            <a href={`/admin/forms/${id}/exam`} class="px-3 py-1.5 rounded-md text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">Examen</a>
+            <a href={`/admin/forms/${id}/emails`} class="px-3 py-1.5 rounded-md text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">Correos</a>
+            <a href={`/admin/forms/${id}/responses`} class="px-3 py-1.5 rounded-md text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">Respuestas</a>
+            <a href={`/admin/forms/${id}/statistics`} class="px-3 py-1.5 rounded-md text-sm font-medium transition bg-blue-600 text-white">Estadísticas</a>
+            <a href={`/admin/forms/${id}/hubspot`} class="px-3 py-1.5 rounded-md text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">HubSpot</a>
+          </div>
         </div>
       </div>
 
       <!-- Contenido -->
       <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-          <div>
-            <h2 class="text-xl font-semibold text-gray-900">
-              Estadísticas: {formTitle}
-            </h2>
-            <p class="text-gray-600 text-sm mt-1">
-              Visualización gráfica de las respuestas
-            </p>
-          </div>
-          <div class="mt-4 md:mt-0 flex flex-col sm:flex-row gap-3">
-            <a
-              href={`/admin/forms/${id}/responses`}
-              class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              Ver Tabla de Respuestas
-            </a>
-            <button
-              id="exportCsvBtn"
-              class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Exportar a CSV
-            </button>
-          </div>
-        </div>
-        
-        <!-- Componente de estadísticas -->
         <StatisticsView formId={id} client:load />
       </div>
       

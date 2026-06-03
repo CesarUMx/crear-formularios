@@ -1,26 +1,92 @@
 import { useState, useEffect } from 'react';
-import { analyticsService, type FormResponse, type Pagination } from '../../lib/analyticsService';
+import { FileText, AlertCircle, UserCheck, Clock } from 'lucide-react';
+import { analyticsService, type FormResponse, type Pagination, type ResponsesResult } from '../../lib/analyticsService';
 import { formatDate } from '../../utils/dateUtils';
+import EmptyState from '../common/EmptyState';
 
 interface ResponsesListProps {
   formId: string;
 }
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Extrae el valor mostrable de un answer */
+function answerValue(a: FormResponse['answers'][number]): string {
+  if (a.selectedOptions.length > 0) return a.selectedOptions.map(o => o.text).join(', ');
+  if (a.question.type === 'FILE') return a.fileName ?? '(archivo)';
+  return a.textValue ?? '';
+}
+
+/** Trunca texto largo */
+function truncate(text: string, max = 40): string {
+  return text.length > max ? text.slice(0, max) + '…' : text;
+}
+
+/** Busca el identificador principal: usa emailQuestionId/nameQuestionId, o hace fallback */
+function getIdentifier(
+  row: FormResponse,
+  emailQId: string | null,
+  nameQId: string | null
+): { label: string; value: string } | null {
+  // Si hay registration, preferir esos datos
+  if (row.examRegistration) {
+    return { label: 'Correo', value: row.examRegistration.studentEmail };
+  }
+
+  // emailQuestionId configurado
+  if (emailQId) {
+    const a = row.answers.find(a => a.questionId === emailQId);
+    const v = a ? answerValue(a) : '';
+    if (v) return { label: 'Correo', value: v };
+  }
+
+  // nameQuestionId configurado
+  if (nameQId) {
+    const a = row.answers.find(a => a.questionId === nameQId);
+    const v = a ? answerValue(a) : '';
+    if (v) return { label: 'Nombre', value: v };
+  }
+
+  // Fallback: buscar cualquier answer que parezca email
+  const emailAnswer = row.answers.find(a => EMAIL_REGEX.test(a.textValue ?? ''));
+  if (emailAnswer) return { label: 'Correo', value: emailAnswer.textValue! };
+
+  // Fallback: primer answer de texto
+  const first = row.answers.find(a => a.textValue && a.question.type !== 'BOOLEAN');
+  if (first) return { label: first.question.text, value: first.textValue! };
+
+  return null;
+}
+
+/** Devuelve las 3 respuestas más relevantes para mostrar en la fila (excluyendo el identificador) */
+function getKeyAnswers(
+  row: FormResponse,
+  emailQId: string | null,
+  nameQId: string | null,
+  excludeQId?: string | null
+): { label: string; value: string }[] {
+  const skipIds = new Set([emailQId, nameQId, excludeQId].filter(Boolean) as string[]);
+
+  return row.answers
+    .filter(a => !skipIds.has(a.questionId) && a.question.type !== 'FILE')
+    .slice(0, 3)
+    .map(a => ({ label: a.question.text, value: answerValue(a) }))
+    .filter(a => a.value);
+}
+
 export default function ResponsesList({ formId }: ResponsesListProps) {
   const [responses, setResponses] = useState<FormResponse[]>([]);
+  const [formMeta, setFormMeta] = useState<ResponsesResult['formMeta']>({
+    formType: 'STANDARD',
+    emailQuestionId: null,
+    nameQuestionId: null,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [pagination, setPagination] = useState<Pagination>({
-    total: 0,
-    page: 1,
-    limit: 10,
-    pages: 0
-  });
+  const [pagination, setPagination] = useState<Pagination>({ total: 0, page: 1, limit: 10, pages: 0 });
 
   useEffect(() => {
-    if (formId) {
-      loadResponses(1);
-    }
+    if (formId) loadResponses(1);
   }, [formId]);
 
   const loadResponses = async (page: number) => {
@@ -28,199 +94,213 @@ export default function ResponsesList({ formId }: ResponsesListProps) {
       setLoading(true);
       const result = await analyticsService.getFormResponses(formId, page);
       setResponses(result.data);
+      setFormMeta(result.formMeta);
       setPagination(result.pagination);
       setError('');
     } catch (err) {
       setError('Error al cargar respuestas');
-      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePageChange = (page: number) => {
-    loadResponses(page);
-  };
-
-  if (loading) {
-    return (
-      <div className="py-10 text-center">
-        <div className="animate-spin h-10 w-10 text-blue-500 mx-auto">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-        </div>
-        <p className="mt-2 text-sm text-gray-500">Cargando respuestas...</p>
-      </div>
-    );
-  }
-
   if (error) {
     return (
-      <div className="py-6 text-center bg-red-50 border border-red-200 rounded-lg">
-        <svg className="h-10 w-10 text-red-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <p className="mt-2 text-sm text-red-800">{error}</p>
-        <button 
-          onClick={() => loadResponses(1)} 
-          className="mt-3 px-4 py-2 bg-red-100 text-red-800 rounded-md hover:bg-red-200 transition"
-        >
-          Reintentar
-        </button>
-      </div>
+      <EmptyState
+        icon={AlertCircle}
+        title="Error al cargar respuestas"
+        description={error}
+        buttonText="Reintentar"
+        onButtonClick={() => loadResponses(1)}
+        primaryColor="#ef4444"
+      />
     );
   }
 
-  if (responses.length === 0) {
+  if (responses.length === 0 && !loading) {
     return (
-      <div className="py-10 text-center">
-        <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-        </svg>
-        <h3 className="mt-2 text-sm font-medium text-gray-900">No hay respuestas</h3>
-        <p className="mt-1 text-sm text-gray-500">
-          Este formulario aún no ha recibido respuestas.
-        </p>
-      </div>
+      <EmptyState
+        icon={FileText}
+        title="No hay respuestas"
+        description="Este formulario aún no ha recibido respuestas."
+        primaryColor="#006eff"
+      />
     );
   }
+
+  const isExamReg = formMeta.formType === 'EXAM_REGISTRATION';
 
   return (
-    <div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Folio
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Fecha de envío
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Estado
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                IP
-              </th>
-              <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {responses.map((response) => (
-              <tr key={response.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {response.folio}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {formatDate(response.submittedAt)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${response.isComplete ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                    {response.isComplete ? 'Completa' : 'Parcial'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {response.ipAddress || '-'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <a href={`/admin/forms/${formId}/responses/${response.id}`} className="text-blue-600 hover:text-blue-900">
-                    Ver detalle
-                  </a>
-                </td>
+    <div className="space-y-4">
+      {loading ? (
+        <div className="py-12 text-center text-gray-500 text-sm">Cargando respuestas…</div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Folio</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-44">Fecha</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-48">Identificador</th>
+                {isExamReg && (
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Registro</th>
+                )}
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Respuestas</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-24"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {responses.map(row => {
+                const identifier = getIdentifier(row, formMeta.emailQuestionId, formMeta.nameQuestionId);
+                const keyAnswers = getKeyAnswers(
+                  row,
+                  formMeta.emailQuestionId,
+                  formMeta.nameQuestionId,
+                  identifier ? (row.answers.find(a => answerValue(a) === identifier.value)?.questionId ?? null) : null
+                );
+                const registered = !!row.examRegistration;
+
+                return (
+                  <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+                    {/* Folio */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="font-mono text-xs text-gray-700">{row.folio ?? '-'}</span>
+                    </td>
+
+                    {/* Fecha */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                        <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                        {formatDate(row.submittedAt)}
+                      </div>
+                    </td>
+
+                    {/* Identificador */}
+                    <td className="px-4 py-3">
+                      {identifier ? (
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs text-gray-400 uppercase tracking-wide leading-none mb-0.5">{identifier.label}</span>
+                          <span className="text-sm font-medium text-gray-800 truncate max-w-[180px]" title={identifier.value}>
+                            {truncate(identifier.value, 28)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
+
+                    {/* Badge registro examen */}
+                    {isExamReg && (
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {registered ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                            <UserCheck className="w-3 h-3" />
+                            Registrado
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">
+                            Sin registro
+                          </span>
+                        )}
+                      </td>
+                    )}
+
+                    {/* Respuestas clave */}
+                    <td className="px-4 py-3">
+                      {/* Para EXAM_REGISTRATION registrado: mostrar horario */}
+                      {registered && row.examRegistration?.schedule ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs text-gray-400 uppercase tracking-wide leading-none">Horario</span>
+                          <span className="text-sm text-gray-700">{row.examRegistration.schedule.title}</span>
+                        </div>
+                      ) : keyAnswers.length > 0 ? (
+                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                          {keyAnswers.map((ka, i) => (
+                            <div key={i} className="flex flex-col min-w-0">
+                              <span className="text-xs text-gray-400 uppercase tracking-wide leading-none">{truncate(ka.label, 20)}</span>
+                              <span className="text-sm text-gray-700" title={ka.value}>{truncate(ka.value, 30)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
+
+                    {/* Acción */}
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <a
+                        href={`/admin/forms/${formId}/responses/${row.id}`}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
+                        Ver detalle
+                      </a>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Paginación */}
       {pagination.pages > 1 && (
-        <div className="mt-4 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
-          <div className="flex flex-1 justify-between sm:hidden">
+        <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+          <p className="text-sm text-gray-600">
+            Mostrando <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span>–
+            <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> de{' '}
+            <span className="font-medium">{pagination.total}</span>
+          </p>
+          <div className="flex gap-1">
             <button
-              onClick={() => handlePageChange(pagination.page - 1)}
+              onClick={() => loadResponses(pagination.page - 1)}
               disabled={pagination.page === 1}
-              className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 ${pagination.page === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+              className="px-3 py-1.5 text-sm rounded-md border border-gray-300 text-gray-700 disabled:opacity-40 hover:bg-gray-50 transition"
             >
               Anterior
             </button>
+            {Array.from({ length: pagination.pages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === pagination.pages || Math.abs(p - pagination.page) <= 1)
+              .reduce<(number | '…')[]>((acc, p, i, arr) => {
+                if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push('…');
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, i) =>
+                p === '…' ? (
+                  <span key={`e${i}`} className="px-2 py-1.5 text-sm text-gray-400">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => loadResponses(p as number)}
+                    className={`px-3 py-1.5 text-sm rounded-md border transition ${
+                      pagination.page === p
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
             <button
-              onClick={() => handlePageChange(pagination.page + 1)}
+              onClick={() => loadResponses(pagination.page + 1)}
               disabled={pagination.page === pagination.pages}
-              className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 ${pagination.page === pagination.pages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+              className="px-3 py-1.5 text-sm rounded-md border border-gray-300 text-gray-700 disabled:opacity-40 hover:bg-gray-50 transition"
             >
               Siguiente
             </button>
-          </div>
-          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700">
-                Mostrando <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span> a <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> de <span className="font-medium">{pagination.total}</span> resultados
-              </p>
-            </div>
-            <div>
-              <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                <button
-                  onClick={() => handlePageChange(pagination.page - 1)}
-                  disabled={pagination.page === 1}
-                  className={`relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 ${pagination.page === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 focus:z-20 focus:outline-offset-0'}`}
-                >
-                  <span className="sr-only">Anterior</span>
-                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-                  </svg>
-                </button>
-                
-                {/* Números de página */}
-                {Array.from({ length: pagination.pages }, (_, i) => i + 1)
-                  .filter(page => {
-                    // Mostrar siempre la primera y última página
-                    // Y las páginas cercanas a la actual
-                    return page === 1 || 
-                           page === pagination.pages || 
-                           (page >= pagination.page - 1 && page <= pagination.page + 1);
-                  })
-                  .map((page, index, array) => {
-                    // Agregar puntos suspensivos si hay saltos
-                    const showEllipsis = index > 0 && page - array[index - 1] > 1;
-                    
-                    return (
-                      <div key={page}>
-                        {showEllipsis && (
-                          <span className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 focus:outline-offset-0">
-                            ...
-                          </span>
-                        )}
-                        <button
-                          onClick={() => handlePageChange(page)}
-                          className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${pagination.page === page ? 'bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600' : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'}`}
-                        >
-                          {page}
-                        </button>
-                      </div>
-                    );
-                  })}
-                
-                <button
-                  onClick={() => handlePageChange(pagination.page + 1)}
-                  disabled={pagination.page === pagination.pages}
-                  className={`relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 ${pagination.page === pagination.pages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 focus:z-20 focus:outline-offset-0'}`}
-                >
-                  <span className="sr-only">Siguiente</span>
-                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </nav>
-            </div>
           </div>
         </div>
       )}
     </div>
   );
 }
+
+
+interface ResponsesListProps {
+  formId: string;
+}
+
+

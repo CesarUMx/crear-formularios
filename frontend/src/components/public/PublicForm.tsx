@@ -1,12 +1,26 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { publicFormService, type PublicForm, type AnswerInput } from '../../lib/publicFormService';
 import { getTemplateById, getDefaultTemplate, type FormTemplate } from '../../lib/templates';
 import { templateService } from '../../lib/templateService';
 import { getSectionClassName, getInputClassName, getButtonClassName } from '../../lib/templates';
 import { draftService } from '../../lib/draftService';
+import { filterVisibleQuestions, evaluateConditionalLogic, isQuestionRequired, evaluateCondition, type CurrentAnswers } from '../../lib/conditionalEngine';
+import type { ConditionalLogic } from '../../lib/types';
 import TemplateWrapper from './templates/TemplateWrapper';
 import FileInput from './FileInput';
-import { Send, CheckCircle, AlertCircle, Loader, Save } from 'lucide-react';
+import { Send, CheckCircle, AlertCircle, Loader, Save, Calendar, MapPin, Users, Clock } from 'lucide-react';
+
+interface ExamSchedule {
+  id: string;
+  title: string;
+  description: string | null;
+  startTime: string;
+  endTime: string;
+  capacity: number;
+  location: string | null;
+  registeredCount: number;
+  availableSpots: number;
+}
 
 interface PublicFormProps {
   slug: string;
@@ -24,6 +38,15 @@ export default function PublicForm({ slug }: PublicFormProps) {
     folio: string;
     submittedAt: string;
     formTitle: string;
+    registered?: boolean;
+    registration?: {
+      scheduleTitle: string;
+      studentName: string;
+      studentEmail: string;
+      startTime: string;
+      endTime: string;
+      location: string | null;
+    };
   } | null>(null);
   const [error, setError] = useState('');
   const [answers, setAnswers] = useState<Map<string, AnswerInput>>(new Map());
@@ -31,6 +54,11 @@ export default function PublicForm({ slug }: PublicFormProps) {
   const [hasDraft, setHasDraft] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showDraftMessage, setShowDraftMessage] = useState(false);
+  // Estado para registro de examen
+  const [examSchedules, setExamSchedules] = useState<ExamSchedule[]>([]);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string>('');
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
+  const [emailAlreadyRegistered, setEmailAlreadyRegistered] = useState(false);
   
   // Referencia para el temporizador de guardado automático
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -70,6 +98,27 @@ export default function PublicForm({ slug }: PublicFormProps) {
     };
   }, [template]);
 
+  const loadExamSchedules = async (examId: string) => {
+    try {
+      setLoadingSchedules(true);
+      const data = await publicFormService.getAvailableSchedules(examId);
+      setExamSchedules(data);
+    } catch {
+      setExamSchedules([]);
+    } finally {
+      setLoadingSchedules(false);
+    }
+  };
+
+  const checkEmailRegistered = async (examId: string, email: string) => {
+    try {
+      const data = await publicFormService.checkEmailRegistered(examId, email);
+      setEmailAlreadyRegistered(data.isRegistered);
+    } catch {
+      setEmailAlreadyRegistered(false);
+    }
+  };
+
   const loadForm = async () => {
     try {
       setLoading(true);
@@ -80,6 +129,11 @@ export default function PublicForm({ slug }: PublicFormProps) {
       const templateId = (data as any).templateId || 'modern';
       const loadedTemplate = getTemplateById(templateId) || getDefaultTemplate();
       setTemplate(loadedTemplate);
+
+      // Si es formulario de registro de examen, usar horarios ya incluidos en la respuesta
+      if ((data as any).formType === 'EXAM_REGISTRATION') {
+        setExamSchedules((data as any).availableSchedules ?? []);
+      }
       
       // Verificar si hay un borrador guardado
       const draft = draftService.getDraft(slug);
@@ -126,6 +180,16 @@ export default function PublicForm({ slug }: PublicFormProps) {
       textAnswer: value
     });
     setAnswers(newAnswers);
+
+    // Si es el campo de email en un formulario de registro, verificar duplicado
+    if (form && (form as any).formType === 'EXAM_REGISTRATION' && (form as any).emailQuestionId === questionId) {
+      const emailValue = value.trim();
+      if (emailValue && emailValue.includes('@') && (form as any).linkedExamId) {
+        checkEmailRegistered((form as any).linkedExamId, emailValue);
+      } else {
+        setEmailAlreadyRegistered(false);
+      }
+    }
     
     // Reiniciar el temporizador de guardado automático
     if (autoSaveTimerRef.current) {
@@ -176,7 +240,7 @@ export default function PublicForm({ slug }: PublicFormProps) {
       newAnswers.delete(questionId);
     }
     setAnswers(newAnswers);
-    
+
     // Reiniciar el temporizador de guardado automático
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
@@ -185,6 +249,67 @@ export default function PublicForm({ slug }: PublicFormProps) {
       saveDraft();
     }, 30000); // 30 segundos
   };
+
+  // Convertir answers Map a formato para el motor condicional
+  const getCurrentAnswers = useMemo(() => {
+    const result: Record<string, string | string[]> = {};
+    answers.forEach((answer, questionId) => {
+      if (answer.textAnswer !== undefined && answer.textAnswer !== '') {
+        result[questionId] = answer.textAnswer;
+      } else if (answer.selectedOptions !== undefined && answer.selectedOptions.length > 0) {
+        result[questionId] = answer.selectedOptions;
+      } else if (answer.fileUrl !== undefined && answer.fileUrl !== '') {
+        result[questionId] = answer.fileUrl;
+      }
+    });
+    return result;
+  }, [answers]);
+
+  // Evaluar condicion de registro en tiempo real
+  const registrationConditionMet = useMemo(() => {
+    if (!form) return true;
+    const condition = (form as any).registrationCondition;
+    if (!condition) return true;
+    return evaluateCondition(condition, getCurrentAnswers as CurrentAnswers);
+  }, [form, getCurrentAnswers]);
+
+  // Parsear conditionalLogic que puede venir como string JSON del backend
+  const parseConditionalLogic = (cl: unknown): ConditionalLogic | null => {
+    if (!cl) return null;
+    if (typeof cl === 'string') {
+      try {
+        return JSON.parse(cl) as ConditionalLogic;
+      } catch {
+        return null;
+      }
+    }
+    return cl as ConditionalLogic;
+  };
+
+  // Limpiar respuestas de preguntas que se ocultaron
+  useEffect(() => {
+    if (!form) return;
+
+    const newAnswers = new Map(answers);
+    let hasChanges = false;
+
+    form.version.sections.forEach(section => {
+      section.questions.forEach(question => {
+        const parsedLogic = parseConditionalLogic(question.conditionalLogic);
+        if (parsedLogic) {
+          const { visible } = evaluateConditionalLogic(parsedLogic, getCurrentAnswers);
+          if (!visible && newAnswers.has(question.id)) {
+            newAnswers.delete(question.id);
+            hasChanges = true;
+          }
+        }
+      });
+    });
+
+    if (hasChanges) {
+      setAnswers(newAnswers);
+    }
+  }, [getCurrentAnswers, form]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,17 +342,55 @@ export default function PublicForm({ slug }: PublicFormProps) {
     
     try {
 
-      const response = await publicFormService.submitResponse({
-        formId: form.id,
-        versionId: form.version.id,
-        answers: Array.from(answers.values())
-      });
+      // Si es EXAM_REGISTRATION, validar horario solo si el examen tiene enforceSchedule activo
+      const isExamReg = (form as any).formType === 'EXAM_REGISTRATION';
+      const needsSchedule = isExamReg && (form as any).linkedExamEnforceSchedule;
+      if (needsSchedule && registrationConditionMet && !selectedScheduleId) {
+        setError('Debes seleccionar un horario para el examen');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setSubmitting(false);
+        clearInterval(progressTimer);
+        setSubmitProgress(0);
+        return;
+      }
+
+      if (isExamReg && emailAlreadyRegistered) {
+        setError('Este correo electrónico ya tiene un registro para este examen');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setSubmitting(false);
+        clearInterval(progressTimer);
+        setSubmitProgress(0);
+        return;
+      }
+
+      // Incluir scheduleId como campo especial si aplica (solo si enforceSchedule activo)
+      const submittedAnswers = Array.from(answers.values());
+      if (needsSchedule && registrationConditionMet && selectedScheduleId) {
+        submittedAnswers.push({ questionId: '_scheduleId', textAnswer: selectedScheduleId } as any);
+      }
+
+      let response: any;
+      if (isExamReg) {
+        // Usar ruta de registro de examen que maneja condiciones y crea ExamRegistration
+        response = await publicFormService.submitExamRegistration(slug, {
+          versionId: form.version.id,
+          answers: submittedAnswers
+        });
+      } else {
+        response = await publicFormService.submitResponse({
+          formId: form.id,
+          versionId: form.version.id,
+          answers: submittedAnswers
+        });
+      }
 
       setResponseData({
         id: response.id,
         folio: response.folio,
-        submittedAt: response.submittedAt,
-        formTitle: response.formTitle
+        submittedAt: response.submittedAt || new Date().toISOString(),
+        formTitle: response.formTitle,
+        registered: response.registered,
+        registration: response.registration,
       });
       // Detener la animación de progreso y mostrar 100%
       clearInterval(progressTimer);
@@ -350,6 +513,24 @@ export default function PublicForm({ slug }: PublicFormProps) {
           />
         );
 
+      case 'BOOLEAN': {
+        const checked = answer?.textAnswer === 'true';
+        return (
+          <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => handleTextChange(question.id, e.target.checked ? 'true' : '')}
+              className="mt-0.5 w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 flex-shrink-0"
+            />
+            <span className="text-gray-700 text-sm leading-relaxed">
+              {question.helpText || question.text}
+              {question.isRequired && <span className="text-red-500 ml-1">*</span>}
+            </span>
+          </label>
+        );
+      }
+
       default:
         return <p className="text-gray-500">Tipo de pregunta no soportado</p>;
     }
@@ -383,89 +564,64 @@ export default function PublicForm({ slug }: PublicFormProps) {
   }
 
   if (submitted && responseData) {
-    // Formatear fecha
-    const submittedDate = new Date(responseData.submittedAt);
-    const formattedDate = new Intl.DateTimeFormat('es-MX', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(submittedDate);
-    
+    const reg = responseData.registration;
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="max-w-lg w-full bg-white rounded-lg shadow-lg p-8 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Respuesta Enviada!</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            {responseData.registered
+              ? '¡Registro Confirmado!'
+              : '¡Respuesta Enviada!'}
+          </h2>
           <p className="text-gray-600 mb-6">
-            Gracias por completar el formulario. Tu respuesta ha sido registrada exitosamente.
+            {responseData.registered === false
+              ? 'Gracias por completar el formulario. Tu respuesta ha sido registrada, pero no cumples con los requisitos para el registro al examen.'
+              : (form as any).formType === 'EXAM_REGISTRATION'
+                ? '¡Tu registro ha sido confirmado! Te enviamos un correo con tus datos de acceso al examen.'
+                : 'Gracias por completar el formulario. Tu respuesta ha sido registrada exitosamente.'}
           </p>
-          
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-6 text-left">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">Detalles de tu respuesta:</h3>
-            
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm text-gray-500">Folio de respuesta:</p>
-                <p className="text-lg font-mono font-semibold text-gray-800">{responseData.folio}</p>
-              </div>
-              
-              <div>
-                <p className="text-sm text-gray-500">Formulario:</p>
-                <p className="font-medium text-gray-800">{responseData.formTitle}</p>
-              </div>
-              
-              <div>
-                <p className="text-sm text-gray-500">Fecha y hora:</p>
-                <p className="font-medium text-gray-800">{formattedDate}</p>
+
+          {reg && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-left">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Detalles del examen:</h3>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-500">Horario:</p>
+                  <p className="font-medium text-gray-800">{reg.scheduleTitle}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Fecha:</p>
+                  <p className="font-medium text-gray-800">
+                    {new Date(reg.startTime).toLocaleDateString('es-MX', {
+                      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Hora:</p>
+                  <p className="font-medium text-gray-800">
+                    {new Date(reg.startTime).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                    {' – '}
+                    {new Date(reg.endTime).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+                {reg.location && (
+                  <div>
+                    <p className="text-sm text-gray-500">Lugar:</p>
+                    <p className="font-medium text-gray-800">{reg.location}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm text-gray-500">Correo registrado:</p>
+                  <p className="font-medium text-gray-800">{reg.studentEmail}</p>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
-            >
-              Enviar otra respuesta
-            </button>
-            
-            <button 
-              onClick={() => {
-                // Copiar folio al portapapeles
-                navigator.clipboard.writeText(responseData.folio)
-                  .then(() => alert('Folio copiado al portapapeles'))
-                  .catch(() => alert('No se pudo copiar el folio'));
-              }}
-              className="px-6 py-2.5 border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium flex items-center justify-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-              Copiar Folio
-            </button>
-          </div>
-          
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600 mb-2">
-              Guarda tu folio para consultas futuras. Puedes verificar el estado de tu respuesta en cualquier momento.
-            </p>
-            <a 
-              href={`/verificar?folio=${encodeURIComponent(responseData.folio)}`}
-              className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium inline-flex items-center gap-1"
-              target="_self"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
-              Verificar respuesta
-            </a>
-          </div>
+          )}
         </div>
       </div>
     );
@@ -489,6 +645,104 @@ export default function PublicForm({ slug }: PublicFormProps) {
         </div>
       )}
 
+      {/* Selector de horario para formularios de registro de examen con enforceSchedule */}
+      {(form as any).formType === 'EXAM_REGISTRATION' && (form as any).linkedExamEnforceSchedule && registrationConditionMet && (
+        <div className="bg-white rounded-lg shadow-sm border border-purple-200 p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar className="w-5 h-5 text-purple-600" />
+            <h2 className="text-lg font-semibold text-purple-800">Selecciona tu horario</h2>
+          </div>
+
+          {loadingSchedules ? (
+            <div className="flex items-center gap-2 text-gray-500 py-4">
+              <Loader className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Cargando horarios disponibles...</span>
+            </div>
+          ) : examSchedules.length === 0 ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-red-700">No hay lugares disponibles</p>
+                  <p className="text-sm text-red-600 mt-0.5">Todos los horarios para este examen están llenos o no hay fechas próximas. No es posible registrarse en este momento.</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {examSchedules.map(schedule => {
+                const start = new Date(schedule.startTime);
+                const end = new Date(schedule.endTime);
+                const isSelected = selectedScheduleId === schedule.id;
+                const dateStr = start.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+                const startStr = start.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+                const endStr = end.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+                const spotsLeft = schedule.availableSpots;
+                
+                return (
+                  <button
+                    key={schedule.id}
+                    type="button"
+                    onClick={() => setSelectedScheduleId(schedule.id)}
+                    className={`w-full text-left p-4 rounded-lg border-2 transition ${
+                      isSelected
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-purple-300 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 mb-1">{schedule.title}</div>
+                        {schedule.description && (
+                          <div className="text-sm text-gray-500 mb-2">{schedule.description}</div>
+                        )}
+                        <div className="flex flex-wrap gap-3 text-sm text-gray-600">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4 text-purple-500" />
+                            {dateStr}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-4 h-4 text-purple-500" />
+                            {startStr} – {endStr}
+                          </span>
+                          {schedule.location && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-4 h-4 text-purple-500" />
+                              {schedule.location}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1">
+                            <Users className="w-4 h-4 text-purple-500" />
+                            {spotsLeft} lugar{spotsLeft !== 1 ? 'es' : ''} disponible{spotsLeft !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      </div>
+                      <div className={`mt-1 w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                        isSelected ? 'border-purple-500 bg-purple-500' : 'border-gray-300'
+                      }`}>
+                        {isSelected && (
+                          <div className="w-2.5 h-2.5 rounded-full bg-white" />
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Aviso de email ya registrado */}
+          {emailAlreadyRegistered && (
+            <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-700">
+                Este correo electrónico ya tiene un registro para este examen. Si necesitas cambiar tu horario, contacta al administrador.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         {form.version.sections.map((section, sectionIndex) => (
@@ -509,17 +763,25 @@ export default function PublicForm({ slug }: PublicFormProps) {
             )}
 
             <div className="space-y-6">
-              {section.questions.map((question, questionIndex) => (
+              {filterVisibleQuestions(
+                section.questions.map(q => ({ ...q, conditionalLogic: parseConditionalLogic(q.conditionalLogic) })),
+                getCurrentAnswers
+              ).map((question, questionIndex) => (
                 <div key={question.id}>
-                  <label className="block mb-2">
-                    <span className="font-medium" style={{ color: template.textColor }}>
-                      {question.text}
-                      {question.isRequired && <span className="text-red-500 ml-1">*</span>}
-                    </span>
-                    {question.helpText && (
-                      <span className="block text-sm text-gray-500 mt-1">{question.helpText}</span>
-                    )}
-                  </label>
+                  {question.type !== 'BOOLEAN' && (
+                    <label className="block mb-2">
+                      <span className="font-medium" style={{ color: template.textColor }}>
+                        {question.text}
+                        {isQuestionRequired(
+                          { id: question.id, isRequired: question.isRequired, conditionalLogic: question.conditionalLogic },
+                          getCurrentAnswers
+                        ) && <span className="text-red-500 ml-1">*</span>}
+                      </span>
+                      {question.helpText && (
+                        <span className="block text-sm text-gray-500 mt-1">{question.helpText}</span>
+                      )}
+                    </label>
+                  )}
                   {renderQuestion(question, sectionIndex, questionIndex)}
                 </div>
               ))}
@@ -592,7 +854,7 @@ export default function PublicForm({ slug }: PublicFormProps) {
             {/* Botón para enviar respuesta */}
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || ((form as any).formType === 'EXAM_REGISTRATION' && (form as any).linkedExamEnforceSchedule && registrationConditionMet && !loadingSchedules && examSchedules.length === 0)}
               style={{ backgroundColor: template.secondaryColor }}
               className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 text-white hover:opacity-90 transition font-medium disabled:opacity-50 text-lg ${buttonClass}`}
             >

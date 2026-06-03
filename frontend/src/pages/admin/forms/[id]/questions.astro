@@ -1,0 +1,17 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../../../components/auth/ProtectedRoute';
+import FormQuestionsEditorLoader from '../../../../components/forms/FormQuestionsEditorLoader';
+
+const { id } = Astro.params;
+
+if (!id || typeof id !== 'string') {
+  return Astro.redirect('/admin');
+}
+---
+
+<AdminLayout title="Editor de Preguntas">
+  <ProtectedRoute client:load>
+    <FormQuestionsEditorLoader client:load formId={id} />
+  </ProtectedRoute>
+</AdminLayout>

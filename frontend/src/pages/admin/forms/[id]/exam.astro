@@ -1,0 +1,17 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../../../components/auth/ProtectedRoute';
+import FormExamOverviewLoader from '../../../../components/forms/FormExamOverviewLoader';
+
+const { id } = Astro.params;
+
+if (!id || typeof id !== 'string' || !id) {
+  return Astro.redirect('/admin');
+}
+---
+
+<AdminLayout title="Configuración de Examen">
+  <ProtectedRoute client:load>
+    <FormExamOverviewLoader client:load formId={id} />
+  </ProtectedRoute>
+</AdminLayout>

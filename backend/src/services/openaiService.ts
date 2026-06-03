@@ -65,34 +65,94 @@ class OpenAIService {
     } = params;
 
     try {
-      const MAX_QUESTIONS_PER_CALL = 20;
-      
-      // Pedir N+5 preguntas para asegurar que tengamos suficientes
-      const EXTRA_QUESTIONS = 5;
-      const questionsToRequest = numberOfQuestions + EXTRA_QUESTIONS;
-      
-      console.log(`Solicitadas por usuario: ${numberOfQuestions} preguntas`);
-      console.log(`Pidiendo a OpenAI: ${questionsToRequest} preguntas (con ${EXTRA_QUESTIONS} extras)`);
-      
-      if (onProgress) {
-        onProgress({
-          percentage: 25,
-          step: 'Seleccionando preguntas...',
-        });
+      // gpt-5.4-mini tiene 128K tokens de output — 50 preguntas ≈ 15K tokens (12% del límite)
+      const MAX_QUESTIONS_PER_CALL = 50;
+      const ABSOLUTE_MAX = 500;
+      // gpt-5.4-mini: contexto 400K tokens → reservar 100K para instrucciones/respuesta
+      // 300K tokens × ~4 chars/token = 1,200,000 chars máximo de contenido por llamada
+      const MAX_CONTENT_CHARS = 1_200_000;
+      // TPM limit de la cuenta: 200K tokens/min
+      // Para extractTopics reservamos ~50K tokens para prompt+respuesta → 150K tokens de contenido
+      // 150K tokens × 4 chars/token = 600,000 chars máximo para extracción de temas
+      const MAX_TOPICS_CHARS = 600_000;
+
+      // Validación de cap absoluto
+      if (numberOfQuestions > ABSOLUTE_MAX) {
+        throw new Error(
+          `El número máximo de preguntas permitido es ${ABSOLUTE_MAX}. Solicitaste ${numberOfQuestions}.`
+        );
       }
-      
-      if (questionsToRequest > MAX_QUESTIONS_PER_CALL) {
-        // Dividir en múltiples llamadas
-        const numCalls = Math.ceil(questionsToRequest / MAX_QUESTIONS_PER_CALL);
+
+      // Paso 1: Extraer todos los temas del contenido completo antes de generar
+      if (onProgress) {
+        onProgress({ percentage: 10, step: 'Analizando contenido y extrayendo temas...' });
+      }
+      // Para documentos grandes, limitar el contenido enviado a extractTopics
+      // al TPM de la cuenta (200K tokens/min) → máximo 600K chars para esa llamada
+      const contentForTopics = content.length > MAX_TOPICS_CHARS
+        ? this.sampleContent(content, MAX_TOPICS_CHARS)
+        : content;
+      if (content.length > MAX_TOPICS_CHARS) {
+        console.log(`Documento grande (${Math.round(content.length / 1000)}K chars). Usando muestra (${MAX_TOPICS_CHARS / 1000}K chars) para extracción de temas.`);
+      }
+      const topics = await this.extractTopics(contentForTopics, language);
+      console.log(`Temas identificados: ${topics.length} → ${topics.slice(0, 5).join(', ')}${topics.length > 5 ? '...' : ''}`);
+
+      // Validación de cap por contenido
+      // Combina dos señales: cantidad de temas Y extensión del contenido
+      // - Por temas: 15 preguntas por tema/subtema (cubre temas extensos)
+      // - Por extensión: 1 pregunta por cada 500 chars de contenido (~1 página cada 2000 chars)
+      // Se toma el mayor de los dos para no penalizar docs con pocos temas pero muy extensos
+      if (topics.length > 0) {
+        const byTopics = topics.length * 15;
+        const byLength = Math.ceil(content.length / 500);
+        const contentCapacity = Math.min(ABSOLUTE_MAX, Math.max(byTopics, byLength));
+        if (numberOfQuestions > contentCapacity) {
+          throw new Error(
+            `El contenido proporcionado (${topics.length} temas/subtemas, ~${Math.round(content.length / 2000)} páginas) ` +
+            `permite generar un máximo estimado de ${contentCapacity} preguntas únicas sin repetición. ` +
+            `Solicitaste ${numberOfQuestions}. Por favor reduce el número de preguntas o proporciona un contenido más extenso.`
+          );
+        }
+      }
+
+      if (onProgress) {
+        onProgress({ percentage: 25, step: 'Distribuyendo preguntas por tema...' });
+      }
+
+      if (numberOfQuestions > MAX_QUESTIONS_PER_CALL) {
+        // Dividir en múltiples llamadas, distribuyendo temas entre lotes
+        const numCalls = Math.ceil(numberOfQuestions / MAX_QUESTIONS_PER_CALL);
         const allQuestions: GeneratedQuestion[] = [];
-        let remainingQuestions = questionsToRequest;
+        const coveredTopics: string[] = [];
+        let remainingQuestions = numberOfQuestions;
+
+        // Para documentos grandes: dividir el contenido en secciones por lote
+        // Así cada lote recibe ~contenido/numCalls chars en lugar del documento completo
+        // Ej: 613 págs / 10 lotes = 61 págs por lote ≈ 150K chars → muy por debajo de 400K tokens
+        const useContentChunking = content.length > MAX_CONTENT_CHARS;
+        const contentChunkSize = useContentChunking ? Math.ceil(content.length / numCalls) : content.length;
+        if (useContentChunking) {
+          console.log(`Chunking contenido: ${numCalls} lotes × ~${Math.round(contentChunkSize / 1000)}K chars c/u`);
+        }
+
+        // Distribuir temas de forma equitativa entre lotes
+        const topicsPerBatch = topics.length > 0 ? Math.ceil(topics.length / numCalls) : 0;
 
         for (let i = 0; i < numCalls; i++) {
           const questionsThisCall = Math.min(remainingQuestions, MAX_QUESTIONS_PER_CALL);
+          // Asignar un subconjunto de temas a este lote para forzar cobertura uniforme
+          const batchTopics = topicsPerBatch > 0
+            ? topics.slice(i * topicsPerBatch, (i + 1) * topicsPerBatch)
+            : topics;
+          // Contenido para este lote: sección proporcional del documento o contenido completo
+          const contentForBatch = useContentChunking
+            ? content.slice(i * contentChunkSize, (i + 1) * contentChunkSize)
+            : content;
 
           if (onProgress) {
             const baseProgress = 25;
-            const progressRange = 35; // 25% a 60%
+            const progressRange = 35;
             const pct = baseProgress + Math.round((i / numCalls) * progressRange);
             onProgress({
               percentage: pct,
@@ -103,70 +163,66 @@ class OpenAIService {
           }
 
           const result = await this.generateQuestionsBatch(
-            content,
+            contentForBatch,
             questionsThisCall,
             difficulty,
             topic,
             language,
             questionTypes,
-            allQuestions // Pasar preguntas ya generadas para evitar repeticiones
+            batchTopics,
+            coveredTopics
           );
 
-          allQuestions.push(...result.questions);
-          remainingQuestions -= result.questions.length;
+          // Truncar al número exacto pedido en este lote (OpenAI a veces genera de más)
+          const batchResult = result.questions.slice(0, questionsThisCall);
+          allQuestions.push(...batchResult);
+          coveredTopics.push(...batchTopics);
+          remainingQuestions -= batchResult.length;
         }
 
         if (onProgress) {
-          onProgress({
-            percentage: 60,
-            step: 'Generando opciones de respuesta...',
-          });
+          onProgress({ percentage: 60, step: 'Verificando preguntas...' });
         }
 
-        // Tomar solo las N preguntas solicitadas por el usuario
-        const finalQuestions = allQuestions.slice(0, numberOfQuestions);
-        
-        console.log(`Generadas: ${allQuestions.length} preguntas`);
-        console.log(`Guardando: ${finalQuestions.length} preguntas`);
-        
+        console.log(`Total generadas: ${allQuestions.length} preguntas`);
+
         return {
-          questions: finalQuestions,
-          totalGenerated: finalQuestions.length,
+          questions: allQuestions,
+          totalGenerated: allQuestions.length,
         };
       } else {
-        // Una sola llamada para 20 o menos preguntas (con extras)
+        // Una sola llamada
         if (onProgress) {
-          onProgress({
-            percentage: 40,
-            step: 'Generando opciones de respuesta...',
-          });
+          onProgress({ percentage: 40, step: 'Generando preguntas...' });
         }
-        
+
+        // Si el contenido supera el límite seguro, muestrearlo
+        const contentForSingle = content.length > MAX_CONTENT_CHARS
+          ? this.sampleContent(content, MAX_CONTENT_CHARS)
+          : content;
+
         const result = await this.generateQuestionsBatch(
-          content, 
-          questionsToRequest, // Pedir N+5
-          difficulty, 
-          topic, 
-          language, 
-          questionTypes
+          contentForSingle,
+          numberOfQuestions,
+          difficulty,
+          topic,
+          language,
+          questionTypes,
+          topics,
+          []
         );
-        
+
         if (onProgress) {
-          onProgress({
-            percentage: 60,
-            step: 'Verificando dificultad...',
-          });
+          onProgress({ percentage: 60, step: 'Verificando preguntas...' });
         }
-        
-        // Tomar solo las N preguntas solicitadas por el usuario
-        const finalQuestions = result.questions.slice(0, numberOfQuestions);
-        
-        console.log(`Generadas: ${result.questions.length} preguntas`);
-        console.log(`Guardando: ${finalQuestions.length} preguntas`);
-        
+
+        // Truncar al número exacto pedido (OpenAI a veces genera de más)
+        const trimmed = result.questions.slice(0, numberOfQuestions);
+        console.log(`Total generadas: ${trimmed.length} preguntas`);
+
         return {
-          questions: finalQuestions,
-          totalGenerated: finalQuestions.length,
+          questions: trimmed,
+          totalGenerated: trimmed.length,
         };
       }
     } catch (error: any) {
@@ -189,14 +245,15 @@ class OpenAIService {
     topic: string, 
     language: string, 
     questionTypes: string[], 
-    existingQuestions: GeneratedQuestion[] = []
+    topics: string[] = [],
+    coveredTopics: string[] = []
   ): Promise<GenerateQuestionsResult> {
-    const prompt = this.buildPrompt(content, numberOfQuestions, difficulty, topic, language, questionTypes, existingQuestions);
+    const prompt = this.buildPrompt(content, numberOfQuestions, difficulty, topic, language, questionTypes, topics, coveredTopics);
 
     console.log(`Solicitando a OpenAI: ${numberOfQuestions} preguntas`);
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-5.4-mini',
       messages: [
         {
           role: 'system',
@@ -285,15 +342,18 @@ class OpenAIService {
     topic: string, 
     language: string, 
     questionTypes: string[], 
-    existingQuestions: GeneratedQuestion[] = []
+    topics: string[] = [],
+    coveredTopics: string[] = []
   ): string {
-    let existingQuestionsText = '';
-    if (existingQuestions.length > 0) {
-      existingQuestionsText = `\n**IMPORTANTE: Ya se generaron las siguientes preguntas. NO las repitas y genera preguntas sobre OTROS aspectos del contenido:**\n${existingQuestions.map((q, i) => `${i + 1}. ${q.text}`).join('\n')}\n`;
-    }
-
     const typeInstructions = this.getTypeInstructions(questionTypes);
     const formatExamples = this.getFormatExamples(questionTypes);
+
+    const topicsBlock = topics.length > 0
+      ? `**DISTRIBUCIÓN DE TEMAS (OBLIGATORIO):**
+Lee y comprende el contenido completo antes de generar preguntas. Distribuye las ${numberOfQuestions} preguntas cubriendo los siguientes temas de forma equilibrada (máximo 2 preguntas por tema, NUNCA 2 preguntas sobre el mismo concepto específico):
+${topics.map((t, i) => `${i + 1}. ${t}`).join('\n')}
+${coveredTopics.length > 0 ? `\n**Temas ya cubiertos en lotes anteriores (NO repetir):**\n${coveredTopics.map(t => `- ${t}`).join('\n')}` : ''}`
+      : `**Lee el contenido completo y cubre todos sus temas y subtemas de forma equilibrada. NO generes 2 preguntas sobre el mismo concepto específico.**`;
 
     return `
 INSTRUCCIÓN CRÍTICA ABSOLUTA
@@ -303,22 +363,23 @@ NÚMERO REQUERIDO: ${numberOfQuestions}
 NÚMERO MÍNIMO: ${numberOfQuestions}
 NÚMERO MÁXIMO: ${numberOfQuestions}
 
-${existingQuestionsText}
+${topicsBlock}
 
 **REQUISITOS OBLIGATORIOS (INCUMPLIMIENTO = RECHAZO):**
 1. EXACTAMENTE ${numberOfQuestions} preguntas en el array "questions"
 2. Nivel de dificultad: ${difficulty}
-3. Tema: ${topic}
+3. Tema general: ${topic}
 4. Distribuye equitativamente entre estos tipos: ${questionTypes.join(', ')}
 5. Cada pregunta DEBE tener el campo "type" con uno de estos valores: ${questionTypes.join(', ')}
 6. Incluye feedback explicativo para cada pregunta
 7. Evalúa comprensión, no solo memorización
-8. Cubre diferentes aspectos del contenido
+8. Cada pregunta debe cubrir un concepto o tema DIFERENTE al resto
+9. **PROHIBIDO** usar frases como "según el texto", "de acuerdo con el documento", "según el capítulo", "según la página", "en el texto se menciona", "el autor dice", "según la lectura" o cualquier referencia al documento fuente. Las preguntas deben ser INDEPENDIENTES y formuladas como conocimiento directo.
 
 ${typeInstructions}
 
-**Contenido:**
-${content.substring(0, 8000)} ${content.length > 8000 ? '...(contenido truncado)' : ''}
+**Contenido completo:**
+${content}
 
 **Formato de respuesta (JSON):**
 {
@@ -333,6 +394,8 @@ VERIFICACIÓN OBLIGATORIA ANTES DE RESPONDER
 3. Si no son ${numberOfQuestions}, AJUSTA hasta que sean ${numberOfQuestions}
 4. Verifica que cada pregunta tenga el campo "type"
 5. Verifica que los tipos estén distribuidos entre: ${questionTypes.join(', ')}
+6. Verifica que ninguna pregunta sea repetida o similar a otra
+7. **Revisa cada pregunta**: ¿contiene palabras como "texto", "documento", "capítulo", "página", "según", "el autor", "la lectura"? Si sí, RE-ESCRÍBELA eliminando esa referencia.
 
 SI NO GENERAS EXACTAMENTE ${numberOfQuestions} PREGUNTAS, LA RESPUESTA SERÁ RECHAZADA
 
@@ -454,6 +517,69 @@ Genera en ${language} EXACTAMENTE ${numberOfQuestions} preguntas ahora.
   }
 
   /**
+   * Muestrea el contenido distribuyendo secciones del inicio, medio y fin del documento.
+   * Garantiza que los temas de todo el documento queden representados
+   * aunque el texto total supere el límite de contexto de la API.
+   */
+  private sampleContent(content: string, maxChars: number): string {
+    if (content.length <= maxChars) return content;
+
+    // Distribuir en 3 secciones: inicio (40%), medio (20%), fin (40%)
+    const startSize  = Math.floor(maxChars * 0.40);
+    const middleSize = Math.floor(maxChars * 0.20);
+    const endSize    = Math.floor(maxChars * 0.40);
+
+    const start  = content.slice(0, startSize);
+    const midPos = Math.floor(content.length / 2) - Math.floor(middleSize / 2);
+    const middle = content.slice(midPos, midPos + middleSize);
+    const end    = content.slice(content.length - endSize);
+
+    const sep = '\n\n[... sección omitida por longitud de documento ...]\n\n';
+    console.log(`sampleContent: ${content.length} → ${(start + sep + middle + sep + end).length} chars`);
+    return start + sep + middle + sep + end;
+  }
+
+  /**
+   * Extrae todos los temas y subtemas del contenido para distribuir preguntas de forma uniforme
+   */
+  async extractTopics(content: string, language: string): Promise<string[]> {
+    try {
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-5.4-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'Eres un experto en análisis de contenido educativo. Tu tarea es identificar de forma exhaustiva TODOS los temas y subtemas de un documento.',
+          },
+          {
+            role: 'user',
+            content: `Lee el siguiente contenido completo e identifica TODOS los temas principales y subtemas que abarca. Sé exhaustivo, no omitas ningún tema aunque sea menor.
+
+Responde en ${language} con formato JSON:
+{
+  "topics": ["Tema principal 1", "Subtema 1.1", "Subtema 1.2", "Tema principal 2", "Subtema 2.1", ...]
+}
+
+CONTENIDO:
+${content}`,
+          },
+        ],
+        temperature: 0.2,
+        response_format: { type: 'json_object' },
+      });
+
+      const responseContent = completion.choices[0].message.content;
+      if (!responseContent) return [];
+
+      const parsed = JSON.parse(responseContent);
+      return Array.isArray(parsed.topics) ? parsed.topics : [];
+    } catch (error) {
+      console.error('Error al extraer temas:', error);
+      return []; // Si falla, continuar sin temas (buildPrompt usará el fallback genérico)
+    }
+  }
+
+  /**
    * Regenera una pregunta específica manteniendo su tipo
    */
   async regenerateQuestion(
@@ -479,7 +605,7 @@ ${originalQuestion}
 ${existingQuestionsText}
 
 **Contenido de referencia:**
-${content.substring(0, 4000)}
+${content}
 
 **Requisitos OBLIGATORIOS:**
 - Tipo de pregunta: ${questionType} (MANTENER EL MISMO TIPO)
@@ -489,6 +615,7 @@ ${content.substring(0, 4000)}
 - Incluye feedback explicativo
 - La nueva pregunta debe ser única y no similar a las existentes
 - DEBE incluir el campo "type": "${questionType}"
+- **PROHIBIDO** usar frases como "según el texto", "de acuerdo con el documento", "según el capítulo", "según la página", "en el texto se menciona", "el autor dice", "según la lectura" o cualquier referencia al documento fuente. La pregunta debe ser INDEPENDIENTE y formulada como conocimiento directo.
 
 ${typeInstructions}
 
@@ -502,7 +629,7 @@ IMPORTANTE: La pregunta regenerada DEBE mantener el tipo "${questionType}" y seg
 
     try {
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5.4-mini',
         messages: [
           {
             role: 'system',

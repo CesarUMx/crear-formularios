@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { formService } from '../../lib/formService';
-import type { QuestionType, SectionInput, QuestionInput } from '../../lib/types';
+import { api } from '../../lib/api';
+import type { QuestionType, SectionInput, QuestionInput, ConditionalLogic, SimpleCondition, FormType } from '../../lib/types';
 import { TemplateSelector } from '../templates';
 import { PageHeader } from '../common';
 import { useColors } from '../../hooks/useColors';
+import ConditionalLogicEditor from './ConditionalLogicEditor';
+import RegistrationConditionEditor from './RegistrationConditionEditor';
 import { 
-  Plus, 
   Trash2, 
   GripVertical, 
   Save,
@@ -13,8 +15,15 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronUp,
-  FileText
+  FileText,
+  ClipboardList,
+  BookOpen
 } from 'lucide-react';
+
+interface ExamOption {
+  id: string;
+  title: string;
+}
 
 interface FormEditorProps {
   formId?: string;
@@ -22,6 +31,12 @@ interface FormEditorProps {
     title: string;
     description?: string;
     templateId?: string;
+    formType?: FormType;
+    linkedExamId?: string;
+    emailQuestionId?: string;
+    nameQuestionId?: string;
+    allowExemption?: boolean;
+    registrationCondition?: SimpleCondition;
     sections: SectionInput[];
   };
 }
@@ -33,6 +48,7 @@ const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
   { value: 'RADIO', label: 'Opción Única (Radio)' },
   { value: 'CHECKBOX', label: 'Opción Múltiple (Checkbox)' },
   { value: 'FILE', label: 'Subir Archivo' },
+  { value: 'BOOLEAN', label: 'Aceptación (Casilla única)' },
 ];
 
 export default function FormEditor({ formId, initialData }: FormEditorProps) {
@@ -47,6 +63,7 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
         description: '',
         questions: [
           {
+            id: `temp-0-0-${Date.now()}`,
             type: 'TEXT',
             text: '',
             placeholder: '',
@@ -58,10 +75,44 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
       }
     ]
   );
+  const [formType, setFormType] = useState<FormType>(initialData?.formType || 'STANDARD');
+  const [linkedExamId, setLinkedExamId] = useState(initialData?.linkedExamId || '');
+  const [emailQuestionId, setEmailQuestionId] = useState(initialData?.emailQuestionId || '');
+  const [nameQuestionId, setNameQuestionId] = useState(initialData?.nameQuestionId || '');
+  const [allowExemption, setAllowExemption] = useState(initialData?.allowExemption || false);
+  const [registrationCondition, setRegistrationCondition] = useState<SimpleCondition | undefined>(initialData?.registrationCondition);
+  const [availableExams, setAvailableExams] = useState<ExamOption[]>([]);
+  const [loadingExams, setLoadingExams] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [expandedSections, setExpandedSections] = useState<number[]>([0]);
+
+  // Cargar examenes disponibles
+  useEffect(() => {
+    if (formType === 'EXAM_REGISTRATION') {
+      setLoadingExams(true);
+      api.get<any[]>('/exams?limit=100')
+        .then(data => {
+          const exams = Array.isArray(data) ? data : ((data as any).exams || (data as any).data || []);
+          const privateExams = exams.filter((e: any) => e.accessType === 'PRIVATE');
+          setAvailableExams(privateExams.map((e: any) => ({ id: e.id, title: e.title })));
+        })
+        .catch(() => setAvailableExams([]))
+        .finally(() => setLoadingExams(false));
+    }
+  }, [formType]);
+
+  // Asegurar que todas las preguntas tengan ID (temporal o real)
+  useEffect(() => {
+    setSections(prev => prev.map((section, sIdx) => ({
+      ...section,
+      questions: section.questions.map((q, qIdx) => ({
+        ...q,
+        id: q.id || `temp-${sIdx}-${qIdx}-${Date.now()}`
+      }))
+    })));
+  }, []); // Solo al montar
 
   const toggleSection = (index: number) => {
     setExpandedSections(prev =>
@@ -107,7 +158,9 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
 
   const addQuestion = (sectionIndex: number) => {
     const newSections = [...sections];
+    const tempId = `temp-${sectionIndex}-${newSections[sectionIndex].questions.length}-${Date.now()}`;
     newSections[sectionIndex].questions.push({
+      id: tempId,
       type: 'TEXT',
       text: '',
       placeholder: '',
@@ -190,7 +243,15 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
     setLoading(true);
 
     try {
-      const data = { title, description, templateId, sections };
+      const data = {
+        title, description, templateId, formType,
+        linkedExamId: formType === 'EXAM_REGISTRATION' ? linkedExamId : undefined,
+        emailQuestionId: formType === 'EXAM_REGISTRATION' ? emailQuestionId : undefined,
+        nameQuestionId: formType === 'EXAM_REGISTRATION' ? nameQuestionId : undefined,
+        allowExemption: formType === 'EXAM_REGISTRATION' ? allowExemption : false,
+        registrationCondition: formType === 'EXAM_REGISTRATION' ? registrationCondition : undefined,
+        sections
+      };
 
       if (formId) {
         await formService.updateForm(formId, data);
@@ -235,6 +296,127 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
           <div className="text-sm text-green-700">{success}</div>
         </div>
       )}
+
+      {/* Tipo de Formulario */}
+      <div className="bg-white rounded-lg shadow p-6 space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900">Tipo de Formulario</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => { setFormType('STANDARD'); setLinkedExamId(''); }}
+            className={`flex items-center gap-3 p-4 rounded-lg border-2 transition ${
+              formType === 'STANDARD'
+                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                : 'border-gray-200 hover:border-gray-300 text-gray-700'
+            }`}
+          >
+            <ClipboardList className="w-6 h-6 flex-shrink-0" />
+            <div className="text-left">
+              <div className="font-medium text-sm">Formulario Estándar</div>
+              <div className="text-xs text-gray-500">Encuestas y captación de datos</div>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormType('EXAM_REGISTRATION')}
+            className={`flex items-center gap-3 p-4 rounded-lg border-2 transition ${
+              formType === 'EXAM_REGISTRATION'
+                ? 'border-purple-500 bg-purple-50 text-purple-700'
+                : 'border-gray-200 hover:border-gray-300 text-gray-700'
+            }`}
+          >
+            <BookOpen className="w-6 h-6 flex-shrink-0" />
+            <div className="text-left">
+              <div className="font-medium text-sm">Registro de Examen</div>
+              <div className="text-xs text-gray-500">Inscripción con selección de horario</div>
+            </div>
+          </button>
+        </div>
+
+        {/* Configuración EXAM_REGISTRATION */}
+        {formType === 'EXAM_REGISTRATION' && (
+          <div className="space-y-5 border-t border-purple-100 pt-4">
+
+            {/* Examen vinculado */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Examen a vincular *</label>
+              {loadingExams ? (
+                <div className="text-sm text-gray-500 py-2">Cargando exámenes...</div>
+              ) : availableExams.length === 0 ? (
+                <div className="text-sm text-yellow-600 bg-yellow-50 p-3 rounded-lg">
+                  No hay exámenes disponibles. Crea un examen primero.
+                </div>
+              ) : (
+                <select
+                  value={linkedExamId}
+                  onChange={(e) => setLinkedExamId(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">-- Selecciona un examen --</option>
+                  {availableExams.map(exam => (
+                    <option key={exam.id} value={exam.id}>{exam.title}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Mapeo de campos */}
+            {sections.length > 0 && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">¿Qué pregunta contiene el <strong>email</strong>? *</label>
+                  <select
+                    value={emailQuestionId}
+                    onChange={e => setEmailQuestionId(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                  >
+                    <option value="">-- Selecciona --</option>
+                    {sections.flatMap(s => s.questions).map(q => (
+                      <option key={q.id} value={q.id}>{q.text || '(sin texto)'}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">¿Qué pregunta contiene el <strong>nombre</strong>? *</label>
+                  <select
+                    value={nameQuestionId}
+                    onChange={e => setNameQuestionId(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                  >
+                    <option value="">-- Selecciona --</option>
+                    {sections.flatMap(s => s.questions).map(q => (
+                      <option key={q.id} value={q.id}>{q.text || '(sin texto)'}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Toggle exencion */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setAllowExemption(!allowExemption)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${allowExemption ? 'bg-purple-600' : 'bg-gray-300'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${allowExemption ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+              <span className="text-sm text-gray-700">Permitir solicitud de exencion (sube archivo)</span>
+            </div>
+
+            {/* Condicion de registro */}
+            <RegistrationConditionEditor
+              condition={registrationCondition}
+              onChange={setRegistrationCondition}
+              allQuestions={sections.flatMap(s => s.questions)}
+            />
+
+          </div>
+        )}
+      </div>
 
       {/* Información del formulario */}
       <div className="bg-white rounded-lg shadow p-6 space-y-4">
@@ -568,6 +750,15 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
                           Campo obligatorio
                         </label>
                       </div>
+
+                      {/* Conditional Logic */}
+                      <ConditionalLogicEditor
+                        logic={question.conditionalLogic}
+                        onChange={(logic) => updateQuestion(sectionIndex, questionIndex, 'conditionalLogic', logic)}
+                        allQuestions={section.questions}
+                        currentQuestionIndex={questionIndex}
+                        currentSectionIndex={sectionIndex}
+                      />
                     </div>
                   ))}
 
@@ -594,22 +785,42 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
       </div>
 
       {/* Actions */}
-      <div className="flex gap-4 justify-end sticky bottom-4 bg-white p-4 rounded-lg shadow-lg border border-gray-200">
-        <a
-          href="/admin"
-          className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
-        >
-          Cancelar
-        </a>
-        <button
-          type="submit"
-          disabled={loading}
-          style={{ backgroundColor: colors.primaryColor }}
-          className="px-6 py-2.5 text-white rounded-lg hover:opacity-90 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          <Save className="w-4 h-4" />
-          {loading ? 'Guardando...' : formId ? 'Actualizar Formulario' : 'Crear Formulario'}
-        </button>
+      <div className="flex gap-4 justify-between sticky bottom-4 bg-white p-4 rounded-lg shadow-lg border border-gray-200">
+        <div className="flex gap-2">
+          {formId && (
+            <>
+              <a
+                href={`/admin/forms/${formId}/responses`}
+                className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium text-sm"
+              >
+                Ver respuestas
+              </a>
+              <a
+                href={`/admin/forms/${formId}/emails`}
+                className="px-4 py-2.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition font-medium text-sm"
+              >
+                Correos automáticos
+              </a>
+            </>
+          )}
+        </div>
+        <div className="flex gap-3">
+          <a
+            href="/admin"
+            className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+          >
+            Cancelar
+          </a>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{ backgroundColor: colors.primaryColor }}
+            className="px-6 py-2.5 text-white rounded-lg hover:opacity-90 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <Save className="w-4 h-4" />
+            {loading ? 'Guardando...' : formId ? 'Actualizar Formulario' : 'Crear Formulario'}
+          </button>
+        </div>
       </div>
     </form>
     </div>

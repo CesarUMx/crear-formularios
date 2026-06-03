@@ -10,7 +10,8 @@ datasource db {
 model User {
   id             String        @id @default(cuid())
   email          String        @unique
-  password       String
+  password       String?
+  googleId       String?       @unique
   name           String
   role           UserRole      @default(ADMIN)
   isActive       Boolean       @default(true)
@@ -33,6 +34,11 @@ enum UserRole {
   ADMIN
 }
 
+enum FormType {
+  STANDARD
+  EXAM_REGISTRATION
+}
+
 model Form {
   id          String        @id @default(cuid())
   title       String
@@ -43,14 +49,25 @@ model Form {
   publicUrl   String?
   templateId  String? // ID de la plantilla a usar (nullable temporalmente)
   createdById String
+  formType    FormType      @default(STANDARD) // STANDARD o EXAM_REGISTRATION
+  linkedExamId     String?  // ID del examen al que vincula este formulario (para EXAM_REGISTRATION)
+  emailQuestionId  String?  // ID de la pregunta que contiene el email del estudiante
+  nameQuestionId   String?  // ID de la pregunta que contiene el nombre del estudiante
+  allowExemption   Boolean  @default(false) // Permite solicitud de exención
+  // Condición para decidir si se registra al estudiante al examen (null = siempre registrar)
+  // Estructura: { combinator: "AND"|"OR", rules: [{questionId, operator, value}] }
+  registrationCondition Json?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   createdBy   User          @relation("FormCreator", fields: [createdById], references: [id])
   template    FormTemplate? @relation(fields: [templateId], references: [id])
+  linkedExam  Exam?         @relation(fields: [linkedExamId], references: [id], onDelete: SetNull)
   versions    FormVersion[]
-  responses   Response[]
-  pages       PublicPage[]
-  sharedWith  FormShare[]
+  responses      Response[]
+  pages          PublicPage[]
+  sharedWith     FormShare[]
+  emailTemplates EmailTemplate[]
+  hubSpotConfig  HubSpotConfig?
 
   @@map("forms")
 }
@@ -151,18 +168,20 @@ model Section {
 }
 
 model Question {
-  id               String           @id @default(cuid())
+  id               String              @id @default(cuid())
   sectionId        String
   type             QuestionType
   text             String
   placeholder      String?
   helpText         String?
-  isRequired       Boolean          @default(false)
+  isRequired       Boolean             @default(false)
   allowedFileTypes String? // Para FILE: "IMAGE", "PDF", "EXCEL" (separados por coma)
   maxFileSize      Int? // Tamaño máximo en MB (default: 10)
   order            Int
-  createdAt        DateTime         @default(now())
-  section          Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  // Lógica condicional: { combinator: "AND"|"OR", rules: [{questionId, operator, value}], action: "SHOW"|"HIDE"|"REQUIRE" }
+  conditionalLogic Json?
+  createdAt        DateTime            @default(now())
+  section          Section             @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   options          QuestionOption[]
   answers          Answer[]
 
@@ -176,6 +195,7 @@ enum QuestionType {
   RADIO
   CHECKBOX
   FILE
+  BOOLEAN
 }
 
 model QuestionOption {
@@ -203,6 +223,7 @@ model Response {
   isComplete     Boolean   @default(false)
   form           Form      @relation(fields: [formId], references: [id], onDelete: Cascade)
   answers        Answer[]
+  examRegistration ExamRegistration? // Solo si es formulario de registro
 
   @@index([formId, responseNumber])
   @@index([folio])
@@ -301,6 +322,9 @@ model Exam {
   // Seguridad estricta
   strictSecurity Boolean @default(false) // Modal bloqueante con código único por evento
 
+  // Control de acceso por horario (solo PRIVATE)
+  enforceSchedule Boolean @default(false) // true = solo acceso durante el horario asignado
+
   // Relaciones
   createdById String
   createdAt   DateTime @default(now())
@@ -312,6 +336,8 @@ model Exam {
   sharedWith ExamShare[]
   students   ExamStudent[]
   reports    ExamQuestionReport[]
+  registrationForms Form[] // Formularios de registro vinculados a este examen
+  schedules  ExamSchedule[] // Horarios de inscripción disponibles
 
   @@map("exams")
 }
@@ -805,4 +831,189 @@ model AIExamShare {
 
   @@unique([aiExamId, userId])
   @@map("ai_exam_shares")
+}
+
+// ==================== REGISTRO DE EXAMEN (FASE 2) ====================
+
+// Horarios disponibles para inscripción a exámenes
+model ExamSchedule {
+  id          String   @id @default(cuid())
+  examId      String
+  title       String   // Ej: "Sesión Matutina - Grupo A"
+  description String?  // Información adicional
+  startTime   DateTime // Hora de inicio
+  endTime     DateTime // Hora de fin
+  capacity    Int      // Cupo máximo
+  location    String?  // Ubicación física o link virtual
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  exam          Exam               @relation(fields: [examId], references: [id], onDelete: Cascade)
+  registrations ExamRegistration[]
+
+  @@index([examId, startTime])
+  @@map("exam_schedules")
+}
+
+// Registro de estudiante a examen (creado cuando se envía formulario EXAM_REGISTRATION)
+model ExamRegistration {
+  id          String   @id @default(cuid())
+  responseId  String   @unique // Vinculado a la respuesta del formulario
+  scheduleId  String   // Horario seleccionado
+  studentName String
+  studentEmail String
+  studentPhone String?  // Opcional
+  notes       String?  // Notas del estudiante o admin
+  hasExemption     Boolean  @default(false)
+  exemptionFileUrl String?
+  status      RegistrationStatus @default(CONFIRMED)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  response Response        @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  schedule ExamSchedule    @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@index([scheduleId, status])
+  @@index([studentEmail])
+  @@map("exam_registrations")
+}
+
+enum RegistrationStatus {
+  CONFIRMED
+  CANCELLED
+  ATTENDED
+  NO_SHOW
+}
+
+// ==================== EMAILS CONDICIONALES (FASE 3) ====================
+
+enum EmailTrigger {
+  ON_FORM_SUBMIT
+  SCHEDULED_REMINDER
+}
+
+enum EmailSendStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+// Template de email asociado a un formulario
+model EmailTemplate {
+  id       String  @id @default(cuid())
+  formId   String
+  name     String  // Nombre interno (ej: "Confirmación de registro")
+  subject  String  // Asunto del correo
+  bodyHtml String  @db.Text // Cuerpo HTML con variables {{nombre}}, {{email}}, etc.
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  form     Form           @relation(fields: [formId], references: [id], onDelete: Cascade)
+  rules    EmailRule[]
+  sendLogs EmailSendLog[]
+
+  @@index([formId])
+  @@map("email_templates")
+}
+
+// Regla de envío: cuándo y bajo qué condiciones se envía el template
+model EmailRule {
+  id         String       @id @default(cuid())
+  templateId String
+  trigger    EmailTrigger
+  // Condiciones opcionales: si null = siempre enviar
+  // Estructura: { combinator: "AND"|"OR", rules: [{questionId, operator, value}] }
+  conditions Json?
+  // Para recordatorios programados:
+  reminderOffsetMinutes Int?    // Negativo = antes, positivo = después. Ej: -1440 = 24h antes
+  reminderAnchor        String? // "EXAM_SCHEDULE_START" | "REGISTRATION_CREATED"
+  createdAt DateTime @default(now())
+
+  template EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@map("email_rules")
+}
+
+// Log de cada intento de envío de email
+model EmailSendLog {
+  id             String          @id @default(cuid())
+  templateId     String
+  responseId     String?
+  recipientEmail String
+  status         EmailSendStatus
+  errorMessage   String?
+  scheduledFor   DateTime?       // Solo para recordatorios pendientes
+  sentAt         DateTime        @default(now())
+
+  template EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledFor, status])
+  @@index([templateId])
+  @@index([responseId])
+  @@map("email_send_logs")
+}
+
+// ==================== INTEGRACIÓN HUBSPOT (FASE 4) ====================
+
+enum HubSpotObjectType {
+  CONTACTS
+  DEALS
+}
+
+enum HubSpotMatchOperator {
+  EQ
+  NEQ
+  CONTAINS_TOKEN
+  HAS_PROPERTY
+  NOT_HAS_PROPERTY
+}
+
+enum HubSpotSyncStatus {
+  SUCCESS
+  NOT_FOUND
+  MULTIPLE_MATCHES_USED_LATEST
+  FAILED
+  SKIPPED
+}
+
+// Configuración de sincronización HubSpot para un formulario
+model HubSpotConfig {
+  id                   String               @id @default(cuid())
+  formId               String               @unique
+  objectType           HubSpotObjectType
+  matchOperator        HubSpotMatchOperator
+  matchProperty        String               // Propiedad de HubSpot usada para buscar (ej: "email")
+  // Pregunta del formulario cuyo valor se compara con matchProperty en HubSpot
+  matchQuestionId      String
+  // Token de acceso cifrado con AES-256-GCM usando HUBSPOT_ENCRYPTION_KEY
+  accessTokenEncrypted String
+  isActive             Boolean              @default(true)
+  // [{hubspotProperty: string, questionId: string, condition?: Json}]
+  propertyMappings     Json                 @default("[]")
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  form     Form             @relation(fields: [formId], references: [id], onDelete: Cascade)
+  syncLogs HubSpotSyncLog[]
+
+  @@map("hubspot_configs")
+}
+
+// Log de cada intento de sincronización con HubSpot
+model HubSpotSyncLog {
+  id         String            @id @default(cuid())
+  configId   String
+  responseId String
+  status     HubSpotSyncStatus
+  objectId   String?           // ID del objeto en HubSpot (si se encontró)
+  message    String?
+  createdAt  DateTime          @default(now())
+
+  config HubSpotConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@index([configId, createdAt])
+  @@index([responseId])
+  @@map("hubspot_sync_logs")
 }

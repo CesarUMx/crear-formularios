@@ -1,7 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
 import sharp from 'sharp';
-import { PDFDocument } from 'pdf-lib';
 import xlsx from 'xlsx';
 
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'forms');
@@ -71,31 +70,16 @@ export const processImage = async (buffer: Buffer, filename: string): Promise<Pr
 };
 
 /**
- * Procesar PDF: comprimir
+ * Procesar PDF: pasar sin modificar para evitar corrupción de contenido
  */
 export const processPDF = async (buffer: Buffer, filename: string): Promise<ProcessedFile> => {
-  try {
-    // Cargar el PDF
-    const pdfDoc = await PDFDocument.load(buffer);
-    
-    // Guardar con compresión
-    const compressedBuffer = await pdfDoc.save({
-      useObjectStreams: true, // Compresión de objetos
-      addDefaultPage: false,
-      objectsPerTick: 50
-    });
-    
-    return {
-      buffer: Buffer.from(compressedBuffer),
-      filename: filename,
-      originalSize: buffer.length,
-      processedSize: compressedBuffer.length,
-      reduction: ((1 - compressedBuffer.length / buffer.length) * 100).toFixed(2)
-    };
-  } catch (error) {
-    console.error('Error procesando PDF:', error);
-    throw new Error('Error al procesar el PDF');
-  }
+  return {
+    buffer,
+    filename,
+    originalSize: buffer.length,
+    processedSize: buffer.length,
+    reduction: '0.00'
+  };
 };
 
 /**

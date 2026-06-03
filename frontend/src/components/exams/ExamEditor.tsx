@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { examService } from '../../lib/examService';
+import { api } from '../../lib/api';
 import type { ExamQuestionType, ExamSectionInput, ExamQuestionInput, ExamAccessType } from '../../lib/types';
 import { PageHeader, QuestionRenderer, FileUploader, RichTextEditor } from '../common';
 import { useColors } from '../../hooks/useColors';
@@ -32,6 +33,7 @@ import {
   Paperclip,
   Minus,
   Shield,
+  Calendar,
 } from 'lucide-react';
 import { useToast, ToastContainer } from '../common';
 
@@ -52,8 +54,19 @@ interface ExamEditorProps {
     accessType?: ExamAccessType;
     questionsPerAttempt?: number;
     strictSecurity?: boolean;
+    enforceSchedule?: boolean;
     sections: ExamSectionInput[];
   };
+}
+
+interface ExamScheduleForm {
+  id?: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  capacity: number;
+  location: string;
+  isActive: boolean;
 }
 
 const QUESTION_TYPES: { value: ExamQuestionType; label: string; icon: any; description: string }[] = [
@@ -90,6 +103,7 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
   const [poolEnabled, setPoolEnabled] = useState(!!initialData?.questionsPerAttempt);
   const [questionsPerAttempt, setQuestionsPerAttempt] = useState(initialData?.questionsPerAttempt || 0);
   const [strictSecurity, setStrictSecurity] = useState(initialData?.strictSecurity || false);
+  const [enforceSchedule, setEnforceSchedule] = useState(initialData?.enforceSchedule || false);
 
   // Preguntas (Paso 2)
   const [sections, setSections] = useState<ExamSectionInput[]>(
@@ -103,6 +117,63 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
 
   // Estado general
   const [loading, setLoading] = useState(false);
+
+  // Horarios (Paso 4, solo examenes privados en modo edicion)
+  const [schedules, setSchedules] = useState<ExamScheduleForm[]>([]);
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState<ExamScheduleForm | null>(null);
+  const [newSchedule, setNewSchedule] = useState<ExamScheduleForm>({
+    title: '', startTime: '', endTime: '', capacity: 30, location: '', isActive: true,
+  });
+
+  useEffect(() => {
+    if (examId && accessType === 'PRIVATE') {
+      setLoadingSchedules(true);
+      api.get<any[]>(`/exam-schedules/exam/${examId}`)
+        .then(data => setSchedules(Array.isArray(data) ? data : []))
+        .catch(() => setSchedules([]))
+        .finally(() => setLoadingSchedules(false));
+    } else {
+      setSchedules([]);
+    }
+  }, [examId, accessType]);
+
+  const handleSaveSchedule = async (schedule: ExamScheduleForm) => {
+    if (!examId) return;
+    setSavingSchedule(true);
+    try {
+      const body = schedule.id ? schedule : { ...schedule, examId };
+      const saved = schedule.id
+        ? await api.put<any>(`/exam-schedules/${schedule.id}`, body)
+        : await api.post<any>('/exam-schedules', body);
+      if (schedule.id) {
+        setSchedules(prev => prev.map(s => s.id === saved.id ? saved : s));
+      } else {
+        setSchedules(prev => [...prev, saved]);
+      }
+      setShowScheduleForm(false);
+      setEditingSchedule(null);
+      setNewSchedule({ title: '', startTime: '', endTime: '', capacity: 30, location: '', isActive: true });
+      toast.success('Horario guardado');
+    } catch (err: any) {
+      toast.error('Error', err.message || 'Error al guardar horario');
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const handleDeleteSchedule = async (id: string) => {
+    if (!window.confirm('¿Eliminar este horario?')) return;
+    try {
+      await api.delete(`/exam-schedules/${id}`);
+      setSchedules(prev => prev.filter(s => s.id !== id));
+      toast.success('Horario eliminado');
+    } catch (err: any) {
+      toast.error('Error', err.message || 'Error al eliminar horario');
+    }
+  };
 
   // ==================== HELPERS ====================
 
@@ -306,6 +377,7 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
         accessType,
         questionsPerAttempt: poolEnabled ? questionsPerAttempt : undefined,
         strictSecurity,
+        enforceSchedule,
         sections: sections.map(s => ({
           title: s.title,
           description: s.description,
@@ -422,29 +494,51 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
 
   // ==================== RENDER ====================
 
+  // Si es examen privado con horario forzado y en modo edicion: 1=Config, 2=Horarios, 3=Preguntas, 4=Vista Previa
+  // De lo contrario: 1=Config, 2=Preguntas, 3=Vista Previa
+  const showScheduleStep = !!examId && accessType === 'PRIVATE' && enforceSchedule;
+
+  const stepLabels = showScheduleStep
+    ? ['Configuracion', 'Horarios', 'Preguntas', 'Vista Previa']
+    : ['Configuracion', 'Preguntas', 'Vista Previa'];
+
+  const stepDescription =
+    step === 1 ? 'Paso 1: Configuracion general' :
+    showScheduleStep && step === 2 ? 'Paso 2: Horarios de acceso' :
+    showScheduleStep && step === 3 ? 'Paso 3: Crear preguntas' :
+    showScheduleStep && step === 4 ? 'Paso 4: Vista previa y publicar' :
+    step === 2 ? 'Paso 2: Crear preguntas' :
+    'Paso 3: Vista previa y publicar';
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <PageHeader
         icon={FileText}
         title={examId ? 'Editar Examen' : 'Crear Nuevo Examen'}
-        description={
-          step === 1 ? 'Paso 1: Configuracion general' :
-          step === 2 ? 'Paso 2: Crear preguntas' :
-          'Paso 3: Vista previa y publicar'
-        }
+        description={stepDescription}
         primaryColor={colors.primaryColor}
       />
 
       <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
 
       {/* Indicador de pasos */}
-      <StepIndicator currentStep={step} primaryColor={colors.primaryColor} onStepClick={(s) => {
-        if (s < step) setStep(s);
-        else if (s === 2 && step === 1 && validateStep1()) setStep(2);
-        else if (s === 3 && step === 2 && validateStep2()) setStep(3);
-      }} />
+      <StepIndicator
+        currentStep={step}
+        primaryColor={colors.primaryColor}
+        stepLabels={stepLabels}
+        onStepClick={(s) => {
+          if (s < step) { setStep(s); return; }
+          if (s === 2 && step === 1 && validateStep1()) { setStep(2); return; }
+          if (showScheduleStep) {
+            if (s === 3 && step === 2) { setStep(3); return; }
+            if (s === 4 && step === 3 && validateStep2()) { setStep(4); return; }
+          } else {
+            if (s === 3 && step === 2 && validateStep2()) { setStep(3); return; }
+          }
+        }}
+      />
 
-      {/* Paso 1: Configuracion */}
+      {/* Paso 1: Configuracion (siempre) */}
       {step === 1 && (
         <Step1Configuration
           title={title} setTitle={setTitle}
@@ -458,6 +552,7 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
           poolEnabled={poolEnabled} setPoolEnabled={setPoolEnabled}
           questionsPerAttempt={questionsPerAttempt} setQuestionsPerAttempt={setQuestionsPerAttempt}
           strictSecurity={strictSecurity} setStrictSecurity={setStrictSecurity}
+          enforceSchedule={enforceSchedule} setEnforceSchedule={setEnforceSchedule}
           shuffleQuestions={shuffleQuestions} setShuffleQuestions={setShuffleQuestions}
           shuffleOptions={shuffleOptions} setShuffleOptions={setShuffleOptions}
           onNext={() => { if (validateStep1()) setStep(2); }}
@@ -465,8 +560,27 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
         />
       )}
 
-      {/* Paso 2: Preguntas */}
-      {step === 2 && (
+      {/* Paso 2: Horarios (si showScheduleStep) o Preguntas (si no) */}
+      {step === 2 && showScheduleStep && examId && (
+        <Step4Schedules
+          schedules={schedules}
+          loadingSchedules={loadingSchedules}
+          savingSchedule={savingSchedule}
+          showScheduleForm={showScheduleForm}
+          setShowScheduleForm={setShowScheduleForm}
+          editingSchedule={editingSchedule}
+          setEditingSchedule={setEditingSchedule}
+          newSchedule={newSchedule}
+          setNewSchedule={setNewSchedule}
+          onSave={handleSaveSchedule}
+          onDelete={handleDeleteSchedule}
+          onPrev={() => setStep(1)}
+          onNext={() => setStep(3)}
+          primaryColor={colors.primaryColor}
+        />
+      )}
+
+      {step === 2 && !showScheduleStep && (
         <Step2Questions
           examId={examId}
           sections={sections}
@@ -487,8 +601,29 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
         />
       )}
 
-      {/* Paso 3: Vista previa */}
-      {step === 3 && (
+      {/* Paso 3: Preguntas (si showScheduleStep) o Vista Previa (si no) */}
+      {step === 3 && showScheduleStep && (
+        <Step2Questions
+          examId={examId}
+          sections={sections}
+          expandedSections={expandedSections}
+          toggleSection={toggleSection}
+          addSection={addSection}
+          removeSection={removeSection}
+          updateSection={updateSection}
+          addQuestion={addQuestion}
+          removeQuestion={removeQuestion}
+          updateQuestion={updateQuestion}
+          totalPoints={totalPoints}
+          timeLimit={timeLimit}
+          handleAutoDistribute={handleAutoDistribute}
+          onPrev={() => setStep(2)}
+          onNext={() => { if (validateStep2()) setStep(4); }}
+          primaryColor={colors.primaryColor}
+        />
+      )}
+
+      {step === 3 && !showScheduleStep && (
         <Step3Preview
           title={title}
           description={description}
@@ -513,18 +648,46 @@ export default function ExamEditor({ examId, initialData }: ExamEditorProps) {
           primaryColor={colors.primaryColor}
         />
       )}
+
+      {/* Paso 4: Vista Previa (solo si showScheduleStep) */}
+      {step === 4 && showScheduleStep && (
+        <Step3Preview
+          title={title}
+          description={description}
+          instructions={instructions}
+          timeLimit={timeLimit}
+          maxAttempts={maxAttempts}
+          passingScore={passingScore}
+          shuffleQuestions={shuffleQuestions}
+          shuffleOptions={shuffleOptions}
+          showResults={showResults}
+          accessType={accessType}
+          poolEnabled={poolEnabled}
+          questionsPerAttempt={questionsPerAttempt}
+          sections={sections}
+          totalPoints={totalPoints}
+          totalQuestions={totalQuestions}
+          loading={loading}
+          isEdit={!!examId}
+          onPrev={() => setStep(3)}
+          onSaveDraft={() => handleSubmit(false)}
+          onPublish={() => handleSubmit(true)}
+          primaryColor={colors.primaryColor}
+        />
+      )}
     </div>
   );
 }
 
 // ==================== INDICADOR DE PASOS ====================
 
-function StepIndicator({ currentStep, primaryColor, onStepClick }: { currentStep: number; primaryColor: string; onStepClick: (step: number) => void }) {
-  const steps = [
-    { num: 1, label: 'Configuracion' },
-    { num: 2, label: 'Preguntas' },
-    { num: 3, label: 'Vista Previa' },
-  ];
+function StepIndicator({ currentStep, primaryColor, stepLabels, onStepClick }: {
+  currentStep: number;
+  primaryColor: string;
+  stepLabels: string[];
+  onStepClick: (step: number) => void;
+}) {
+  const steps = stepLabels.map((label, idx) => ({ num: idx + 1, label }));
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -556,6 +719,196 @@ function StepIndicator({ currentStep, primaryColor, onStepClick }: { currentStep
   );
 }
 
+// ==================== PASO 4: HORARIOS ====================
+
+interface Step4SchedulesProps {
+  schedules: ExamScheduleForm[];
+  loadingSchedules: boolean;
+  savingSchedule: boolean;
+  showScheduleForm: boolean;
+  setShowScheduleForm: (v: boolean) => void;
+  editingSchedule: ExamScheduleForm | null;
+  setEditingSchedule: (v: ExamScheduleForm | null) => void;
+  newSchedule: ExamScheduleForm;
+  setNewSchedule: (v: ExamScheduleForm) => void;
+  onSave: (s: ExamScheduleForm) => void;
+  onDelete: (id: string) => void;
+  onPrev: () => void;
+  onNext?: () => void;
+  primaryColor: string;
+}
+
+function Step4Schedules({
+  schedules, loadingSchedules, savingSchedule,
+  showScheduleForm, setShowScheduleForm,
+  editingSchedule, setEditingSchedule,
+  newSchedule, setNewSchedule,
+  onSave, onDelete, onPrev, onNext, primaryColor,
+}: Step4SchedulesProps) {
+  const current = editingSchedule || newSchedule;
+  const setCurrent = (v: ExamScheduleForm) =>
+    editingSchedule ? setEditingSchedule(v) : setNewSchedule(v);
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5" style={{ color: primaryColor }} />
+            <h3 className="text-lg font-semibold text-gray-900">Horarios del Examen</h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setEditingSchedule(null); setShowScheduleForm(true); }}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-white rounded-lg transition"
+            style={{ backgroundColor: primaryColor }}
+          >
+            <Plus className="w-4 h-4" /> Agregar horario
+          </button>
+        </div>
+
+        {/* Formulario inline */}
+        {showScheduleForm && (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 space-y-3">
+            <h4 className="text-sm font-semibold text-gray-700">
+              {editingSchedule ? 'Editar horario' : 'Nuevo horario'}
+            </h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Titulo *</label>
+                <input type="text" value={current.title}
+                  onChange={e => setCurrent({ ...current, title: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:outline-none"
+                  placeholder="Ej: Turno matutino" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Inicio *</label>
+                <input type="datetime-local" value={current.startTime}
+                  onChange={e => setCurrent({ ...current, startTime: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Fin *</label>
+                <input type="datetime-local" value={current.endTime}
+                  onChange={e => setCurrent({ ...current, endTime: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Cupo *</label>
+                <input type="number" min={1} value={current.capacity}
+                  onChange={e => setCurrent({ ...current, capacity: Number(e.target.value) })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Lugar</label>
+                <input type="text" value={current.location}
+                  onChange={e => setCurrent({ ...current, location: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:outline-none"
+                  placeholder="Aula / salon" />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end pt-1">
+              <button type="button"
+                onClick={() => { setShowScheduleForm(false); setEditingSchedule(null); }}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
+                Cancelar
+              </button>
+              <button type="button" disabled={savingSchedule}
+                onClick={() => onSave(current)}
+                className="px-4 py-2 text-sm text-white rounded-lg disabled:opacity-50 transition"
+                style={{ backgroundColor: primaryColor }}>
+                {savingSchedule ? 'Guardando...' : (editingSchedule ? 'Actualizar' : 'Agregar')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Lista de horarios */}
+        {loadingSchedules ? (
+          <p className="text-sm text-gray-500 py-4 text-center">Cargando horarios...</p>
+        ) : schedules.length === 0 ? (
+          <p className="text-sm text-gray-400 py-4 text-center italic">
+            Sin horarios. Agrega el primero para que los estudiantes puedan inscribirse.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {schedules.map((s: any) => {
+              const start = new Date(s.startTime);
+              const end = new Date(s.endTime);
+              const now = new Date();
+              const isActive = now >= start && now <= end;
+              const isPast = now > end;
+              return (
+                <div key={s.id}
+                  className="flex items-center justify-between p-4 rounded-lg border border-gray-200 bg-gray-50">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 text-sm">{s.title}</span>
+                      {isActive && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                          En curso
+                        </span>
+                      )}
+                      {isPast && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                          Finalizado
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {start.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' })}
+                      {' · '}
+                      {start.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                      {' – '}
+                      {end.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                      {' · cupo: '}{s.capacity}
+                      {s.location ? ` · ${s.location}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex gap-3 ml-4 shrink-0">
+                    <button type="button"
+                      onClick={() => {
+                        setEditingSchedule({
+                          ...s,
+                          startTime: s.startTime?.slice(0, 16),
+                          endTime: s.endTime?.slice(0, 16),
+                        });
+                        setShowScheduleForm(true);
+                      }}
+                      className="text-xs font-medium text-blue-600 hover:text-blue-800">
+                      Editar
+                    </button>
+                    <button type="button"
+                      onClick={() => onDelete(s.id)}
+                      className="text-xs font-medium text-red-500 hover:text-red-700">
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Navegacion */}
+      <div className="flex justify-between">
+        <button type="button" onClick={onPrev}
+          className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+          <ChevronLeft className="w-4 h-4" /> Volver a Configuracion
+        </button>
+        {onNext && (
+          <button type="button" onClick={onNext}
+            className="flex items-center gap-2 px-6 py-2 text-sm text-white rounded-lg transition hover:opacity-90"
+            style={{ backgroundColor: primaryColor }}>
+            Siguiente: Preguntas <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ==================== PASO 1: CONFIGURACION ====================
 
 interface Step1Props {
@@ -570,6 +923,7 @@ interface Step1Props {
   poolEnabled: boolean; setPoolEnabled: (v: boolean) => void;
   questionsPerAttempt: number; setQuestionsPerAttempt: (v: number) => void;
   strictSecurity: boolean; setStrictSecurity: (v: boolean) => void;
+  enforceSchedule: boolean; setEnforceSchedule: (v: boolean) => void;
   shuffleQuestions: boolean; setShuffleQuestions: (v: boolean) => void;
   shuffleOptions: boolean; setShuffleOptions: (v: boolean) => void;
   onNext: () => void;
@@ -747,6 +1101,15 @@ function Step1Configuration(props: Step1Props) {
             checked={props.strictSecurity}
             onChange={props.setStrictSecurity}
           />
+          {props.accessType === 'PRIVATE' && (
+            <ToggleField
+              label="Restringir acceso por horario"
+              description="Solo permite acceso durante el horario asignado al estudiante"
+              icon={Calendar}
+              checked={props.enforceSchedule}
+              onChange={props.setEnforceSchedule}
+            />
+          )}
         </div>
 
         {props.poolEnabled && (
