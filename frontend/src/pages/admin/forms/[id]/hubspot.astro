@@ -1,0 +1,68 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../../../components/auth/ProtectedRoute';
+import HubSpotConfigPanel from '../../../../components/forms/HubSpotConfigPanel';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/admin');
+}
+---
+
+<AdminLayout title="Integración HubSpot" currentPath="/admin">
+  <ProtectedRoute client:load>
+    <div>
+      <!-- Header -->
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <nav class="flex items-center gap-1 text-sm text-gray-500 mb-4">
+          <a href="/admin" class="hover:text-gray-700 transition">Admin</a>
+          <span class="mx-1">›</span>
+          <a href={`/admin/forms/${id}`} class="hover:text-gray-700 transition">Formulario</a>
+          <span class="mx-1">›</span>
+          <span class="text-gray-800 font-medium">HubSpot</span>
+        </nav>
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex items-start gap-4">
+            <div class="p-3 rounded-lg bg-orange-100">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <h1 class="text-2xl font-bold text-gray-900">Integración HubSpot</h1>
+              <p class="text-gray-600 mt-1">Sincronización automática con tu CRM</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <a
+              href={`/admin/forms/${id}`}
+              class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm font-medium"
+            >
+              ← Volver al formulario
+            </a>
+          </div>
+        </div>
+
+        <div class="mt-5 pt-4 border-t border-gray-100">
+          <div class="flex flex-wrap gap-2">
+            <a href={`/admin/forms/${id}/questions`} class="px-3 py-1.5 rounded-md text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">Preguntas</a>
+            <a href={`/admin/forms/${id}/exam`} class="px-3 py-1.5 rounded-md text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">Examen</a>
+            <a href={`/admin/forms/${id}/emails`} class="px-3 py-1.5 rounded-md text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">Correos</a>
+            <a href={`/admin/forms/${id}/responses`} class="px-3 py-1.5 rounded-md text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">Respuestas</a>
+            <a href={`/admin/forms/${id}/statistics`} class="px-3 py-1.5 rounded-md text-sm font-medium transition bg-gray-100 text-gray-700 hover:bg-gray-200">Estadísticas</a>
+            <a href={`/admin/forms/${id}/hubspot`} class="px-3 py-1.5 rounded-md text-sm font-medium transition bg-blue-600 text-white">HubSpot</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contenido -->
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <HubSpotConfigPanel client:load formId={id} />
+      </div>
+    </div>
+  </ProtectedRoute>
+</AdminLayout>
+

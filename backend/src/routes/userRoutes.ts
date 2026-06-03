@@ -11,7 +11,7 @@ import {
 } from '../controllers/userController.js';
 import { requireAuth, requireSuperAdmin } from '../middleware/auth.js';
 
-const router = express.Router();
+const router: import("express").Router = express.Router();
 
 // Todas las rutas requieren autenticación Y rol de SUPER_ADMIN
 router.use(requireAuth);

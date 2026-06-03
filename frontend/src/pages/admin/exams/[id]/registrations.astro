@@ -1,0 +1,19 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../../../components/auth/ProtectedRoute';
+import ExamRegistrationsList from '../../../../components/exams/ExamRegistrationsList';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+
+if (!id) {
+  return Astro.redirect('/admin/exams');
+}
+---
+
+<AdminLayout title="Registros de Examen" currentPath="/admin/exams">
+  <ProtectedRoute client:load>
+    <ExamRegistrationsList client:load examId={id} />
+  </ProtectedRoute>
+</AdminLayout>

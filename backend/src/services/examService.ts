@@ -53,6 +53,7 @@ interface CreateExamData {
   questionsPerAttempt?: number;
   accessType?: string;
   strictSecurity?: boolean;
+  enforceSchedule?: boolean;
   sections: ExamSection[];
 }
 
@@ -207,6 +208,7 @@ export const createExam = async (userId: string, data: CreateExamData) => {
     questionsPerAttempt,
     accessType,
     strictSecurity,
+    enforceSchedule,
     sections 
   } = data;
 
@@ -239,6 +241,7 @@ export const createExam = async (userId: string, data: CreateExamData) => {
       questionsPerAttempt: questionsPerAttempt || null,
       accessType: (accessType as any) || 'PUBLIC',
       strictSecurity: strictSecurity || false,
+      enforceSchedule: enforceSchedule || false,
       autoGrade: checkIfAutoGradable(sections),
       createdById: userId,
       sections: {
@@ -308,6 +311,7 @@ export const updateExam = async (examId: string, data: UpdateExamData) => {
     questionsPerAttempt,
     accessType,
     strictSecurity,
+    enforceSchedule,
     sections 
   } = data;
 
@@ -339,6 +343,7 @@ export const updateExam = async (examId: string, data: UpdateExamData) => {
       questionsPerAttempt: questionsPerAttempt || null,
       accessType: accessType ? (accessType as any) : undefined,
       strictSecurity: strictSecurity !== undefined ? strictSecurity : undefined,
+      enforceSchedule: enforceSchedule !== undefined ? enforceSchedule : undefined,
       autoGrade: checkIfAutoGradable(sections),
       sections: {
         create: sections.map((section, sectionIndex) => ({
@@ -882,6 +887,45 @@ export const deleteStudent = async (examId: string, studentId: string) => {
 };
 
 /**
+ * Exportar estudiantes como CSV.
+ * Si resetPasswords=true, genera nuevas contraseñas para todos los estudiantes,
+ * actualiza los hashes en BD y devuelve el CSV con la contraseña en texto plano.
+ */
+export const exportStudentsCSV = async (examId: string, resetPasswords: boolean): Promise<string> => {
+  const students = await prisma.examStudent.findMany({
+    where: { examId },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, name: true, email: true },
+  });
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  };
+
+  let rows: string[][];
+
+  if (resetPasswords) {
+    // Generar nuevas contraseñas, actualizar BD y construir filas con contraseña
+    const updates = await Promise.all(
+      students.map(async (s) => {
+        const plain = generatePassword();
+        const hash = await bcrypt.hash(plain, 10);
+        await prisma.examStudent.update({ where: { id: s.id }, data: { password: hash } });
+        return { name: s.name, email: s.email, password: plain };
+      })
+    );
+    rows = updates.map(r => [r.name, r.email, r.password]);
+    const header = 'Nombre,Correo,Contrasena\n';
+    return header + rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n');
+  } else {
+    rows = students.map(s => [s.name, s.email]);
+    const header = 'Nombre,Correo\n';
+    return header + rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n');
+  }
+};
+
+/**
  * Login de estudiante para examen privado
  */
 export const loginStudent = async (examSlug: string, email: string, password: string) => {
@@ -903,6 +947,42 @@ export const loginStudent = async (examSlug: string, email: string, password: st
 
   const validPassword = await bcrypt.compare(password, student.password);
   if (!validPassword) throw new Error('Credenciales inválidas');
+
+  // Verificar horario asignado solo si el examen tiene enforceSchedule activo
+  if (exam.enforceSchedule) {
+    const registration = await prisma.examRegistration.findFirst({
+      where: {
+        studentEmail: email,
+        schedule: { examId: exam.id },
+        status: { not: 'CANCELLED' },
+      },
+      include: {
+        schedule: {
+          select: { startTime: true, endTime: true, title: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (registration) {
+      const now = new Date();
+      const { startTime, endTime, title } = registration.schedule;
+
+      if (now < startTime) {
+        const dateStr = startTime.toLocaleDateString('es-MX', {
+          weekday: 'long', day: 'numeric', month: 'long',
+        });
+        const timeStr = startTime.toLocaleTimeString('es-MX', {
+          hour: '2-digit', minute: '2-digit',
+        });
+        throw new Error(`El examen aún no ha iniciado. Tu horario "${title}" comienza el ${dateStr} a las ${timeStr}`);
+      }
+
+      if (now > endTime) {
+        throw new Error(`El horario asignado para tu examen ("${title}") ha finalizado`);
+      }
+    }
+  }
 
   return {
     student: {

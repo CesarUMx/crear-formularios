@@ -1,5 +1,5 @@
 // Tipos de preguntas
-export type QuestionType = 'TEXT' | 'TEXTAREA' | 'SELECT' | 'RADIO' | 'CHECKBOX' | 'FILE';
+export type QuestionType = 'TEXT' | 'TEXTAREA' | 'SELECT' | 'RADIO' | 'CHECKBOX' | 'FILE' | 'BOOLEAN';
 
 // Permisos de compartido
 export type Permission = 'VIEW' | 'EDIT' | 'FULL';
@@ -46,6 +46,25 @@ export interface QuestionOption {
   order: number;
 }
 
+// Lógica condicional para preguntas
+export interface ConditionalLogic {
+  combinator: 'AND' | 'OR';
+  rules: ConditionalRule[];
+  action: 'SHOW' | 'HIDE' | 'REQUIRE';
+}
+
+export interface ConditionalRule {
+  questionId: string;
+  operator: 'equals' | 'not_equals' | 'contains' | 'is_empty' | 'is_not_empty';
+  value?: string | string[];
+}
+
+// Condición simple (sin action) - usada para registrationCondition
+export interface SimpleCondition {
+  combinator: 'AND' | 'OR';
+  rules: ConditionalRule[];
+}
+
 // Pregunta
 export interface Question {
   id?: string;
@@ -57,6 +76,7 @@ export interface Question {
   allowedFileTypes?: string;
   maxFileSize?: number;
   order: number;
+  conditionalLogic?: ConditionalLogic;
   options: QuestionOption[];
 }
 
@@ -93,6 +113,8 @@ export interface FormShare {
 }
 
 // Formulario completo
+export type FormType = 'STANDARD' | 'EXAM_REGISTRATION';
+
 export interface Form {
   id: string;
   title: string;
@@ -101,6 +123,12 @@ export interface Form {
   isActive: boolean;
   isPublic: boolean;
   templateId?: string; // ID de la plantilla de diseño
+  formType: FormType; // STANDARD o EXAM_REGISTRATION
+  linkedExamId?: string; // ID del examen vinculado (para EXAM_REGISTRATION)
+  emailQuestionId?: string;
+  nameQuestionId?: string;
+  allowExemption?: boolean;
+  registrationCondition?: SimpleCondition;
   createdAt: string;
   updatedAt: string;
   createdBy: {
@@ -123,6 +151,12 @@ export interface FormInput {
   title: string;
   description?: string;
   templateId?: string; // ID de la plantilla a usar
+  formType?: FormType;
+  linkedExamId?: string;
+  emailQuestionId?: string;
+  nameQuestionId?: string;
+  allowExemption?: boolean;
+  registrationCondition?: SimpleCondition;
   sections: SectionInput[];
 }
 
@@ -133,6 +167,7 @@ export interface SectionInput {
 }
 
 export interface QuestionInput {
+  id?: string; // ID temporal o de BD para referenciar en condiciones
   type: QuestionType;
   text: string;
   placeholder?: string;
@@ -141,6 +176,7 @@ export interface QuestionInput {
   allowedFileTypes?: string; // Para FILE: "IMAGE", "PDF", "EXCEL"
   maxFileSize?: number; // Tamaño máximo en MB
   options?: { text: string }[];
+  conditionalLogic?: ConditionalLogic;
 }
 
 // ==================== TIPOS DE EXÁMENES ====================
@@ -238,6 +274,7 @@ export interface Exam {
   autoGrade: boolean;
   questionsPerAttempt?: number;
   strictSecurity?: boolean; // Modal bloqueante con código único por evento
+  enforceSchedule?: boolean; // Restringir acceso por horario asignado
   
   // Relaciones
   createdAt: string;
@@ -268,6 +305,7 @@ export interface ExamInput {
   accessType?: ExamAccessType;
   questionsPerAttempt?: number;
   strictSecurity?: boolean;
+  enforceSchedule?: boolean;
   sections: ExamSectionInput[];
 }
 

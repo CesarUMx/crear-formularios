@@ -31,7 +31,6 @@ async function loadColors(): Promise<PlatformColors> {
       if (cachedColors) {
         try {
           colorsCache = JSON.parse(cachedColors);
-          console.log('🎨 Colors loaded from localStorage');
         } catch (e) {
           console.error('Error parsing cached colors:', e);
         }
@@ -39,12 +38,10 @@ async function loadColors(): Promise<PlatformColors> {
 
       // Cargar desde la API
       const fullUrl = `${API_URL}/settings/colors`;
-      console.log('🎨 Fetching colors from:', fullUrl);
-      
       const res = await fetch(fullUrl);
       
       if (!res.ok) {
-        console.error('❌ Error loading colors, status:', res.status);
+        console.error('Error loading colors, status:', res.status);
         throw new Error(`HTTP ${res.status}`);
       }
       
@@ -56,9 +53,8 @@ async function loadColors(): Promise<PlatformColors> {
       };
       
       localStorage.setItem('platform_colors', JSON.stringify(colorsCache));
-      console.log('✅ Colors loaded from API:', colorsCache);
     } catch (err) {
-      console.error('❌ Error loading colors:', err);
+      console.error('Error loading colors:', err);
       // Usar valores por defecto si falla
       colorsCache = {
         primaryColor: '#006eff',

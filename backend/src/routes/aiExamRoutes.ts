@@ -10,14 +10,14 @@ import { pdfService } from '../services/pdfService.js';
 import { aiExamService } from '../services/aiExamService.js';
 import { progressTracker } from '../utils/progressTracker.js';
 
-const router = Router();
+const router: Router = Router();
 const prisma = new PrismaClient();
 
 // Configurar multer para subida de archivos
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
+    fileSize: 50 * 1024 * 1024, // 50MB — soporta PDFs grandes (600+ páginas)
   },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype === 'application/pdf') {

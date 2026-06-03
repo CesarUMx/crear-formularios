@@ -124,6 +124,27 @@ export const examService = {
     return api.delete(`/exams/${examId}/students/${studentId}`);
   },
 
+  async exportStudentsCSV(examId: string, resetPasswords: boolean): Promise<void> {
+    let token = '';
+    try {
+      if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+        token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
+      }
+    } catch { /* SSR */ }
+    const { API_URL } = await import('./config');
+    const url = `${API_URL}/exams/${examId}/students/export?resetPasswords=${resetPasswords}`;
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Error al exportar estudiantes');
+    const blob = await response.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `estudiantes.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  },
+
   async loginStudent(slug: string, email: string, password: string): Promise<any> {
     return api.post('/exams/login', { slug, email, password });
   },

@@ -184,8 +184,8 @@ export default function AIExamGenerator({ examId: initialExamId }: AIExamGenerat
         toast.error('Error', 'Solo se permiten archivos PDF');
         return;
       }
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('Error', 'El archivo no debe superar 10MB');
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error('Error', 'El archivo no debe superar 50MB');
         return;
       }
       setPdfFile(file);
@@ -208,7 +208,7 @@ export default function AIExamGenerator({ examId: initialExamId }: AIExamGenerat
     }
 
     // Mostrar selector de tipos de preguntas
-    console.log('🎯 Mostrando selector de tipos de preguntas...');
+    console.log('Mostrando selector de tipos de preguntas...');
     setShowQuestionTypeSelector(true);
   };
 
@@ -690,7 +690,7 @@ export default function AIExamGenerator({ examId: initialExamId }: AIExamGenerat
                         Haz clic para seleccionar un PDF
                       </p>
                       <p className="text-sm text-gray-500">
-                        Máximo 10MB - El contenido será analizado por IA
+                        Máximo 50MB - El contenido será analizado por IA
                       </p>
                     </>
                   )}
@@ -709,7 +709,7 @@ export default function AIExamGenerator({ examId: initialExamId }: AIExamGenerat
                   value={numberOfQuestions}
                   onChange={(e) => setNumberOfQuestions(Number(e.target.value))}
                   min={Math.ceil(questionsPerAttempt * 1.5)}
-                  max="50"
+                  max="500"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
                   placeholder={`Mínimo: ${Math.ceil(questionsPerAttempt * 1.5)}`}
                 />

@@ -1,13 +1,11 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import ProtectedRoute from '../../../components/auth/ProtectedRoute';
-import FormEditor from '../../../components/forms/FormEditor';
+import FormBasicInfo from '../../../components/forms/FormBasicInfo';
 ---
 
 <AdminLayout title="Crear Nuevo Formulario" currentPath="/admin">
   <ProtectedRoute client:load>
-    <div class="max-w-5xl mx-auto">
-      <FormEditor client:load />
-    </div>
+    <FormBasicInfo client:load />
   </ProtectedRoute>
 </AdminLayout>

@@ -32,6 +32,7 @@ import {
   getStudents,
   updateStudent,
   removeStudent,
+  exportStudentsCSV,
   loginStudent,
   recordTabSwitch,
   saveStudentPhoto,
@@ -44,7 +45,7 @@ import {
 import { requireAuth } from '../middleware/auth.js';
 import { upload, handleMulterError } from '../config/multer.js';
 
-const router = express.Router();
+const router: import("express").Router = express.Router();
 
 // ==================== RUTAS PÚBLICAS (sin autenticación) ====================
 
@@ -124,6 +125,7 @@ router.delete('/:id/questions/:questionId/file', removeQuestionFile);
 // Gestión de estudiantes (examen privado)
 router.post('/:id/students', addStudents);
 router.get('/:id/students', getStudents);
+router.get('/:id/students/export', exportStudentsCSV);
 router.put('/:id/students/:studentId', updateStudent);
 router.delete('/:id/students/:studentId', removeStudent);
 

@@ -2,8 +2,6 @@
 import AdminLayout from '../../../../../layouts/AdminLayout.astro';
 import ProtectedRoute from '../../../../../components/auth/ProtectedRoute';
 import ResponseDetail from '../../../../../components/forms/ResponseDetail';
-import { formService } from '../../../../../lib/formService';
-import { analyticsService } from '../../../../../lib/analyticsService';
 
 export const prerender = false;
 
@@ -12,19 +10,9 @@ const { id, responseId } = Astro.params;
 if (!id || !responseId) {
   return Astro.redirect('/admin');
 }
-
-// Intentar obtener información básica del formulario
-let formTitle = 'Formulario';
-
-try {
-  const form = await formService.getFormById(id);
-  formTitle = form.title;
-} catch (err) {
-  console.error('Error al cargar información del formulario:', err);
-}
 ---
 
-<AdminLayout title={`Detalle de Respuesta - ${formTitle}`} currentPath="/admin">
+<AdminLayout title="Detalle de Respuesta" currentPath="/admin">
   <ProtectedRoute client:load>
     <div class="max-w-7xl mx-auto">
       <!-- Header -->

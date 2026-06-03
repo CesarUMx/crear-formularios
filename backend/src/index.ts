@@ -5,6 +5,8 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import session from 'express-session';
+import passportConfig from './config/passport.js';
 import authRoutes from './routes/authRoutes.js';
 import formRoutes from './routes/formRoutes.js';
 import examRoutes from './routes/examRoutes.js';
@@ -20,7 +22,12 @@ import questionReportsRouter from './routes/questionReports.js';
 import progressRoutes from './routes/progressRoutes.js';
 import gradingRoutes from './routes/gradingRoutes.js';
 import securityRoutes from './routes/securityRoutes.js';
+import examScheduleRoutes from './routes/examScheduleRoutes.js';
+import examRegistrationRoutes from './routes/examRegistrationRoutes.js';
+import emailTemplateRoutes from './routes/emailTemplateRoutes.js';
+import hubspotRoutes from './routes/hubspotRoutes.js';
 import { startAbandonedAttemptsCleanup } from './utils/cronJobs.js';
+import { startEmailReminderWorker } from './utils/emailReminderWorker.js';
 
 dotenv.config();
 
@@ -52,6 +59,16 @@ app.use(cors({
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Sesión mínima solo para el flujo OAuth (no se usa para autenticación de usuario)
+app.use(session({
+  secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'oauth-session-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false, maxAge: 10 * 60 * 1000 }, // 10 minutos
+}));
+app.use(passportConfig.initialize());
+app.use(passportConfig.session());
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
@@ -118,6 +135,10 @@ app.use('/api/ai-exams', aiExamRoutes);
 app.use('/api/question-reports', questionReportsRouter);
 app.use('/api/grading', gradingRoutes);
 app.use('/api/security', securityRoutes);
+app.use('/api/exam-schedules', examScheduleRoutes);
+app.use('/api/exam-registrations', examRegistrationRoutes);
+app.use('/api', emailTemplateRoutes);
+app.use('/api', hubspotRoutes);
 app.use('/api', progressRoutes);
 
 // 404 handler
@@ -139,5 +160,6 @@ app.listen(PORT, () => {
   
   // Iniciar cron jobs
   startAbandonedAttemptsCleanup();
+  startEmailReminderWorker();
   console.log('✅ Cron jobs iniciados');
 });

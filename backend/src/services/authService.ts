@@ -62,6 +62,7 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
       id: true,
       email: true,
       name: true,
+      googleId: true,
       role: true,
       isActive: true,
       createdAt: true,
@@ -89,6 +90,11 @@ export const login = async (email: string, password: string): Promise<AuthRespon
   // Verificar si está activo
   if (!user.isActive) {
     throw new Error('Usuario desactivado. Contacta al administrador.');
+  }
+
+  // Verificar que el usuario tenga contraseña (no es cuenta Google pura)
+  if (!user.password) {
+    throw new Error('Esta cuenta usa Google para iniciar sesión. Usa el botón "Iniciar sesión con Google".');
   }
 
   // Verificar contraseña
@@ -164,6 +170,7 @@ export const updateProfile = async (userId: string, data: UpdateProfileData): Pr
       id: true,
       email: true,
       name: true,
+      googleId: true,
       role: true,
       isActive: true,
       updatedAt: true,
@@ -189,6 +196,10 @@ export const changePassword = async (
   }
 
   // Verificar contraseña actual
+  if (!user.password) {
+    throw new Error('Esta cuenta usa Google para iniciar sesión. No tiene contraseña para cambiar.');
+  }
+
   const isValidPassword = await comparePassword(currentPassword, user.password);
 
   if (!isValidPassword) {

@@ -1,8 +1,10 @@
+
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { generateResponseFolio } from '../utils/folioGenerator.js';
+import { validateNoAnswersForHiddenQuestions, isQuestionRequired } from '../utils/conditionalEngine.js';
 
-const router = express.Router();
+const router: import("express").Router = express.Router();
 const prisma = new PrismaClient();
 
 /**
@@ -43,6 +45,60 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ error: 'Versión del formulario no encontrada' });
     }
 
+    // Preparar respuestas actuales para validación condicional
+    const currentAnswers: Record<string, string | string[]> = {};
+    answers.forEach((answer: any) => {
+      if (answer.textAnswer) {
+        currentAnswers[answer.questionId] = answer.textAnswer;
+      } else if (answer.selectedOptions && answer.selectedOptions.length > 0) {
+        currentAnswers[answer.questionId] = answer.selectedOptions;
+      } else if (answer.fileUrl) {
+        currentAnswers[answer.questionId] = answer.fileUrl;
+      }
+    });
+
+    // Validar lógica condicional
+    const allQuestions = version.sections.flatMap(s => s.questions);
+
+    // 1. Verificar que no hay respuestas para preguntas ocultas (anti-tampering)
+    const { valid, hiddenQuestionWithAnswer } = validateNoAnswersForHiddenQuestions(
+      allQuestions.map(q => ({
+        id: q.id,
+        conditionalLogic: q.conditionalLogic as any
+      })),
+      currentAnswers
+    );
+
+    if (!valid && hiddenQuestionWithAnswer) {
+      const hiddenQuestion = allQuestions.find(q => q.id === hiddenQuestionWithAnswer);
+      return res.status(400).json({
+        error: `Respuesta inválida: la pregunta "${hiddenQuestion?.text || 'desconocida'}" está oculta y no debe tener respuesta`
+      });
+    }
+
+    // 2. Verificar preguntas requeridas condicionalmente
+    for (const question of allQuestions) {
+      const isRequired = isQuestionRequired(
+        {
+          id: question.id,
+          isRequired: question.isRequired,
+          conditionalLogic: question.conditionalLogic as any
+        },
+        currentAnswers
+      );
+
+      if (isRequired) {
+        const hasAnswer = answers.some((a: any) => a.questionId === question.id &&
+          (a.textAnswer || (a.selectedOptions && a.selectedOptions.length > 0) || a.fileUrl)
+        );
+        if (!hasAnswer) {
+          return res.status(400).json({
+            error: `La pregunta "${question.text}" es requerida`
+          });
+        }
+      }
+    }
+
     // Generar folio único para la respuesta
     const folio = generateResponseFolio(formId);
     
@@ -62,16 +118,18 @@ router.post('/', async (req, res) => {
         ipAddress: ipAddress,
         userAgent: userAgent,
         answers: {
-          create: answers.map((answer: any) => ({
-            questionId: answer.questionId,
-            textValue: answer.textAnswer,
-            fileUrl: answer.fileUrl,
-            fileName: answer.fileName,
-            fileSize: answer.fileSize,
-            selectedOptions: answer.selectedOptions ? {
-              connect: answer.selectedOptions.map((optionId: string) => ({ id: optionId }))
-            } : undefined
-          }))
+          create: answers
+            .filter((answer: any) => !answer.questionId.startsWith('_'))
+            .map((answer: any) => ({
+              questionId: answer.questionId,
+              textValue: answer.textAnswer,
+              fileUrl: answer.fileUrl,
+              fileName: answer.fileName,
+              fileSize: answer.fileSize,
+              selectedOptions: answer.selectedOptions ? {
+                connect: answer.selectedOptions.map((optionId: string) => ({ id: optionId }))
+              } : undefined
+            }))
         }
       },
       include: {

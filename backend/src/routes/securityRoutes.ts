@@ -3,7 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import * as securityService from '../services/securityService.js';
 import { SecurityEventType, SecurityAttemptType } from '@prisma/client';
 
-const router = express.Router();
+const router: import("express").Router = express.Router();
 
 /**
  * POST /api/security/events

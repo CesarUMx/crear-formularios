@@ -2,8 +2,9 @@ import express, { Request, Response } from 'express';
 import { upload, handleMulterError } from '../config/multer.js';
 import * as fileService from '../services/fileService.js';
 import { PrismaClient } from '@prisma/client';
+import fs from 'fs/promises';
 
-const router = express.Router();
+const router: import("express").Router = express.Router();
 const prisma = new PrismaClient();
 
 /**
@@ -58,7 +59,21 @@ router.post('/upload', upload.single('file'), handleMulterError, async (req: Req
     }
 
     // Procesar archivo según su tipo
-    const processedFile = await fileService.processFile(file);
+    // Multer usa diskStorage → leer buffer del disco y limpiar el temporal
+    let fileBuffer: Buffer;
+    try {
+      fileBuffer = await fs.readFile(file.path);
+    } catch {
+      return res.status(500).json({ error: 'Error al leer el archivo subido' });
+    }
+
+    let processedFile;
+    try {
+      processedFile = await fileService.processFile({ ...file, buffer: fileBuffer });
+    } finally {
+      // Eliminar el temporal independientemente del resultado
+      await fs.unlink(file.path).catch(() => {});
+    }
 
     // Guardar archivo
     const savedFile = await fileService.saveFile(processedFile, formId, responseId);

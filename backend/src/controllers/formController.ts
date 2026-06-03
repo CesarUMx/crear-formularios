@@ -48,7 +48,7 @@ export const getFormById = async (req: Request, res: Response, next: NextFunctio
  */
 export const createForm = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { title, description, sections, templateId } = req.body;
+    const { title, description, sections, templateId, formType, linkedExamId, emailQuestionId, nameQuestionId, allowExemption, registrationCondition } = req.body;
 
     // Validaciones
     if (!title || title.trim() === '') {
@@ -86,7 +86,13 @@ export const createForm = async (req: Request, res: Response, next: NextFunction
     const form = await formService.createForm(String(req.user!.id), {
       title,
       description,
-      templateId: templateId || 'modern', // Default a plantilla moderna
+      templateId: templateId || 'modern',
+      formType,
+      linkedExamId,
+      emailQuestionId,
+      nameQuestionId,
+      allowExemption,
+      registrationCondition,
       sections
     });
 
@@ -105,7 +111,7 @@ export const createForm = async (req: Request, res: Response, next: NextFunction
 export const updateForm = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { title, description, templateId, sections } = req.body;
+    const { title, description, templateId, sections, formType, linkedExamId, emailQuestionId, nameQuestionId, allowExemption, registrationCondition } = req.body;
 
     // Verificar permisos
     const canEdit = await permissionService.canEditForm(String(req.user!.id), String(id));
@@ -126,6 +132,12 @@ export const updateForm = async (req: Request, res: Response, next: NextFunction
       title,
       description,
       templateId,
+      formType,
+      linkedExamId,
+      emailQuestionId,
+      nameQuestionId,
+      allowExemption,
+      registrationCondition,
       sections
     });
 
@@ -133,6 +145,30 @@ export const updateForm = async (req: Request, res: Response, next: NextFunction
       message: 'Formulario actualizado exitosamente (nueva versión creada)',
       form
     });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Actualizar SOLO secciones/preguntas sin tocar configuración del formulario
+ */
+export const updateFormSections = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { sections } = req.body;
+
+    const canEdit = await permissionService.canEditForm(String(req.user!.id), String(id));
+    if (!canEdit) {
+      return res.status(403).json({ error: 'No tienes permisos para editar este formulario' });
+    }
+
+    if (!sections || !Array.isArray(sections)) {
+      return res.status(400).json({ error: 'Secciones requeridas' });
+    }
+
+    const form = await formService.updateFormSections(String(id), sections);
+    return res.json({ message: 'Preguntas actualizadas exitosamente', form });
   } catch (error) {
     return next(error);
   }

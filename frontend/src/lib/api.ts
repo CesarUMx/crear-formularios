@@ -25,8 +25,12 @@ class ApiClient {
   }
 
   private getToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('token');
+    try {
+      if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+      return localStorage.getItem('token');
+    } catch {
+      return null;
+    }
   }
 
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

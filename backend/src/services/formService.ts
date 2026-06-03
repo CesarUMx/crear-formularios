@@ -40,11 +40,15 @@ interface FormSection {
 }
 
 interface FormQuestion {
+  id?: string; // ID temporal del frontend (ej: "temp-0-0-1234567890")
   type: QuestionType;
   text: string;
   placeholder?: string;
   helpText?: string;
   isRequired?: boolean;
+  allowedFileTypes?: string;
+  maxFileSize?: number;
+  conditionalLogic?: Prisma.InputJsonValue;
   options?: Array<{ text: string }>;
 }
 
@@ -52,6 +56,12 @@ interface CreateFormData {
   title: string;
   description?: string;
   templateId?: string;
+  formType?: 'STANDARD' | 'EXAM_REGISTRATION';
+  linkedExamId?: string;
+  emailQuestionId?: string;
+  nameQuestionId?: string;
+  allowExemption?: boolean;
+  registrationCondition?: any;
   sections?: FormSection[];
 }
 
@@ -144,7 +154,7 @@ export const getFormById = async (formId: string): Promise<FormWithRelations | n
  * Crear un nuevo formulario
  */
 export const createForm = async (userId: string, data: CreateFormData) => {
-  const { title, description, templateId, sections } = data;
+  const { title, description, templateId, formType, linkedExamId, emailQuestionId, nameQuestionId, allowExemption, registrationCondition, sections } = data;
 
   // Generar slug único
   const baseSlug = title
@@ -163,72 +173,307 @@ export const createForm = async (userId: string, data: CreateFormData) => {
     counter++;
   }
 
-  // Crear formulario con primera versión
+  // Crear formulario y primera versión paso a paso para manejar conditionalLogic
   const form = await prisma.form.create({
     data: {
       title,
       description,
       slug,
       templateId,
-      createdById: userId,
-      versions: {
-        create: {
-          version: 1,
-          title,
-          description,
-          sections: {
-            create: sections?.map((section, sectionIndex) => ({
-              title: section.title,
-              description: section.description,
-              order: sectionIndex,
-              questions: {
-                create: section.questions?.map((question, questionIndex) => ({
-                  type: question.type,
-                  text: question.text,
-                  placeholder: question.placeholder,
-                  helpText: question.helpText,
-                  isRequired: question.isRequired || false,
-                  order: questionIndex,
-                  options: {
-                    create: question.options?.map((option, optionIndex) => ({
-                      text: option.text,
-                      order: optionIndex
-                    })) || []
-                  }
-                })) || []
-              }
+      formType: formType || 'STANDARD',
+      linkedExamId: formType === 'EXAM_REGISTRATION' ? (linkedExamId || null) : null,
+      emailQuestionId: formType === 'EXAM_REGISTRATION' ? (emailQuestionId || null) : null,
+      nameQuestionId: formType === 'EXAM_REGISTRATION' ? (nameQuestionId || null) : null,
+      allowExemption: formType === 'EXAM_REGISTRATION' ? (allowExemption ?? false) : false,
+      registrationCondition: formType === 'EXAM_REGISTRATION' ? (registrationCondition || null) : null,
+      createdById: userId
+    }
+  });
+
+  const version = await prisma.formVersion.create({
+    data: {
+      formId: form.id,
+      version: 1,
+      title,
+      description
+    }
+  });
+
+  // Crear secciones y preguntas, mapeando índices a IDs
+  const questionIdMap = new Map<string, string>(); // "question-{sIdx}-{qIdx}" -> questionId
+  const questionsWithLogic: Array<{ questionId: string; logic: any }> = [];
+
+  for (let sIdx = 0; sIdx < (sections?.length || 0); sIdx++) {
+    const section = sections![sIdx];
+
+    const newSection = await prisma.section.create({
+      data: {
+        formVersionId: version.id,
+        title: section.title,
+        description: section.description,
+        order: sIdx
+      }
+    });
+
+    for (let qIdx = 0; qIdx < section.questions.length; qIdx++) {
+      const question = section.questions[qIdx];
+      // Usar el ID temporal del frontend como clave (ej: "temp-0-0-1234567890")
+      const tempKey = question.id || `question-${sIdx}-${qIdx}`;
+
+      if (question.conditionalLogic) {
+        questionsWithLogic.push({
+          questionId: tempKey,
+          logic: question.conditionalLogic
+        });
+      }
+
+      const newQuestion = await prisma.question.create({
+        data: {
+          sectionId: newSection.id,
+          type: question.type,
+          text: question.text,
+          placeholder: question.placeholder,
+          helpText: question.helpText,
+          isRequired: question.isRequired || false,
+          allowedFileTypes: question.allowedFileTypes,
+          maxFileSize: question.maxFileSize,
+          order: qIdx,
+          options: {
+            create: question.options?.map((opt, optIdx) => ({
+              text: opt.text,
+              order: optIdx
             })) || []
           }
         }
-      }
-    },
+      });
+
+      questionIdMap.set(tempKey, newQuestion.id);
+    }
+  }
+
+  // Actualizar conditionalLogic con nuevos IDs
+  for (const item of questionsWithLogic) {
+    const newQuestionId = questionIdMap.get(item.questionId);
+    if (!newQuestionId) continue;
+
+    const updatedLogic = {
+      combinator: item.logic.combinator || 'AND',
+      action: item.logic.action || 'SHOW',
+      rules: (item.logic.rules || []).map((rule: any) => {
+        const mappedQuestionId = questionIdMap.get(rule.questionId);
+
+        return {
+          questionId: mappedQuestionId || rule.questionId,
+          operator: rule.operator || 'equals',
+          value: rule.value
+        };
+      })
+    };
+
+    await prisma.question.update({
+      where: { id: newQuestionId },
+      data: { conditionalLogic: updatedLogic as any }
+    });
+  }
+
+  // Retornar formulario completo
+  return await prisma.form.findUnique({
+    where: { id: form.id },
     include: {
-      createdBy: {
-        select: { id: true, name: true, email: true }
-      },
+      createdBy: { select: { id: true, name: true, email: true } },
       versions: {
+        where: { id: version.id },
         include: {
           sections: {
             include: {
-              questions: {
-                include: {
-                  options: true
-                }
-              }
+              questions: { include: { options: true } }
             }
           }
         }
       },
       sharedWith: {
         include: {
-          user: {
-            select: { id: true, name: true, email: true }
+          user: { select: { id: true, name: true, email: true } }
+        }
+      },
+      _count: { select: { responses: true } }
+    }
+  }) as any;
+};
+
+/**
+ * Actualizar un formulario (actualiza la versión existente en lugar de crear una nueva)
+ * Estrategia: Reutilizar la misma FormVersion, borrar secciones/preguntas viejas y recrear
+ */
+export const updateForm = async (formId: string, data: UpdateFormData) => {
+  const { title, description, templateId, formType, linkedExamId, emailQuestionId, nameQuestionId, allowExemption, registrationCondition, sections } = data;
+
+  // Obtener la versión existente (siempre la más reciente)
+  let existingVersion = await prisma.formVersion.findFirst({
+    where: { formId },
+    orderBy: { version: 'desc' }
+  });
+
+  if (!existingVersion) {
+    // Si no existe ninguna versión (caso raro), crear una
+    existingVersion = await prisma.formVersion.create({
+      data: { formId, version: 1, title, description }
+    });
+  } else {
+    // Actualizar el título/descripción de la versión existente
+    await prisma.formVersion.update({
+      where: { id: existingVersion.id },
+      data: { title, description }
+    });
+
+    // Eliminar versiones antiguas (si hubiera más de una, limpiar)
+    await prisma.formVersion.deleteMany({
+      where: { formId, id: { not: existingVersion.id } }
+    });
+
+    // Borrar secciones existentes (las preguntas se borran en cascada)
+    await prisma.section.deleteMany({
+      where: { formVersionId: existingVersion.id }
+    });
+  }
+
+  const currentVersion = existingVersion;
+
+  // Crear secciones y preguntas, mapeando índices a IDs
+  const sectionIdMap = new Map<string, string>(); // "section-{index}" -> sectionId
+  const questionIdMap = new Map<string, string>(); // "question-{sIdx}-{qIdx}" -> questionId
+  const questionsWithLogic: Array<{ questionId: string; logic: any; sectionIndex: number; questionIndex: number }> = [];
+
+  for (let sIdx = 0; sIdx < (sections?.length || 0); sIdx++) {
+    const section = sections![sIdx];
+
+    // Crear sección
+    const newSection = await prisma.section.create({
+      data: {
+        formVersionId: currentVersion.id,
+        title: section.title,
+        description: section.description,
+        order: sIdx
+      }
+    });
+    sectionIdMap.set(`section-${sIdx}`, newSection.id);
+
+    // Crear preguntas de esta sección
+    for (let qIdx = 0; qIdx < section.questions.length; qIdx++) {
+      const question = section.questions[qIdx];
+      // Usar el ID temporal del frontend como clave (ej: "temp-0-0-1234567890")
+      const tempKey = question.id || `question-${sIdx}-${qIdx}`;
+
+      // Guardar la conditionalLogic para procesar después
+      if (question.conditionalLogic) {
+        questionsWithLogic.push({
+          questionId: tempKey,
+          logic: question.conditionalLogic,
+          sectionIndex: sIdx,
+          questionIndex: qIdx
+        });
+      }
+
+      // Crear pregunta SIN conditionalLogic primero
+      const newQuestion = await prisma.question.create({
+        data: {
+          sectionId: newSection.id,
+          type: question.type,
+          text: question.text,
+          placeholder: question.placeholder,
+          helpText: question.helpText,
+          isRequired: question.isRequired || false,
+          allowedFileTypes: question.allowedFileTypes,
+          maxFileSize: question.maxFileSize,
+          order: qIdx,
+          options: {
+            create: question.options?.map((opt, optIdx) => ({
+              text: opt.text,
+              order: optIdx
+            })) || []
+          }
+        }
+      });
+
+      questionIdMap.set(tempKey, newQuestion.id);
+    }
+  }
+
+  // Ahora actualizar las conditionalLogic con los NUEVOS IDs
+  for (const item of questionsWithLogic) {
+    const newQuestionId = questionIdMap.get(item.questionId);
+    if (!newQuestionId) continue;
+
+    // Mapear los questionId en las reglas a los nuevos IDs
+    const updatedLogic = {
+      combinator: item.logic.combinator || 'AND',
+      action: item.logic.action || 'SHOW',
+      rules: (item.logic.rules || []).map((rule: any) => {
+        // Buscar el ID real en el mapa usando el ID temporal del frontend
+        const mappedQuestionId = questionIdMap.get(rule.questionId);
+
+        return {
+          questionId: mappedQuestionId || rule.questionId,
+          operator: rule.operator || 'equals',
+          value: rule.value
+        };
+      })
+    };
+
+    await prisma.question.update({
+      where: { id: newQuestionId },
+      data: { conditionalLogic: updatedLogic as any }
+    });
+  }
+
+  // Mapear emailQuestionId y nameQuestionId a los nuevos IDs de la versión
+  const mappedEmailQuestionId = emailQuestionId ? (questionIdMap.get(emailQuestionId) || emailQuestionId) : null;
+  const mappedNameQuestionId = nameQuestionId ? (questionIdMap.get(nameQuestionId) || nameQuestionId) : null;
+
+  // Mapear registrationCondition questionIds a los nuevos IDs
+  let mappedRegistrationCondition = registrationCondition || null;
+  if (registrationCondition && registrationCondition.rules) {
+    mappedRegistrationCondition = {
+      ...registrationCondition,
+      rules: registrationCondition.rules.map((rule: any) => ({
+        ...rule,
+        questionId: questionIdMap.get(rule.questionId) || rule.questionId,
+      })),
+    };
+  }
+
+  // Retornar formulario actualizado
+  const form = await prisma.form.update({
+    where: { id: formId },
+    data: {
+      title,
+      description,
+      ...(templateId && { templateId }),
+      ...(formType && { formType }),
+      linkedExamId: formType === 'EXAM_REGISTRATION' ? (linkedExamId || null) : null,
+      emailQuestionId: formType === 'EXAM_REGISTRATION' ? (mappedEmailQuestionId || null) : null,
+      nameQuestionId: formType === 'EXAM_REGISTRATION' ? (mappedNameQuestionId || null) : null,
+      allowExemption: formType === 'EXAM_REGISTRATION' ? (allowExemption ?? false) : false,
+      registrationCondition: formType === 'EXAM_REGISTRATION' ? (mappedRegistrationCondition || null) : null
+    },
+    include: {
+      createdBy: { select: { id: true, name: true, email: true } },
+      versions: {
+        where: { id: currentVersion.id },
+        include: {
+          sections: {
+            include: {
+              questions: { include: { options: true } }
+            }
           }
         }
       },
-      _count: {
-        select: { responses: true }
-      }
+      sharedWith: {
+        include: {
+          user: { select: { id: true, name: true, email: true } }
+        }
+      },
+      _count: { select: { responses: true } }
     }
   });
 
@@ -236,89 +481,128 @@ export const createForm = async (userId: string, data: CreateFormData) => {
 };
 
 /**
- * Actualizar un formulario (crea nueva versión)
+ * Actualizar SOLO las secciones/preguntas de un formulario sin tocar configuración
+ * Úsese desde el editor de preguntas para no pisar linkedExamId, etc.
  */
-export const updateForm = async (formId: string, data: UpdateFormData) => {
-  const { title, description, templateId, sections } = data;
-
-  // Obtener la última versión
-  const lastVersion = await prisma.formVersion.findFirst({
+export const updateFormSections = async (formId: string, sections: FormSection[]) => {
+  // Obtener la versión existente
+  const existingVersion = await prisma.formVersion.findFirst({
     where: { formId },
     orderBy: { version: 'desc' }
   });
 
-  const newVersionNumber = (lastVersion?.version || 0) + 1;
+  if (!existingVersion) {
+    throw new Error('No se encontró la versión del formulario');
+  }
 
-  // Actualizar formulario y crear nueva versión
-  const form = await prisma.form.update({
-    where: { id: formId },
-    data: {
-      title,
-      description,
-      ...(templateId && { templateId }), // Solo actualizar si se proporciona
-      versions: {
-        create: {
-          version: newVersionNumber,
-          title,
-          description,
-          sections: {
-            create: sections?.map((section, sectionIndex) => ({
-              title: section.title,
-              description: section.description,
-              order: sectionIndex,
-              questions: {
-                create: section.questions?.map((question, questionIndex) => ({
-                  type: question.type,
-                  text: question.text,
-                  placeholder: question.placeholder,
-                  helpText: question.helpText,
-                  isRequired: question.isRequired || false,
-                  order: questionIndex,
-                  options: {
-                    create: question.options?.map((option, optionIndex) => ({
-                      text: option.text,
-                      order: optionIndex
-                    })) || []
-                  }
-                })) || []
-              }
-            })) || []
+  // Borrar secciones existentes (preguntas en cascada)
+  await prisma.section.deleteMany({ where: { formVersionId: existingVersion.id } });
+
+  // Crear secciones y preguntas nuevas
+  const sectionIdMap = new Map<string, string>();
+  const questionIdMap = new Map<string, string>();
+  const questionsWithLogic: Array<{ questionId: string; logic: any }> = [];
+
+  for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+    const section = sections[sIdx];
+    const newSection = await prisma.section.create({
+      data: {
+        formVersionId: existingVersion.id,
+        title: section.title,
+        description: section.description,
+        order: sIdx
+      }
+    });
+    sectionIdMap.set(`section-${sIdx}`, newSection.id);
+
+    for (let qIdx = 0; qIdx < section.questions.length; qIdx++) {
+      const question = section.questions[qIdx];
+      const tempKey = question.id || `question-${sIdx}-${qIdx}`;
+
+      if (question.conditionalLogic) {
+        questionsWithLogic.push({ questionId: tempKey, logic: question.conditionalLogic });
+      }
+
+      const newQuestion = await prisma.question.create({
+        data: {
+          sectionId: newSection.id,
+          type: question.type,
+          text: question.text,
+          placeholder: question.placeholder,
+          helpText: question.helpText,
+          isRequired: question.isRequired || false,
+          allowedFileTypes: question.allowedFileTypes,
+          maxFileSize: question.maxFileSize,
+          order: qIdx,
+          options: {
+            create: question.options?.map((opt, optIdx) => ({ text: opt.text, order: optIdx })) || []
           }
         }
-      }
-    },
-    include: {
-      createdBy: {
-        select: { id: true, name: true, email: true }
-      },
-      versions: {
-        include: {
-          sections: {
-            include: {
-              questions: {
-                include: {
-                  options: true
-                }
-              }
-            }
-          }
-        },
-        orderBy: { version: 'desc' }
-      },
-      sharedWith: {
-        include: {
-          user: {
-            select: { id: true, name: true, email: true }
-          }
-        }
-      },
-      _count: {
-        select: { responses: true }
-      }
+      });
+
+      questionIdMap.set(tempKey, newQuestion.id);
     }
+  }
+
+  // Actualizar conditionalLogic con nuevos IDs
+  for (const item of questionsWithLogic) {
+    const newQuestionId = questionIdMap.get(item.questionId);
+    if (!newQuestionId) continue;
+    const updatedLogic = {
+      combinator: item.logic.combinator || 'AND',
+      action: item.logic.action || 'SHOW',
+      rules: (item.logic.rules || []).map((rule: any) => ({
+        questionId: questionIdMap.get(rule.questionId) || rule.questionId,
+        operator: rule.operator || 'equals',
+        value: rule.value
+      }))
+    };
+    await prisma.question.update({ where: { id: newQuestionId }, data: { conditionalLogic: updatedLogic as any } });
+  }
+
+  // Mapear emailQuestionId y nameQuestionId de la forma si apuntan a preguntas viejas
+  const form = await prisma.form.findUnique({
+    where: { id: formId },
+    select: { emailQuestionId: true, nameQuestionId: true, registrationCondition: true }
   });
 
-  return form;
+  if (form) {
+    const mappedEmailQId = form.emailQuestionId ? (questionIdMap.get(form.emailQuestionId) || null) : null;
+    const mappedNameQId = form.nameQuestionId ? (questionIdMap.get(form.nameQuestionId) || null) : null;
+
+    // Mapear registrationCondition
+    let mappedCondition = form.registrationCondition as any;
+    if (mappedCondition?.rules) {
+      mappedCondition = {
+        ...mappedCondition,
+        rules: mappedCondition.rules.map((rule: any) => ({
+          ...rule,
+          questionId: questionIdMap.get(rule.questionId) || rule.questionId
+        }))
+      };
+    }
+
+    await prisma.form.update({
+      where: { id: formId },
+      data: {
+        ...(mappedEmailQId !== null && { emailQuestionId: mappedEmailQId }),
+        ...(mappedNameQId !== null && { nameQuestionId: mappedNameQId }),
+        ...(mappedCondition && { registrationCondition: mappedCondition })
+      }
+    });
+  }
+
+  return prisma.form.findUnique({
+    where: { id: formId },
+    include: {
+      createdBy: { select: { id: true, name: true, email: true } },
+      versions: {
+        where: { id: existingVersion.id },
+        include: { sections: { include: { questions: { include: { options: true } } } } }
+      },
+      _count: { select: { responses: true } }
+    }
+  });
 };
 
 /**

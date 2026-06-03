@@ -4,7 +4,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { requireAuth } from '../middleware/auth.js';
 
-const router = express.Router();
+const router: import("express").Router = express.Router();
 const prisma = new PrismaClient();
 
 /**
@@ -80,7 +80,7 @@ router.get('/forms/:formId/responses', requireAuth, async (req, res) => {
     // Verificar si el usuario tiene acceso al formulario
     const form = await prisma.form.findUnique({
       where: { id: formId },
-      select: { createdById: true }
+      select: { createdById: true, emailQuestionId: true, nameQuestionId: true, formType: true }
     });
     
     if (!form) {
@@ -103,8 +103,17 @@ router.get('/forms/:formId/responses', requireAuth, async (req, res) => {
       include: {
         answers: {
           include: {
-            question: true,
-            selectedOptions: true
+            question: { select: { id: true, text: true, type: true, order: true } },
+            selectedOptions: { select: { id: true, text: true } }
+          },
+          orderBy: { question: { order: 'asc' } }
+        },
+        examRegistration: {
+          select: {
+            id: true,
+            studentName: true,
+            studentEmail: true,
+            schedule: { select: { title: true, startTime: true } }
           }
         }
       },
@@ -115,6 +124,11 @@ router.get('/forms/:formId/responses', requireAuth, async (req, res) => {
     
     return res.json({
       data: responses,
+      formMeta: {
+        formType: form.formType,
+        emailQuestionId: form.emailQuestionId,
+        nameQuestionId: form.nameQuestionId,
+      },
       pagination: {
         total: totalResponses,
         page: pageNum,
@@ -258,6 +272,13 @@ router.get('/forms/:formId/statistics', requireAuth, async (req, res) => {
           // Para preguntas de archivo, contamos cuántos archivos se subieron
           questionStats.data = {
             fileCount: answers.filter(a => a.fileUrl).length
+          };
+          break;
+
+        case 'BOOLEAN':
+          // Contar cuántos respondieron 'true'
+          questionStats.data = {
+            accepted: answers.filter(a => a.textValue === 'true').length
           };
           break;
           

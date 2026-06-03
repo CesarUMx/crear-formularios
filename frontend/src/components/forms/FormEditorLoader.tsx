@@ -59,8 +59,11 @@ export default function FormEditorLoader({ formId }: FormEditorLoaderProps) {
     );
   }
 
-  // Obtener la última versión
-  const latestVersion = form.versions?.[0];
+  // Obtener la versión más reciente con preguntas; fallback a la primera
+  const latestVersion =
+    form.versions?.find((version) =>
+      version.sections?.some((section) => section.questions && section.questions.length > 0)
+    ) || form.versions?.[0];
   
   if (!latestVersion) {
     return (
@@ -76,10 +79,17 @@ export default function FormEditorLoader({ formId }: FormEditorLoaderProps) {
     title: form.title,
     description: form.description,
     templateId: form.templateId,
+    formType: form.formType,
+    linkedExamId: form.linkedExamId,
+    emailQuestionId: form.emailQuestionId,
+    nameQuestionId: form.nameQuestionId,
+    allowExemption: form.allowExemption,
+    registrationCondition: form.registrationCondition,
     sections: latestVersion.sections.map(section => ({
       title: section.title,
       description: section.description,
       questions: section.questions.map(question => ({
+        id: question.id, // Importante: mantener ID para referenciar en condiciones
         type: question.type,
         text: question.text,
         placeholder: question.placeholder,
@@ -87,6 +97,7 @@ export default function FormEditorLoader({ formId }: FormEditorLoaderProps) {
         isRequired: question.isRequired,
         allowedFileTypes: question.allowedFileTypes,
         maxFileSize: question.maxFileSize,
+        conditionalLogic: question.conditionalLogic,
         options: question.options.map(opt => ({ text: opt.text }))
       }))
     })) as SectionInput[]

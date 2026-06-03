@@ -2,7 +2,7 @@ import express from 'express';
 import * as settingsService from '../services/settingsService.js';
 import { requireAuth, requireSuperAdmin } from '../middleware/auth.js';
 
-const router = express.Router();
+const router: import("express").Router = express.Router();
 
 /**
  * GET /api/settings
