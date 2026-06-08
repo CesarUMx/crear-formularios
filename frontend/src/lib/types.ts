@@ -129,6 +129,7 @@ export interface Form {
   nameQuestionId?: string;
   allowExemption?: boolean;
   registrationCondition?: SimpleCondition;
+  coverImage?: string;
   createdAt: string;
   updatedAt: string;
   createdBy: {
@@ -177,6 +178,15 @@ export interface QuestionInput {
   maxFileSize?: number; // Tamaño máximo en MB
   options?: { text: string }[];
   conditionalLogic?: ConditionalLogic;
+  textValidation?: TextValidation;
+}
+
+// Configuración de validación para preguntas de texto corto (TEXT)
+export interface TextValidation {
+  inputType?: 'any' | 'numbers' | 'letters' | 'alphanumeric' | 'email' | 'phone';
+  allowSpecialChars?: boolean;
+  minLength?: number;
+  maxLength?: number;
 }
 
 // ==================== TIPOS DE EXÁMENES ====================

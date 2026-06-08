@@ -40,6 +40,8 @@ router.post('/forms/:formId/hubspot', requireAuth, async (req: Request, res: Res
       matchQuestionId,
       accessToken,
       isActive,
+      requireMatch,
+      requireMatchMessage,
       propertyMappings,
     } = req.body;
 
@@ -68,6 +70,8 @@ router.post('/forms/:formId/hubspot', requireAuth, async (req: Request, res: Res
       matchQuestionId,
       accessTokenEncrypted,
       isActive: isActive !== undefined ? Boolean(isActive) : true,
+      requireMatch: requireMatch !== undefined ? Boolean(requireMatch) : false,
+      requireMatchMessage: requireMatchMessage ?? null,
       propertyMappings: propertyMappings ?? [],
     };
 

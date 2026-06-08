@@ -38,6 +38,8 @@ class ApiClient {
     
     const config: RequestInit = {
       ...options,
+      // Deshabilitar caché del navegador/CDN para garantizar datos frescos en cada petición
+      cache: 'no-store',
       headers: {
         ...this.getHeaders(),
         ...options.headers,

@@ -1,5 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
 import { ChevronRight } from 'lucide-react';
+import FormNavTabs from './FormNavTabs';
+
+type Section = 'edit' | 'questions' | 'exam' | 'emails' | 'responses' | 'statistics' | 'hubspot';
 
 interface FormSubpageHeaderProps {
   formId: string;
@@ -7,7 +10,8 @@ interface FormSubpageHeaderProps {
   title: string;
   description?: string;
   icon: LucideIcon;
-  currentSection?: 'questions' | 'exam' | 'emails' | 'responses' | 'statistics';
+  currentSection?: Section;
+  /** @deprecated — el tab Examen ahora se controla dinámicamente desde FormNavTabs */
   showExamSection?: boolean;
   /** Slot para botones extra a la derecha */
   actions?: React.ReactNode;
@@ -20,17 +24,8 @@ export default function FormSubpageHeader({
   description,
   icon: Icon,
   currentSection,
-  showExamSection = false,
   actions
 }: FormSubpageHeaderProps) {
-  const navSections = [
-    { key: 'questions', label: 'Preguntas', href: `/admin/forms/${formId}/questions` },
-    ...(showExamSection ? [{ key: 'exam', label: 'Examen', href: `/admin/forms/${formId}/exam` }] : []),
-    { key: 'emails', label: 'Correos', href: `/admin/forms/${formId}/emails` },
-    { key: 'responses', label: 'Respuestas', href: `/admin/forms/${formId}/responses` },
-    { key: 'statistics', label: 'Estadisticas', href: `/admin/forms/${formId}/statistics` },
-  ] as const;
-
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
       {/* Breadcrumb */}
@@ -67,26 +62,9 @@ export default function FormSubpageHeader({
         </div>
       </div>
 
-      <div className="mt-5 pt-4 border-t border-gray-100">
-        <div className="flex flex-wrap gap-2">
-          {navSections.map((section) => {
-            const isActive = currentSection === section.key;
-            return (
-              <a
-                key={section.key}
-                href={section.href}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                  isActive
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {section.label}
-              </a>
-            );
-          })}
-        </div>
-      </div>
+      {currentSection && (
+        <FormNavTabs formId={formId} currentSection={currentSection} />
+      )}
     </div>
   );
 }

@@ -49,6 +49,7 @@ interface FormQuestion {
   allowedFileTypes?: string;
   maxFileSize?: number;
   conditionalLogic?: Prisma.InputJsonValue;
+  textValidation?: Prisma.InputJsonValue;
   options?: Array<{ text: string }>;
 }
 
@@ -66,6 +67,75 @@ interface CreateFormData {
 }
 
 interface UpdateFormData extends CreateFormData {}
+
+interface UpdateFormConfigData {
+  title?: string;
+  description?: string;
+  templateId?: string;
+  formType?: 'STANDARD' | 'EXAM_REGISTRATION';
+  linkedExamId?: string;
+  emailQuestionId?: string;
+  nameQuestionId?: string;
+  allowExemption?: boolean;
+  registrationCondition?: any;
+}
+
+/**
+ * Remapar questionIds en HubSpotConfig y EmailRule.conditions cuando se crea una nueva versión.
+ * Los questionIds de la versión anterior quedan obsoletos; esta función los actualiza.
+ */
+async function remapDependentQuestionIds(
+  formId: string,
+  questionIdMap: Map<string, string>
+): Promise<void> {
+  // 1. HubSpotConfig
+  const hubspot = await prisma.hubSpotConfig.findUnique({ where: { formId } });
+  if (hubspot) {
+    const newMatchQuestionId = questionIdMap.get(hubspot.matchQuestionId) ?? hubspot.matchQuestionId;
+
+    const mappings = Array.isArray(hubspot.propertyMappings)
+      ? (hubspot.propertyMappings as any[]).map((m: any) => ({
+          ...m,
+          questionId: questionIdMap.get(m.questionId) ?? m.questionId,
+        }))
+      : hubspot.propertyMappings;
+
+    await prisma.hubSpotConfig.update({
+      where: { formId },
+      data: {
+        matchQuestionId: newMatchQuestionId,
+        propertyMappings: mappings as any,
+      },
+    });
+  }
+
+  // 2. EmailRule conditions (dentro de EmailTemplates del formulario)
+  const templates = await prisma.emailTemplate.findMany({
+    where: { formId },
+    include: { rules: true },
+  });
+
+  for (const template of templates) {
+    for (const rule of template.rules) {
+      if (!rule.conditions) continue;
+      const conditions = rule.conditions as any;
+      if (!conditions?.rules) continue;
+
+      const updatedConditions = {
+        ...conditions,
+        rules: conditions.rules.map((r: any) => ({
+          ...r,
+          questionId: questionIdMap.get(r.questionId) ?? r.questionId,
+        })),
+      };
+
+      await prisma.emailRule.update({
+        where: { id: rule.id },
+        data: { conditions: updatedConditions },
+      });
+    }
+  }
+}
 
 /**
  * Obtener todos los formularios del usuario
@@ -119,6 +189,10 @@ export const getFormById = async (formId: string): Promise<FormWithRelations | n
         select: { id: true, name: true, email: true }
       },
       versions: {
+        // Solo devolver la versión más reciente para evitar cargar historial completo
+        // y garantizar que el editor siempre trabaje con datos frescos
+        orderBy: { version: 'desc' },
+        take: 1,
         include: {
           sections: {
             include: {
@@ -133,8 +207,7 @@ export const getFormById = async (formId: string): Promise<FormWithRelations | n
             },
             orderBy: { order: 'asc' }
           }
-        },
-        orderBy: { version: 'desc' }
+        }
       },
       sharedWith: {
         include: {
@@ -237,6 +310,7 @@ export const createForm = async (userId: string, data: CreateFormData) => {
           isRequired: question.isRequired || false,
           allowedFileTypes: question.allowedFileTypes,
           maxFileSize: question.maxFileSize,
+          textValidation: question.textValidation ?? undefined,
           order: qIdx,
           options: {
             create: question.options?.map((opt, optIdx) => ({
@@ -308,36 +382,18 @@ export const createForm = async (userId: string, data: CreateFormData) => {
 export const updateForm = async (formId: string, data: UpdateFormData) => {
   const { title, description, templateId, formType, linkedExamId, emailQuestionId, nameQuestionId, allowExemption, registrationCondition, sections } = data;
 
-  // Obtener la versión existente (siempre la más reciente)
-  let existingVersion = await prisma.formVersion.findFirst({
+  // Obtener el número de versión más alto actual
+  const latestVersion = await prisma.formVersion.findFirst({
     where: { formId },
     orderBy: { version: 'desc' }
   });
 
-  if (!existingVersion) {
-    // Si no existe ninguna versión (caso raro), crear una
-    existingVersion = await prisma.formVersion.create({
-      data: { formId, version: 1, title, description }
-    });
-  } else {
-    // Actualizar el título/descripción de la versión existente
-    await prisma.formVersion.update({
-      where: { id: existingVersion.id },
-      data: { title, description }
-    });
-
-    // Eliminar versiones antiguas (si hubiera más de una, limpiar)
-    await prisma.formVersion.deleteMany({
-      where: { formId, id: { not: existingVersion.id } }
-    });
-
-    // Borrar secciones existentes (las preguntas se borran en cascada)
-    await prisma.section.deleteMany({
-      where: { formVersionId: existingVersion.id }
-    });
-  }
-
-  const currentVersion = existingVersion;
+  // Crear SIEMPRE una nueva versión para preservar respuestas existentes.
+  // Las versiones anteriores se conservan intactas para que sus answers no se pierdan.
+  const nextVersionNumber = latestVersion ? latestVersion.version + 1 : 1;
+  const currentVersion = await prisma.formVersion.create({
+    data: { formId, version: nextVersionNumber, title: title ?? '', description }
+  });
 
   // Crear secciones y preguntas, mapeando índices a IDs
   const sectionIdMap = new Map<string, string>(); // "section-{index}" -> sectionId
@@ -385,6 +441,7 @@ export const updateForm = async (formId: string, data: UpdateFormData) => {
           isRequired: question.isRequired || false,
           allowedFileTypes: question.allowedFileTypes,
           maxFileSize: question.maxFileSize,
+          textValidation: question.textValidation ?? undefined,
           order: qIdx,
           options: {
             create: question.options?.map((opt, optIdx) => ({
@@ -442,6 +499,9 @@ export const updateForm = async (formId: string, data: UpdateFormData) => {
     };
   }
 
+  // Remapar HubSpot config y EmailRule conditions con los nuevos IDs de preguntas
+  await remapDependentQuestionIds(formId, questionIdMap);
+
   // Retornar formulario actualizado
   const form = await prisma.form.update({
     where: { id: formId },
@@ -485,18 +545,24 @@ export const updateForm = async (formId: string, data: UpdateFormData) => {
  * Úsese desde el editor de preguntas para no pisar linkedExamId, etc.
  */
 export const updateFormSections = async (formId: string, sections: FormSection[]) => {
-  // Obtener la versión existente
-  const existingVersion = await prisma.formVersion.findFirst({
+  // Obtener el número de versión más alto actual
+  const latestVersion = await prisma.formVersion.findFirst({
     where: { formId },
     orderBy: { version: 'desc' }
   });
 
-  if (!existingVersion) {
+  if (!latestVersion) {
     throw new Error('No se encontró la versión del formulario');
   }
 
-  // Borrar secciones existentes (preguntas en cascada)
-  await prisma.section.deleteMany({ where: { formVersionId: existingVersion.id } });
+  // Obtener título/descripción de la versión anterior para la nueva versión
+  const prevTitle = latestVersion.title;
+  const prevDescription = latestVersion.description;
+
+  // Crear SIEMPRE una nueva versión para preservar respuestas existentes.
+  const newVersion = await prisma.formVersion.create({
+    data: { formId, version: latestVersion.version + 1, title: prevTitle, description: prevDescription }
+  });
 
   // Crear secciones y preguntas nuevas
   const sectionIdMap = new Map<string, string>();
@@ -507,7 +573,7 @@ export const updateFormSections = async (formId: string, sections: FormSection[]
     const section = sections[sIdx];
     const newSection = await prisma.section.create({
       data: {
-        formVersionId: existingVersion.id,
+        formVersionId: newVersion.id,
         title: section.title,
         description: section.description,
         order: sIdx
@@ -533,6 +599,7 @@ export const updateFormSections = async (formId: string, sections: FormSection[]
           isRequired: question.isRequired || false,
           allowedFileTypes: question.allowedFileTypes,
           maxFileSize: question.maxFileSize,
+          textValidation: question.textValidation ?? undefined,
           order: qIdx,
           options: {
             create: question.options?.map((opt, optIdx) => ({ text: opt.text, order: optIdx })) || []
@@ -567,17 +634,22 @@ export const updateFormSections = async (formId: string, sections: FormSection[]
   });
 
   if (form) {
-    const mappedEmailQId = form.emailQuestionId ? (questionIdMap.get(form.emailQuestionId) || null) : null;
-    const mappedNameQId = form.nameQuestionId ? (questionIdMap.get(form.nameQuestionId) || null) : null;
+    // Mapear o limpiar si la pregunta fue eliminada del formulario
+    const mappedEmailQId = form.emailQuestionId
+      ? (questionIdMap.get(form.emailQuestionId) ?? null) // null si fue eliminada
+      : null;
+    const mappedNameQId = form.nameQuestionId
+      ? (questionIdMap.get(form.nameQuestionId) ?? null) // null si fue eliminada
+      : null;
 
-    // Mapear registrationCondition
+    // Mapear registrationCondition (solo questionIds — los values son textos de opciones)
     let mappedCondition = form.registrationCondition as any;
     if (mappedCondition?.rules) {
       mappedCondition = {
         ...mappedCondition,
         rules: mappedCondition.rules.map((rule: any) => ({
           ...rule,
-          questionId: questionIdMap.get(rule.questionId) || rule.questionId
+          questionId: questionIdMap.get(rule.questionId) ?? rule.questionId
         }))
       };
     }
@@ -585,19 +657,23 @@ export const updateFormSections = async (formId: string, sections: FormSection[]
     await prisma.form.update({
       where: { id: formId },
       data: {
-        ...(mappedEmailQId !== null && { emailQuestionId: mappedEmailQId }),
-        ...(mappedNameQId !== null && { nameQuestionId: mappedNameQId }),
+        // Siempre actualizar (null limpia referencias obsoletas a preguntas eliminadas)
+        emailQuestionId: mappedEmailQId,
+        nameQuestionId: mappedNameQId,
         ...(mappedCondition && { registrationCondition: mappedCondition })
       }
     });
   }
+
+  // Remapar HubSpot config y EmailRule conditions con los nuevos IDs de preguntas
+  await remapDependentQuestionIds(formId, questionIdMap);
 
   return prisma.form.findUnique({
     where: { id: formId },
     include: {
       createdBy: { select: { id: true, name: true, email: true } },
       versions: {
-        where: { id: existingVersion.id },
+        where: { id: newVersion.id },
         include: { sections: { include: { questions: { include: { options: true } } } } }
       },
       _count: { select: { responses: true } }
@@ -668,6 +744,228 @@ export const updateSharePermission = async (formId: string, userId: string, perm
       }
     },
     data: { permission }
+  });
+};
+
+/**
+ * Duplicar un formulario: copia toda la configuración y estructura (secciones/preguntas/opciones)
+ * pero NO copia las respuestas. El formulario clonado queda inactivo y sin slug público.
+ */
+export const duplicateForm = async (formId: string, newOwnerId: string) => {
+  // Obtener el formulario original con su versión más reciente
+  const original = await prisma.form.findUnique({
+    where: { id: formId },
+    include: {
+      versions: {
+        orderBy: { version: 'desc' },
+        take: 1,
+        include: {
+          sections: {
+            orderBy: { order: 'asc' },
+            include: {
+              questions: {
+                orderBy: { order: 'asc' },
+                include: { options: { orderBy: { order: 'asc' } } }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (!original) throw new Error('Formulario no encontrado');
+
+  const sourceVersion = original.versions[0];
+
+  // Generar slug único para el clon
+  const baseSlug = `${original.slug}-copia`;
+  let slug = baseSlug;
+  let suffix = 1;
+  while (await prisma.form.findUnique({ where: { slug } })) {
+    slug = `${baseSlug}-${suffix++}`;
+  }
+
+  // Crear el formulario duplicado (sin respuestas, inactivo por defecto)
+  const cloned = await prisma.form.create({
+    data: {
+      title: `${original.title} (copia)`,
+      description: original.description,
+      slug,
+      templateId: original.templateId,
+      formType: original.formType,
+      isActive: false,
+      createdById: newOwnerId,
+      // Campos de EXAM_REGISTRATION se copian pero linkedExamId no (apuntaría al examen original)
+      allowExemption: original.allowExemption,
+    }
+  });
+
+  if (!sourceVersion) {
+    return prisma.form.findUnique({
+      where: { id: cloned.id },
+      include: { createdBy: { select: { id: true, name: true, email: true } }, _count: { select: { responses: true } } }
+    });
+  }
+
+  // Mapa de IDs de preguntas originales → nuevas (para remapear conditionalLogic)
+  const questionIdMap = new Map<string, string>();
+
+  // Crear la versión 1 del formulario clonado
+  const clonedVersion = await prisma.formVersion.create({
+    data: { formId: cloned.id, version: 1, title: sourceVersion.title, description: sourceVersion.description }
+  });
+
+  for (const section of sourceVersion.sections) {
+    const clonedSection = await prisma.section.create({
+      data: {
+        formVersionId: clonedVersion.id,
+        title: section.title,
+        description: section.description,
+        order: section.order
+      }
+    });
+
+    for (const question of section.questions) {
+      const clonedQuestion = await prisma.question.create({
+        data: {
+          sectionId: clonedSection.id,
+          type: question.type,
+          text: question.text,
+          placeholder: question.placeholder,
+          helpText: question.helpText,
+          isRequired: question.isRequired,
+          allowedFileTypes: question.allowedFileTypes,
+          maxFileSize: question.maxFileSize,
+          textValidation: (question as any).textValidation ?? undefined,
+          order: question.order,
+          options: {
+            create: question.options.map(opt => ({ text: opt.text, order: opt.order }))
+          }
+        }
+      });
+      questionIdMap.set(question.id, clonedQuestion.id);
+    }
+  }
+
+  // Remap conditionalLogic en las preguntas clonadas con los nuevos IDs
+  for (const [originalId, clonedId] of questionIdMap.entries()) {
+    const original = sourceVersion.sections
+      .flatMap(s => s.questions)
+      .find(q => q.id === originalId);
+    if (!original?.conditionalLogic) continue;
+
+    const logic = original.conditionalLogic as any;
+    const updatedLogic = {
+      combinator: logic.combinator || 'AND',
+      action: logic.action || 'SHOW',
+      rules: (logic.rules || []).map((rule: any) => ({
+        questionId: questionIdMap.get(rule.questionId) || rule.questionId,
+        operator: rule.operator,
+        value: rule.value
+      }))
+    };
+    await prisma.question.update({ where: { id: clonedId }, data: { conditionalLogic: updatedLogic } });
+  }
+
+  // Remapear emailQuestionId y nameQuestionId si existen
+  const mappedEmailQId = original.emailQuestionId ? (questionIdMap.get(original.emailQuestionId) ?? null) : null;
+  const mappedNameQId = original.nameQuestionId ? (questionIdMap.get(original.nameQuestionId) ?? null) : null;
+
+  let mappedCondition = original.registrationCondition as any;
+  if (mappedCondition?.rules) {
+    mappedCondition = {
+      ...mappedCondition,
+      rules: mappedCondition.rules.map((rule: any) => ({
+        ...rule,
+        questionId: questionIdMap.get(rule.questionId) || rule.questionId
+      }))
+    };
+  }
+
+  await prisma.form.update({
+    where: { id: cloned.id },
+    data: {
+      emailQuestionId: mappedEmailQId,
+      nameQuestionId: mappedNameQId,
+      registrationCondition: mappedCondition ?? undefined
+    }
+  });
+
+  return prisma.form.findUnique({
+    where: { id: cloned.id },
+    include: {
+      createdBy: { select: { id: true, name: true, email: true } },
+      versions: {
+        where: { id: clonedVersion.id },
+        include: { sections: { include: { questions: { include: { options: true } } } } }
+      },
+      _count: { select: { responses: true } }
+    }
+  });
+};
+
+/**
+ * Actualizar SOLO la configuración del formulario (sin crear versión, sin tocar secciones/preguntas)
+ * Para: título, descripción, plantilla, tipo, linkedExamId, email/nameQuestionId, etc.
+ */
+export const updateFormConfig = async (formId: string, data: UpdateFormConfigData) => {
+  const { title, description, templateId, formType, linkedExamId, emailQuestionId, nameQuestionId, allowExemption, registrationCondition } = data;
+
+  // Si formType cambia a STANDARD, limpiar campos de examen.
+  // Si no se envía formType (undefined), no tocar ningún campo de examen.
+  // Si se envía formType === 'EXAM_REGISTRATION' Y los campos de examen también se envían, actualizarlos.
+  const examFields = formType === undefined
+    ? {}  // No tocar nada de examen
+    : formType === 'STANDARD'
+      ? {   // Limpiar campos de examen al cambiar a Estándar
+          linkedExamId: null,
+          emailQuestionId: null,
+          nameQuestionId: null,
+          allowExemption: false,
+          registrationCondition: null,
+        }
+      : {   // EXAM_REGISTRATION: solo actualizar los campos que lleguen explícitamente
+          ...(linkedExamId !== undefined && { linkedExamId: linkedExamId || null }),
+          ...(emailQuestionId !== undefined && { emailQuestionId: emailQuestionId || null }),
+          ...(nameQuestionId !== undefined && { nameQuestionId: nameQuestionId || null }),
+          ...(allowExemption !== undefined && { allowExemption }),
+          ...(registrationCondition !== undefined && { registrationCondition: registrationCondition || null }),
+        };
+
+  return await prisma.form.update({
+    where: { id: formId },
+    data: {
+      ...(title !== undefined && { title }),
+      ...(description !== undefined && { description }),
+      ...(templateId !== undefined && { templateId }),
+      ...(formType !== undefined && { formType }),
+      ...examFields,
+    },
+    include: {
+      createdBy: { select: { id: true, name: true, email: true } },
+      _count: { select: { responses: true } }
+    }
+  });
+};
+
+/**
+ * Renombrar un formulario (solo actualiza title en el root Form, sin crear versión)
+ */
+export const renameForm = async (formId: string, title: string) => {
+  return await prisma.form.update({
+    where: { id: formId },
+    data: { title }
+  });
+};
+
+/**
+ * Actualizar imagen de portada del formulario
+ */
+export const updateFormCoverImage = async (formId: string, coverImage: string | null) => {
+  return await prisma.form.update({
+    where: { id: formId },
+    data: { coverImage }
   });
 };
 
