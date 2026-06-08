@@ -16,12 +16,12 @@ interface ExamOption {
 }
 
 const getBestVersion = (form: Form) => {
-  // Devuelve la versión más reciente que tenga secciones con preguntas,
-  // o la versión más reciente en general si ninguna tiene preguntas
-  const versionWithQuestions = form.versions?.find((version: any) =>
+  // Ordenar versiones desc por número de versión para garantizar tomar la más reciente
+  const sorted = [...(form.versions ?? [])].sort((a: any, b: any) => b.version - a.version);
+  const versionWithQuestions = sorted.find((version: any) =>
     version.sections?.some((section: any) => section.questions && section.questions.length > 0)
   );
-  return versionWithQuestions || form.versions?.[0];
+  return versionWithQuestions || sorted[0];
 };
 
 export default function FormExamOverviewLoader({ formId }: FormExamOverviewLoaderProps) {

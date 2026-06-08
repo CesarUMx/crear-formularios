@@ -8,6 +8,7 @@ import { filterVisibleQuestions, evaluateConditionalLogic, isQuestionRequired, e
 import type { ConditionalLogic } from '../../lib/types';
 import TemplateWrapper from './templates/TemplateWrapper';
 import FileInput from './FileInput';
+import { API_URL } from '../../lib/config';
 import { Send, CheckCircle, AlertCircle, Loader, Save, Calendar, MapPin, Users, Clock } from 'lucide-react';
 
 interface ExamSchedule {
@@ -324,6 +325,30 @@ export default function PublicForm({ slug }: PublicFormProps) {
       return;
     }
 
+    // Validación HubSpot: verificar existencia del registro antes de enviar
+    const hubVal = (form as any).hubspotValidation as { matchQuestionId: string; message: string } | undefined;
+    if (hubVal?.matchQuestionId) {
+      const matchAnswer = answers.get(hubVal.matchQuestionId);
+      const matchValue = matchAnswer?.textAnswer?.trim();
+      if (matchValue) {
+        try {
+          const checkRes = await fetch(`${API_URL}/forms/public/${(form as any).slug}/hubspot-check`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ value: matchValue }),
+          });
+          const checkData = await checkRes.json();
+          if (!checkData.found) {
+            setError(checkData.message || hubVal.message || 'No se encontró el registro en el sistema.');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+          }
+        } catch {
+          // Si hay error de red, no bloqueamos al usuario
+        }
+      }
+    }
+
     // Iniciar animación de progreso
     setSubmitting(true);
     setError('');
@@ -422,17 +447,75 @@ export default function PublicForm({ slug }: PublicFormProps) {
     const answer = answers.get(question.id);
 
     switch (question.type) {
-      case 'TEXT':
+      case 'TEXT': {
+        const tv = question.textValidation as any;
+
+        // Descripción legible del tipo de contenido
+        const inputTypeLabels: Record<string, string> = {
+          numbers:     'Solo números (0-9)',
+          letters:     'Solo letras',
+          alphanumeric:'Letras y números',
+          email:       'Correo electrónico válido (ej. nombre@dominio.com)',
+          phone:       'Teléfono (7-15 dígitos)',
+          any:         '',
+        };
+        const inputTypeHint = inputTypeLabels[tv?.inputType || 'any'] || '';
+
+        // Construir title para el tooltip nativo de validación del navegador
+        const titleParts: string[] = [];
+        if (inputTypeHint) titleParts.push(inputTypeHint);
+        if (tv?.allowSpecialChars === false) titleParts.push('sin caracteres especiales');
+        if (tv?.minLength && tv?.maxLength) titleParts.push(`entre ${tv.minLength} y ${tv.maxLength} caracteres`);
+        else if (tv?.minLength) titleParts.push(`mínimo ${tv.minLength} caracteres`);
+        else if (tv?.maxLength) titleParts.push(`máximo ${tv.maxLength} caracteres`);
+        const titleAttr = titleParts.length ? titleParts.join(', ') : undefined;
+
+        // Build HTML pattern from inputType + allowSpecialChars
+        let pattern: string | undefined;
+        if (tv?.inputType === 'numbers') {
+          pattern = '[0-9]+';
+        } else if (tv?.inputType === 'letters') {
+          pattern = tv?.allowSpecialChars === false ? '[A-Za-z\u00C0-\u017F ]+' : '[A-Za-z\u00C0-\u017F !@#$%^&*()_+\\-=\\[\\]{};\':"\\\\|,.<>/?` ~]+';
+        } else if (tv?.inputType === 'alphanumeric') {
+          pattern = tv?.allowSpecialChars === false ? '[A-Za-z0-9\u00C0-\u017F ]+' : undefined;
+        } else if (tv?.inputType === 'email') {
+          pattern = '[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}';
+        } else if (tv?.inputType === 'phone') {
+          pattern = '[0-9+\\-\\s()]{7,15}';
+        }
+
+        // Hint lines to show below the input
+        const hintLines: string[] = [];
+        if (inputTypeHint) hintLines.push(inputTypeHint);
+        if (tv?.allowSpecialChars === false && ['letters', 'alphanumeric'].includes(tv?.inputType)) {
+          hintLines.push('Sin caracteres especiales');
+        }
+        if (tv?.minLength && tv?.maxLength) hintLines.push(`Entre ${tv.minLength} y ${tv.maxLength} caracteres`);
+        else if (tv?.minLength) hintLines.push(`Mínimo ${tv.minLength} caracteres`);
+        else if (tv?.maxLength) hintLines.push(`Máximo ${tv.maxLength} caracteres`);
+
         return (
-          <input
-            type="text"
-            value={answer?.textAnswer || ''}
-            onChange={(e) => handleTextChange(question.id, e.target.value)}
-            placeholder={question.placeholder || ''}
-            required={question.isRequired}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+          <div>
+            <input
+              type={tv?.inputType === 'email' ? 'email' : tv?.inputType === 'phone' ? 'tel' : 'text'}
+              value={answer?.textAnswer || ''}
+              onChange={(e) => handleTextChange(question.id, e.target.value)}
+              placeholder={question.placeholder || ''}
+              required={question.isRequired}
+              minLength={tv?.minLength}
+              maxLength={tv?.maxLength}
+              pattern={pattern}
+              title={titleAttr}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            {hintLines.length > 0 && (
+              <p className="mt-1 text-xs text-gray-400">
+                {hintLines.join(' · ')}
+              </p>
+            )}
+          </div>
         );
+      }
 
       case 'TEXTAREA':
         return (

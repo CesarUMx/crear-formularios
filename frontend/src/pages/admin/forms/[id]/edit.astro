@@ -1,0 +1,17 @@
+---
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import ProtectedRoute from '../../../../components/auth/ProtectedRoute';
+import FormEditorLoader from '../../../../components/forms/FormEditorLoader';
+
+const { id } = Astro.params;
+
+if (!id || typeof id !== 'string') {
+  return Astro.redirect('/admin');
+}
+---
+
+<AdminLayout title="Editar Formulario">
+  <ProtectedRoute client:load>
+    <FormEditorLoader client:load formId={id} />
+  </ProtectedRoute>
+</AdminLayout>

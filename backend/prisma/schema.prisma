@@ -54,6 +54,7 @@ model Form {
   emailQuestionId  String?  // ID de la pregunta que contiene el email del estudiante
   nameQuestionId   String?  // ID de la pregunta que contiene el nombre del estudiante
   allowExemption   Boolean  @default(false) // Permite solicitud de exención
+  coverImage       String?  // URL de la imagen de portada del formulario
   // Condición para decidir si se registra al estudiante al examen (null = siempre registrar)
   // Estructura: { combinator: "AND"|"OR", rules: [{questionId, operator, value}] }
   registrationCondition Json?
@@ -178,6 +179,8 @@ model Question {
   allowedFileTypes String? // Para FILE: "IMAGE", "PDF", "EXCEL" (separados por coma)
   maxFileSize      Int? // Tamaño máximo en MB (default: 10)
   order            Int
+  // Validación de texto (solo para TEXT): { inputType, allowSpecialChars, minLength, maxLength }
+  textValidation   Json?
   // Lógica condicional: { combinator: "AND"|"OR", rules: [{questionId, operator, value}], action: "SHOW"|"HIDE"|"REQUIRE" }
   conditionalLogic Json?
   createdAt        DateTime            @default(now())
@@ -990,6 +993,10 @@ model HubSpotConfig {
   // Token de acceso cifrado con AES-256-GCM usando HUBSPOT_ENCRYPTION_KEY
   accessTokenEncrypted String
   isActive             Boolean              @default(true)
+  // Si true, el formulario público no puede enviarse si el valor de matchQuestionId no existe en HubSpot
+  requireMatch         Boolean              @default(false)
+  // Mensaje personalizado cuando no se encuentra el registro en HubSpot
+  requireMatchMessage  String?
   // [{hubspotProperty: string, questionId: string, condition?: Json}]
   propertyMappings     Json                 @default("[]")
   createdAt            DateTime             @default(now())

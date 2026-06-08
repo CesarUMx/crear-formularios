@@ -24,7 +24,8 @@
     "create-admin": "tsx src/scripts/createSuperAdmin.ts",
     "init-templates": "tsx src/scripts/initTemplates.ts",
     "init-settings": "tsx src/scripts/initSettings.ts",
-    "init-all": "npm run create-admin && npm run init-templates && npm run init-settings"
+    "init-all": "npm run create-admin && npm run init-templates && npm run init-settings",
+    "add-umx-template": "tsx src/scripts/addUmxTemplate.ts"
   },
   "keywords": [
     "forms",

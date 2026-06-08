@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { formService } from '../../lib/formService';
-import type { QuestionType, SectionInput, QuestionInput } from '../../lib/types';
-import { TemplateSelector } from '../templates';
+import type { QuestionType, SectionInput, QuestionInput, TextValidation } from '../../lib/types';
 import { PageHeader } from '../common';
 import { useColors } from '../../hooks/useColors';
 import ConditionalLogicEditor from './ConditionalLogicEditor';
@@ -20,7 +19,6 @@ interface FormQuestionsEditorProps {
   formId: string;
   title: string;
   description?: string;
-  templateId?: string;
   sections: SectionInput[];
   onSave?: () => void;
 }
@@ -39,17 +37,16 @@ export default function FormQuestionsEditor({
   formId,
   title,
   description = '',
-  templateId = 'modern',
   sections: initialSections,
   onSave
 }: FormQuestionsEditorProps) {
   const colors = useColors();
-  const [selectedTemplateId, setSelectedTemplateId] = useState(templateId);
   const [sections, setSections] = useState<SectionInput[]>(initialSections);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [expandedSections, setExpandedSections] = useState<number[]>([0]);
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     setSections((prev) =>
@@ -63,6 +60,22 @@ export default function FormQuestionsEditor({
     );
   }, []);
 
+  // Advertir antes de salir si hay cambios sin guardar
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
+  // Wrapper que marca cambios pendientes en cualquier edición del usuario
+  const setDirtySections = (arg: SectionInput[] | ((prev: SectionInput[]) => SectionInput[])) => {
+    setSections(arg as any);
+    setIsDirty(true);
+  };
+
   const toggleSection = (index: number) => {
     setExpandedSections((prev) =>
       prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
@@ -70,7 +83,7 @@ export default function FormQuestionsEditor({
   };
 
   const addSection = () => {
-    setSections([
+    setDirtySections([
       ...sections,
       {
         title: `Sección ${sections.length + 1}`,
@@ -95,14 +108,14 @@ export default function FormQuestionsEditor({
       alert('Debe haber al menos una sección');
       return;
     }
-    setSections(sections.filter((_, i) => i !== index));
+    setDirtySections(sections.filter((_, i) => i !== index));
     setExpandedSections(expandedSections.filter((i) => i !== index));
   };
 
   const updateSection = (index: number, field: keyof SectionInput, value: string) => {
     const newSections = [...sections];
     newSections[index] = { ...newSections[index], [field]: value };
-    setSections(newSections);
+    setDirtySections(newSections);
   };
 
   const addQuestion = (sectionIndex: number) => {
@@ -117,7 +130,7 @@ export default function FormQuestionsEditor({
       isRequired: false,
       options: []
     });
-    setSections(newSections);
+    setDirtySections(newSections);
   };
 
   const removeQuestion = (sectionIndex: number, questionIndex: number) => {
@@ -129,7 +142,7 @@ export default function FormQuestionsEditor({
     newSections[sectionIndex].questions = newSections[sectionIndex].questions.filter(
       (_, i) => i !== questionIndex
     );
-    setSections(newSections);
+    setDirtySections(newSections);
   };
 
   const updateQuestion = (
@@ -150,7 +163,7 @@ export default function FormQuestionsEditor({
       }
     }
 
-    setSections(newSections);
+    setDirtySections(newSections);
   };
 
   const addOption = (sectionIndex: number, questionIndex: number) => {
@@ -158,7 +171,7 @@ export default function FormQuestionsEditor({
     const question = newSections[sectionIndex].questions[questionIndex];
     if (!question.options) question.options = [];
     question.options.push({ text: `Opción ${question.options.length + 1}` });
-    setSections(newSections);
+    setDirtySections(newSections);
   };
 
   const removeOption = (sectionIndex: number, questionIndex: number, optionIndex: number) => {
@@ -166,7 +179,7 @@ export default function FormQuestionsEditor({
     const question = newSections[sectionIndex].questions[questionIndex];
     if (question.options && question.options.length > 1) {
       question.options = question.options.filter((_, i) => i !== optionIndex);
-      setSections(newSections);
+      setDirtySections(newSections);
     }
   };
 
@@ -179,8 +192,29 @@ export default function FormQuestionsEditor({
     const newSections = [...sections];
     const question = newSections[sectionIndex].questions[questionIndex];
     if (question.options) {
+      const oldText = question.options[optionIndex]?.text ?? '';
       question.options[optionIndex] = { text: value };
-      setSections(newSections);
+
+      // Actualizar rule.value en todas las conditionalLogic que referencien el texto anterior
+      if (oldText && oldText !== value) {
+        for (const section of newSections) {
+          for (const q of section.questions) {
+            if (!q.conditionalLogic) continue;
+            const logic = q.conditionalLogic as any;
+            if (!logic?.rules) continue;
+            logic.rules = logic.rules.map((rule: any) => {
+              if (rule.questionId !== question.id) return rule;
+              if (rule.value === oldText) return { ...rule, value };
+              if (Array.isArray(rule.value)) {
+                return { ...rule, value: rule.value.map((v: string) => v === oldText ? value : v) };
+              }
+              return rule;
+            });
+          }
+        }
+      }
+
+      setDirtySections(newSections);
     }
   };
 
@@ -193,6 +227,7 @@ export default function FormQuestionsEditor({
     try {
       await formService.updateFormSections(formId, sections);
 
+      setIsDirty(false);
       setSuccess('Preguntas actualizadas exitosamente');
       onSave?.();
     } catch (err) {
@@ -207,6 +242,12 @@ export default function FormQuestionsEditor({
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-6">
+        {isDirty && !error && (
+          <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-3 flex items-center gap-2 text-sm text-yellow-800">
+            <AlertCircle className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+            Tienes cambios sin guardar. Guarda antes de cambiar de pestaña.
+          </div>
+        )}
         {error && (
           <div className="rounded-lg bg-red-50 p-4 flex items-start">
             <AlertCircle className="h-5 w-5 text-red-400 mr-3 flex-shrink-0 mt-0.5" />
@@ -220,9 +261,6 @@ export default function FormQuestionsEditor({
             <div className="text-sm text-green-700">{success}</div>
           </div>
         )}
-
-        {/* Selector de Plantilla */}
-        <TemplateSelector selectedTemplateId={selectedTemplateId} onSelect={setSelectedTemplateId} />
 
         {/* Secciones */}
         <div className="space-y-4">
@@ -386,6 +424,91 @@ export default function FormQuestionsEditor({
                             placeholder="Información adicional..."
                           />
                         </div>
+
+                        {/* Text Validation Configuration */}
+                        {question.type === 'TEXT' && (
+                          <div className="space-y-4 bg-green-50 p-4 rounded-lg border border-green-200">
+                            <h5 className="font-medium text-green-900">Validación de Texto</h5>
+
+                            {/* Input type */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de contenido permitido</label>
+                              <select
+                                value={question.textValidation?.inputType || 'any'}
+                                onChange={(e) =>
+                                  updateQuestion(sectionIndex, questionIndex, 'textValidation', {
+                                    ...question.textValidation,
+                                    inputType: e.target.value as TextValidation['inputType']
+                                  })
+                                }
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              >
+                                <option value="any">Cualquier texto</option>
+                                <option value="letters">Solo letras (a-z, A-Z)</option>
+                                <option value="numbers">Solo números (0-9)</option>
+                                <option value="alphanumeric">Letras y números</option>
+                                <option value="email">Correo electrónico</option>
+                                <option value="phone">Teléfono</option>
+                              </select>
+                            </div>
+
+                            {/* Allow special chars */}
+                            {['any', 'letters', 'alphanumeric'].includes(question.textValidation?.inputType || 'any') && (
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={question.textValidation?.allowSpecialChars ?? true}
+                                  onChange={(e) =>
+                                    updateQuestion(sectionIndex, questionIndex, 'textValidation', {
+                                      ...question.textValidation,
+                                      allowSpecialChars: e.target.checked
+                                    })
+                                  }
+                                  className="w-4 h-4 rounded border-gray-300 text-blue-600"
+                                />
+                                <span className="text-sm text-gray-700">Permitir caracteres especiales (!, @, #, etc.)</span>
+                              </label>
+                            )}
+
+                            {/* Min / Max length */}
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Mínimo de caracteres</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="999"
+                                  value={question.textValidation?.minLength ?? ''}
+                                  onChange={(e) =>
+                                    updateQuestion(sectionIndex, questionIndex, 'textValidation', {
+                                      ...question.textValidation,
+                                      minLength: e.target.value ? parseInt(e.target.value) : undefined
+                                    })
+                                  }
+                                  placeholder="Sin mínimo"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Máximo de caracteres</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="9999"
+                                  value={question.textValidation?.maxLength ?? ''}
+                                  onChange={(e) =>
+                                    updateQuestion(sectionIndex, questionIndex, 'textValidation', {
+                                      ...question.textValidation,
+                                      maxLength: e.target.value ? parseInt(e.target.value) : undefined
+                                    })
+                                  }
+                                  placeholder="Sin máximo"
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         {/* File Configuration */}
                         {question.type === 'FILE' && (

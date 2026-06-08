@@ -61,6 +61,8 @@ interface HubSpotConfig {
   matchProperty: string;
   matchQuestionId: string;
   isActive: boolean;
+  requireMatch: boolean;
+  requireMatchMessage?: string;
   propertyMappings: PropertyMapping[];
   hasToken: boolean;
   createdAt: string;
@@ -125,6 +127,8 @@ const EMPTY_FORM = {
   matchQuestionId: '',
   accessToken: '',
   isActive: true,
+  requireMatch: false,
+  requireMatchMessage: '',
   propertyMappings: [] as PropertyMapping[],
 };
 
@@ -199,6 +203,8 @@ export default function HubSpotConfigPanel({ formId, questions: questionsProp = 
           matchQuestionId: data.matchQuestionId,
           accessToken: '',
           isActive: data.isActive,
+          requireMatch: data.requireMatch ?? false,
+          requireMatchMessage: data.requireMatchMessage ?? '',
           propertyMappings: data.propertyMappings ?? [],
         });
       }
@@ -252,6 +258,8 @@ export default function HubSpotConfigPanel({ formId, questions: questionsProp = 
         matchProperty: form.matchProperty,
         matchQuestionId: form.matchQuestionId,
         isActive: form.isActive,
+        requireMatch: form.requireMatch,
+        requireMatchMessage: form.requireMatchMessage || null,
         propertyMappings: form.propertyMappings,
       };
       if (form.accessToken) payload.accessToken = form.accessToken;
@@ -603,6 +611,45 @@ export default function HubSpotConfigPanel({ formId, questions: questionsProp = 
                 }`}
               />
             </button>
+          </div>
+
+          {/* Validación requerida */}
+          <div className="space-y-3 py-2 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Requerir existencia en HubSpot</p>
+                <p className="text-xs text-gray-500">
+                  Bloquea el envío del formulario si la propiedad de búsqueda no se encuentra en HubSpot
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, requireMatch: !f.requireMatch }))}
+                className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${
+                  form.requireMatch ? 'bg-blue-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform mt-0.5 ${
+                    form.requireMatch ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+            {form.requireMatch && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Mensaje personalizado cuando no se encuentra (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={form.requireMatchMessage}
+                  onChange={(e) => setForm((f) => ({ ...f, requireMatchMessage: e.target.value }))}
+                  placeholder="Ej: No encontramos tu matrícula en el sistema. Verifica e inténtalo de nuevo."
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+            )}
           </div>
 
           {/* Tipo de objeto */}
