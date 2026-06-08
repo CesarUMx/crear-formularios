@@ -71,6 +71,11 @@ export default function RegistrationConditionEditor({
     return question.options.map(o => o.text);
   };
 
+  // Solo preguntas de opción única o múltiple tienen valores fijos comparables
+  const selectableQuestions = allQuestions.filter(q =>
+    ['RADIO', 'SELECT', 'CHECKBOX'].includes(q.type)
+  );
+
   if (!isExpanded || !condition) {
     return (
       <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
@@ -141,14 +146,14 @@ export default function RegistrationConditionEditor({
           return (
             <div key={index} className="flex items-start gap-2">
               <div className="flex-1 grid grid-cols-3 gap-2">
-                {/* Question selector */}
+                {/* Question selector — solo RADIO, SELECT y CHECKBOX */}
                 <select
                   value={rule.questionId}
                   onChange={(e) => updateRule(index, 'questionId', e.target.value)}
                   className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500"
                 >
                   <option value="">Seleccionar pregunta...</option>
-                  {allQuestions.map((q) => (
+                  {selectableQuestions.map((q) => (
                     <option key={q.id} value={q.id}>
                       {q.text || '(sin texto)'}
                     </option>

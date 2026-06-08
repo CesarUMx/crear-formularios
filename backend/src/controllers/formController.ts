@@ -8,6 +8,7 @@ import * as permissionService from '../services/permissionService.js';
 export const getForms = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const forms = await formService.getUserForms(String(req.user!.id), req.user!.role);
+    res.setHeader('Cache-Control', 'no-store');
     return res.json(forms);
   } catch (error) {
     return next(error);
@@ -37,6 +38,7 @@ export const getFormById = async (req: Request, res: Response, next: NextFunctio
       });
     }
 
+    res.setHeader('Cache-Control', 'no-store');
     return res.json(form);
   } catch (error) {
     return next(error);
@@ -323,6 +325,131 @@ export const updateSharePermission = async (req: Request, res: Response, next: N
     return res.json({
       message: 'Permisos actualizados exitosamente',
       share
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Actualizar configuración del formulario sin crear versión (título, descripción, plantilla, tipo, etc.)
+ */
+export const updateFormConfig = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { title, description, templateId, formType, linkedExamId, emailQuestionId, nameQuestionId, allowExemption, registrationCondition } = req.body;
+
+    const canEdit = await permissionService.canEditForm(String(req.user!.id), String(id));
+    if (!canEdit) {
+      return res.status(403).json({ error: 'No tienes permisos para editar este formulario' });
+    }
+
+    if (title !== undefined && String(title).trim() === '') {
+      return res.status(400).json({ error: 'El título no puede estar vacío' });
+    }
+
+    const form = await formService.updateFormConfig(String(id), {
+      title: title !== undefined ? String(title).trim() : undefined,
+      description,
+      templateId,
+      formType,
+      linkedExamId,
+      emailQuestionId,
+      nameQuestionId,
+      allowExemption,
+      registrationCondition,
+    });
+
+    return res.json({ message: 'Configuración actualizada', form });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Renombrar un formulario (solo cambia el título, no crea versión)
+ */
+export const renameForm = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { title } = req.body;
+
+    const canEdit = await permissionService.canEditForm(String(req.user!.id), String(id));
+    if (!canEdit) {
+      return res.status(403).json({ error: 'No tienes permisos para editar este formulario' });
+    }
+
+    if (!title || String(title).trim() === '') {
+      return res.status(400).json({ error: 'El título es requerido' });
+    }
+
+    const form = await formService.renameForm(String(id), String(title).trim());
+    return res.json({ message: 'Formulario renombrado', form });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Subir / actualizar imagen de portada
+ */
+export const uploadFormCoverImage = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const canEdit = await permissionService.canEditForm(String(req.user!.id), String(id));
+    if (!canEdit) {
+      return res.status(403).json({ error: 'No tienes permisos para editar este formulario' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se recibió ningún archivo' });
+    }
+
+    const coverImageUrl = `/uploads/${req.file.filename}`;
+    await formService.updateFormCoverImage(String(id), coverImageUrl);
+    return res.json({ message: 'Imagen de portada actualizada', coverImageUrl });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Eliminar imagen de portada
+ */
+export const deleteFormCoverImage = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const canEdit = await permissionService.canEditForm(String(req.user!.id), String(id));
+    if (!canEdit) {
+      return res.status(403).json({ error: 'No tienes permisos para editar este formulario' });
+    }
+
+    await formService.updateFormCoverImage(String(id), null);
+    return res.json({ message: 'Imagen de portada eliminada' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/**
+ * Duplicar un formulario (clonar configuración sin respuestas)
+ */
+export const duplicateForm = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const hasAccess = await permissionService.canAccessForm(String(req.user!.id), String(id));
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'No tienes permisos para duplicar este formulario' });
+    }
+
+    const cloned = await formService.duplicateForm(String(id), String(req.user!.id));
+
+    return res.status(201).json({
+      message: 'Formulario duplicado exitosamente',
+      form: cloned
     });
   } catch (error) {
     return next(error);

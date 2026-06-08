@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertCircle, BarChart3, FileQuestion, Mail, PanelsTopLeft, ClipboardCheck, Zap } from 'lucide-react';
+import { AlertCircle, BarChart3, FileQuestion, Mail, PanelsTopLeft, ClipboardCheck, Zap, Settings } from 'lucide-react';
 import { formService } from '../../lib/formService';
 import type { Form } from '../../lib/types';
 
@@ -67,6 +67,12 @@ export default function FormDashboardLoader({ formId }: FormDashboardLoaderProps
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <a href={`/admin/forms/${formId}/edit`} className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition block">
+          <Settings className="w-8 h-8 text-gray-600 mb-3" />
+          <h2 className="font-semibold text-gray-900 mb-1">Configuración</h2>
+          <p className="text-sm text-gray-600">Título, portada, plantilla</p>
+        </a>
+
         <a href={`/admin/forms/${formId}/questions`} className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition block">
           <FileQuestion className="w-8 h-8 text-blue-600 mb-3" />
           <h2 className="font-semibold text-gray-900 mb-1">Preguntas</h2>

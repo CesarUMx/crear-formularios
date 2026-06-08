@@ -51,10 +51,11 @@ export default function FormQuestionsEditorLoader({ formId }: FormQuestionsEdito
     );
   }
 
+  const sortedVersions = [...(form.versions ?? [])].sort((a: any, b: any) => b.version - a.version);
   const latestVersion =
-    form.versions?.find((version) =>
+    sortedVersions.find((version) =>
       version.sections?.some((section) => section.questions && section.questions.length > 0)
-    ) || form.versions?.[0];
+    ) || sortedVersions[0];
   const sections: SectionInput[] = latestVersion
     ? latestVersion.sections.map((section) => ({
         title: section.title,
@@ -68,6 +69,7 @@ export default function FormQuestionsEditorLoader({ formId }: FormQuestionsEdito
           isRequired: question.isRequired,
           allowedFileTypes: question.allowedFileTypes,
           maxFileSize: question.maxFileSize,
+          textValidation: (question as any).textValidation,
           conditionalLogic: question.conditionalLogic,
           options: question.options.map((opt) => ({ text: opt.text }))
         }))

@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { formService } from '../../lib/formService';
 import { api } from '../../lib/api';
-import type { QuestionType, SectionInput, QuestionInput, ConditionalLogic, SimpleCondition, FormType } from '../../lib/types';
+import type { QuestionType, SectionInput, QuestionInput, ConditionalLogic, SimpleCondition, FormType, TextValidation } from '../../lib/types';
 import { TemplateSelector } from '../templates';
 import { PageHeader } from '../common';
 import { useColors } from '../../hooks/useColors';
@@ -17,7 +17,9 @@ import {
   ChevronUp,
   FileText,
   ClipboardList,
-  BookOpen
+  BookOpen,
+  ImagePlus,
+  X
 } from 'lucide-react';
 
 interface ExamOption {
@@ -27,6 +29,7 @@ interface ExamOption {
 
 interface FormEditorProps {
   formId?: string;
+  hideHeader?: boolean;
   initialData?: {
     title: string;
     description?: string;
@@ -37,6 +40,7 @@ interface FormEditorProps {
     nameQuestionId?: string;
     allowExemption?: boolean;
     registrationCondition?: SimpleCondition;
+    coverImage?: string;
     sections: SectionInput[];
   };
 }
@@ -51,7 +55,7 @@ const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
   { value: 'BOOLEAN', label: 'Aceptación (Casilla única)' },
 ];
 
-export default function FormEditor({ formId, initialData }: FormEditorProps) {
+export default function FormEditor({ formId, hideHeader, initialData }: FormEditorProps) {
   const colors = useColors();
   const [title, setTitle] = useState(initialData?.title || '');
   const [description, setDescription] = useState(initialData?.description || '');
@@ -87,6 +91,12 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [expandedSections, setExpandedSections] = useState<number[]>([0]);
+
+  // Imagen de portada
+  const [coverImage, setCoverImage] = useState(initialData?.coverImage || '');
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [coverError, setCoverError] = useState('');
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   // Cargar examenes disponibles
   useEffect(() => {
@@ -231,8 +241,67 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
     const newSections = [...sections];
     const question = newSections[sectionIndex].questions[questionIndex];
     if (question.options) {
+      const oldText = question.options[optionIndex]?.text ?? '';
       question.options[optionIndex] = { text: value };
+
+      // Actualizar rule.value en todas las conditionalLogic y registrationCondition
+      // que referencien el texto anterior (los valores son textos de opciones)
+      if (oldText && oldText !== value) {
+        const remapRules = (rules: any[]) =>
+          rules.map((rule: any) => {
+            if (rule.questionId !== question.id) return rule;
+            if (rule.value === oldText) return { ...rule, value };
+            if (Array.isArray(rule.value)) {
+              return { ...rule, value: rule.value.map((v: string) => v === oldText ? value : v) };
+            }
+            return rule;
+          });
+
+        for (const section of newSections) {
+          for (const q of section.questions) {
+            if (!q.conditionalLogic) continue;
+            const logic = q.conditionalLogic as any;
+            if (logic?.rules) logic.rules = remapRules(logic.rules);
+          }
+        }
+
+        // Actualizar también registrationCondition si referencia esta pregunta
+        if (registrationCondition?.rules) {
+          setRegistrationCondition(prev => ({
+            ...prev!,
+            rules: remapRules(prev!.rules)
+          }));
+        }
+      }
+
       setSections(newSections);
+    }
+  };
+
+  const handleCoverImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !formId) return;
+    setCoverError('');
+    setCoverUploading(true);
+    try {
+      const result = await formService.uploadCoverImage(formId, file);
+      setCoverImage(result.coverImageUrl);
+    } catch (err) {
+      setCoverError(err instanceof Error ? err.message : 'Error al subir imagen');
+    } finally {
+      setCoverUploading(false);
+      if (coverInputRef.current) coverInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveCoverImage = async () => {
+    if (!formId) return;
+    setCoverError('');
+    try {
+      await formService.deleteCoverImage(formId);
+      setCoverImage('');
+    } catch (err) {
+      setCoverError(err instanceof Error ? err.message : 'Error al eliminar imagen');
     }
   };
 
@@ -274,12 +343,14 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        icon={FileText}
-        title={formId ? "Editar Formulario" : "Crear Nuevo Formulario"}
-        description={formId ? "Modifica tu formulario existente" : "Diseña tu formulario agregando secciones y preguntas con puntos"}
-        primaryColor={colors.primaryColor}
-      />
+      {!hideHeader && (
+        <PageHeader
+          icon={FileText}
+          title={formId ? "Editar Formulario" : "Crear Nuevo Formulario"}
+          description={formId ? "Modifica tu formulario existente" : "Diseña tu formulario agregando secciones y preguntas con puntos"}
+          primaryColor={colors.primaryColor}
+        />
+      )}
       
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Mensajes */}
@@ -448,6 +519,75 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
             placeholder="Describe el propósito de este formulario..."
           />
         </div>
+
+        {/* Imagen de portada */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Imagen de Portada (Opcional)
+          </label>
+          {coverError && (
+            <p className="text-red-600 text-xs mb-2">{coverError}</p>
+          )}
+          {coverImage ? (
+            <div className="relative w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+              <img
+                src={coverImage.startsWith('http') ? coverImage : `http://localhost:3000${coverImage}`}
+                alt="Portada del formulario"
+                className="w-full h-48 object-cover"
+              />
+              <div className="absolute top-2 right-2 flex gap-2">
+                {formId && (
+                  <button
+                    type="button"
+                    onClick={() => coverInputRef.current?.click()}
+                    disabled={coverUploading}
+                    className="p-1.5 rounded-lg bg-white shadow text-blue-600 hover:bg-blue-50 transition"
+                    title="Cambiar imagen"
+                  >
+                    <ImagePlus className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleRemoveCoverImage}
+                  disabled={coverUploading}
+                  className="p-1.5 rounded-lg bg-white shadow text-red-600 hover:bg-red-50 transition"
+                  title="Eliminar imagen"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              {!formId ? (
+                <p className="text-sm text-gray-500">Guarda el formulario primero para agregar una imagen de portada.</p>
+              ) : (
+                <>
+                  <ImagePlus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600 mb-2">La imagen se mostrará en la parte superior del formulario público</p>
+                  <button
+                    type="button"
+                    onClick={() => coverInputRef.current?.click()}
+                    disabled={coverUploading}
+                    className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition disabled:opacity-50"
+                  >
+                    {coverUploading ? 'Subiendo...' : 'Seleccionar imagen'}
+                  </button>
+                  <p className="text-xs text-gray-400 mt-2">JPG, PNG, WebP — máx. 500 KB</p>
+                  <p className="text-xs text-blue-600 mt-1 font-medium">Medida recomendada: 1200 × 300 px (proporción 4:1)</p>
+                </>
+              )}
+            </div>
+          )}
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            onChange={handleCoverImageChange}
+            className="hidden"
+          />
+        </div>
       </div>
 
       {/* Selector de Plantilla */}
@@ -610,6 +750,91 @@ export default function FormEditor({ formId, initialData }: FormEditorProps) {
                           placeholder="Información adicional..."
                         />
                       </div>
+
+                      {/* Text Validation Configuration */}
+                      {question.type === 'TEXT' && (
+                        <div className="space-y-4 bg-green-50 p-4 rounded-lg border border-green-200">
+                          <h5 className="font-medium text-green-900">Validación de Texto</h5>
+
+                          {/* Input type */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de contenido permitido</label>
+                            <select
+                              value={question.textValidation?.inputType || 'any'}
+                              onChange={(e) =>
+                                updateQuestion(sectionIndex, questionIndex, 'textValidation', {
+                                  ...question.textValidation,
+                                  inputType: e.target.value as TextValidation['inputType']
+                                })
+                              }
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            >
+                              <option value="any">Cualquier texto</option>
+                              <option value="letters">Solo letras (a-z, A-Z)</option>
+                              <option value="numbers">Solo números (0-9)</option>
+                              <option value="alphanumeric">Letras y números</option>
+                              <option value="email">Correo electrónico</option>
+                              <option value="phone">Teléfono</option>
+                            </select>
+                          </div>
+
+                          {/* Allow special chars */}
+                          {['any', 'letters', 'alphanumeric'].includes(question.textValidation?.inputType || 'any') && (
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={question.textValidation?.allowSpecialChars ?? true}
+                                onChange={(e) =>
+                                  updateQuestion(sectionIndex, questionIndex, 'textValidation', {
+                                    ...question.textValidation,
+                                    allowSpecialChars: e.target.checked
+                                  })
+                                }
+                                className="w-4 h-4 rounded border-gray-300 text-blue-600"
+                              />
+                              <span className="text-sm text-gray-700">Permitir caracteres especiales (!, @, #, etc.)</span>
+                            </label>
+                          )}
+
+                          {/* Min / Max length */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Mínimo de caracteres</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max="999"
+                                value={question.textValidation?.minLength ?? ''}
+                                onChange={(e) =>
+                                  updateQuestion(sectionIndex, questionIndex, 'textValidation', {
+                                    ...question.textValidation,
+                                    minLength: e.target.value ? parseInt(e.target.value) : undefined
+                                  })
+                                }
+                                placeholder="Sin mínimo"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Máximo de caracteres</label>
+                              <input
+                                type="number"
+                                min="1"
+                                max="9999"
+                                value={question.textValidation?.maxLength ?? ''}
+                                onChange={(e) =>
+                                  updateQuestion(sectionIndex, questionIndex, 'textValidation', {
+                                    ...question.textValidation,
+                                    maxLength: e.target.value ? parseInt(e.target.value) : undefined
+                                  })
+                                }
+                                placeholder="Sin máximo"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* File Configuration */}
                       {question.type === 'FILE' && (

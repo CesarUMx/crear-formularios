@@ -1,6 +1,34 @@
 -- Plantillas predefinidas para formularios
 -- Ejecutar después de la migración
 
+-- 0. Plantilla UMx (Default institucional - Universidad Mondragón México)
+INSERT INTO form_templates (
+  id, name, description, "isActive",
+  "primaryColor", "secondaryColor", "accentColor",
+  "backgroundColor", "textColor",
+  "headerStyle", "sectionStyle", "buttonStyle", "inputStyle",
+  "fontFamily", "fontSize", "createdAt", "updatedAt"
+) VALUES (
+  'umx',
+  'UMx',
+  'Plantilla institucional de Universidad Mondragón México',
+  true,
+  '#FF4D00', '#0E5088', '#F3530E',
+  '#F1F1F1', '#222222',
+  'gradient', 'card', 'rounded', 'outlined',
+  'Poppins, sans-serif', 'base',
+  NOW(), NOW()
+) ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  "primaryColor" = EXCLUDED."primaryColor",
+  "secondaryColor" = EXCLUDED."secondaryColor",
+  "accentColor" = EXCLUDED."accentColor",
+  "backgroundColor" = EXCLUDED."backgroundColor",
+  "textColor" = EXCLUDED."textColor",
+  "fontFamily" = EXCLUDED."fontFamily",
+  "updatedAt" = NOW();
+
 -- 1. Plantilla Moderna (Default)
 INSERT INTO form_templates (
   id, 

@@ -1,5 +1,14 @@
 import type { FormTemplate } from '../../../lib/templates';
 import type { PublicForm } from '../../../lib/publicFormService';
+import { API_URL } from '../../../lib/config';
+
+const BACKEND_URL = API_URL.replace('/api', '');
+
+function resolveImageUrl(url: string): string {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  return `${BACKEND_URL}${url}`;
+}
 
 interface AcademicTemplateProps {
   form: PublicForm;
@@ -10,6 +19,17 @@ interface AcademicTemplateProps {
 export default function AcademicTemplate({ form, template, children }: AcademicTemplateProps) {
   return (
     <div className="min-h-screen bg-white">
+
+      {/* Imagen de portada */}
+      {form.coverImage && (
+        <div className="w-full h-52 sm:h-72 overflow-hidden">
+          <img
+            src={resolveImageUrl(form.coverImage)}
+            alt="Portada"
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
 
       <section className="relative overflow-hidden bg-[#0E5088] text-white">
         <div className="absolute inset-0 bg-[url('/abstract-geometric-pattern.png')] opacity-5" />

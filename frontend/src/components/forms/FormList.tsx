@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { formService } from '../../lib/formService';
 import type { Form } from '../../lib/types';
 import ShareFormModal from './ShareFormModal';
 import { useToast, ToastContainer, DeleteDialog, useDialog, PageHeader, EmptyState } from '../common';
 import { useColors } from '../../hooks/useColors';
-import { 
-  Plus, 
-  FileText, 
-  Users, 
-  Calendar, 
-  ToggleLeft, 
+import {
+  Plus,
+  FileText,
+  Users,
+  Calendar,
+  ToggleLeft,
   ToggleRight,
   Trash2,
   Edit,
@@ -18,8 +18,14 @@ import {
   AlertCircle,
   ExternalLink,
   Copy,
-  Check
+  Check,
+  Files,
+  Search,
+  ClipboardList,
+  Pencil,
 } from 'lucide-react';
+
+type StatusFilter = 'all' | 'active' | 'inactive';
 
 export default function FormList() {
   const [forms, setForms] = useState<Form[]>([]);
@@ -29,14 +35,18 @@ export default function FormList() {
   const [copiedFormId, setCopiedFormId] = useState<string | null>(null);
   const [formToDelete, setFormToDelete] = useState<{ id: string; title: string } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  
+  const [duplicatingFormId, setDuplicatingFormId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [renamingFormId, setRenamingFormId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameSaving, setRenameSaving] = useState(false);
+
   const toast = useToast();
   const deleteDialog = useDialog();
   const colors = useColors();
 
-  useEffect(() => {
-    loadForms();
-  }, []);
+  useEffect(() => { loadForms(); }, []);
 
   const loadForms = async () => {
     try {
@@ -51,6 +61,20 @@ export default function FormList() {
     }
   };
 
+  const filteredForms = useMemo(() => {
+    return forms.filter(form => {
+      if (searchQuery && !form.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (statusFilter === 'active' && !form.isActive) return false;
+      if (statusFilter === 'inactive' && form.isActive) return false;
+      return true;
+    });
+  }, [forms, searchQuery, statusFilter]);
+
+  const counts = useMemo(() => ({
+    active: forms.filter(f => f.isActive).length,
+    inactive: forms.filter(f => !f.isActive).length,
+  }), [forms]);
+
   const handleToggleStatus = async (id: string, currentStatus: boolean) => {
     try {
       await formService.toggleFormStatus(id, !currentStatus);
@@ -60,10 +84,7 @@ export default function FormList() {
         'El estado se actualizó correctamente'
       );
     } catch (err) {
-      toast.error(
-        'Error al cambiar estado',
-        err instanceof Error ? err.message : 'Ocurrió un error inesperado'
-      );
+      toast.error('Error al cambiar estado', err instanceof Error ? err.message : 'Error inesperado');
     }
   };
 
@@ -74,7 +95,6 @@ export default function FormList() {
 
   const handleDeleteConfirm = async () => {
     if (!formToDelete) return;
-    
     setDeleteLoading(true);
     try {
       await formService.deleteForm(formToDelete.id);
@@ -83,71 +103,86 @@ export default function FormList() {
       deleteDialog.close();
       setFormToDelete(null);
     } catch (err) {
-      toast.error(
-        'Error al eliminar formulario',
-        err instanceof Error ? err.message : 'Ocurrió un error inesperado'
-      );
+      toast.error('Error al eliminar', err instanceof Error ? err.message : 'Error inesperado');
     } finally {
       setDeleteLoading(false);
     }
   };
 
-  const getPublicUrl = (slug: string) => {
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/p/${slug}`;
-  };
-
   const handleCopyLink = async (form: Form) => {
     try {
-      const url = getPublicUrl(form.slug);
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(`${window.location.origin}/p/${form.slug}`);
       setCopiedFormId(form.id);
       setTimeout(() => setCopiedFormId(null), 2000);
       toast.success('Enlace copiado', 'El enlace público fue copiado al portapapeles');
-    } catch (err) {
-      toast.error('Error al copiar enlace', 'No se pudo copiar el enlace al portapapeles');
+    } catch {
+      toast.error('Error al copiar enlace', 'No se pudo copiar el enlace');
     }
   };
 
-  const handleOpenPublic = (slug: string) => {
-    const url = getPublicUrl(slug);
-    window.open(url, '_blank');
+  const handleDuplicate = async (id: string, title: string) => {
+    setDuplicatingFormId(id);
+    try {
+      const result = await formService.duplicateForm(id);
+      await loadForms();
+      toast.success('Formulario duplicado', `"${title}" fue clonado como "${result.form.title}"`);
+    } catch (err) {
+      toast.error('Error al duplicar', err instanceof Error ? err.message : 'Error inesperado');
+    } finally {
+      setDuplicatingFormId(null);
+    }
+  };
+
+  const handleStartRename = (form: Form) => {
+    setRenamingFormId(form.id);
+    setRenameValue(form.title);
+  };
+
+  const handleRenameSubmit = async (id: string) => {
+    const trimmed = renameValue.trim();
+    if (!trimmed) return;
+    setRenameSaving(true);
+    try {
+      await formService.renameForm(id, trimmed);
+      await loadForms();
+      toast.success('Formulario renombrado', 'El nombre fue actualizado');
+    } catch (err) {
+      toast.error('Error al renombrar', err instanceof Error ? err.message : 'Error inesperado');
+    } finally {
+      setRenameSaving(false);
+      setRenamingFormId(null);
+    }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando formularios...</p>
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-lg bg-red-50 p-4 flex items-start">
-        <AlertCircle className="h-5 w-5 text-red-400 mr-3 flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-red-700">{error}</div>
+      <div className="rounded-lg bg-red-50 p-4 flex items-start gap-3">
+        <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+        <p className="text-red-700 text-sm">{error}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <PageHeader
         icon={FileText}
         title="Mis Formularios"
         description="Crea, edita y gestiona tus formularios"
-        buttonText={forms.length > 0 ? "Nuevo Formulario" : undefined}
+        buttonText={forms.length > 0 ? 'Nuevo Formulario' : undefined}
         onButtonClick={forms.length > 0 ? () => window.location.href = '/admin/forms/new' : undefined}
         buttonIcon={Plus}
         primaryColor={colors.primaryColor}
       />
 
-      {/* Lista de formularios */}
       {forms.length === 0 ? (
         <EmptyState
           icon={FileText}
@@ -159,152 +194,203 @@ export default function FormList() {
           primaryColor={colors.primaryColor}
         />
       ) : (
-        <div className="grid gap-6 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-          {forms.map((form) => (
-            <div
-              key={form.id}
-              className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow min-w-[280px] w-full"
-            >
-              {/* Card Header */}
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
-                    {form.title}
-                  </h3>
-                  <button
-                    onClick={() => handleToggleStatus(form.id, form.isActive)}
-                    className="flex-shrink-0 ml-2"
-                    title={form.isActive ? 'Desactivar' : 'Activar'}
-                  >
-                    {form.isActive ? (
-                      <ToggleRight className="w-6 h-6 text-green-600" />
-                    ) : (
-                      <ToggleLeft className="w-6 h-6 text-gray-400" />
+        <>
+          {/* Barra de búsqueda y filtros */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por nombre..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 w-fit">
+              <button
+                onClick={() => setStatusFilter('all')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition ${statusFilter === 'all' ? 'bg-white shadow text-gray-900' : 'text-gray-600 hover:text-gray-900'}`}
+              >
+                Todos
+              </button>
+              <button
+                onClick={() => setStatusFilter('active')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition ${statusFilter === 'active' ? 'bg-white shadow text-green-700' : 'text-gray-600 hover:text-gray-900'}`}
+              >
+                Activos <span className="text-gray-400">({counts.active})</span>
+              </button>
+              <button
+                onClick={() => setStatusFilter('inactive')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition ${statusFilter === 'inactive' ? 'bg-white shadow text-gray-700' : 'text-gray-600 hover:text-gray-900'}`}
+              >
+                Inactivos <span className="text-gray-400">({counts.inactive})</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Lista de filas */}
+          {filteredForms.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+              <Search className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No se encontraron formularios con esos filtros</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredForms.map((form) => (
+                <div key={form.id} className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-4 px-5 py-4">
+
+                    {/* Toggle */}
+                    <button
+                      onClick={() => handleToggleStatus(form.id, form.isActive)}
+                      className="flex-shrink-0"
+                      title={form.isActive ? 'Desactivar' : 'Activar'}
+                    >
+                      {form.isActive
+                        ? <ToggleRight className="w-7 h-7 text-green-600" />
+                        : <ToggleLeft className="w-7 h-7 text-gray-400" />}
+                    </button>
+
+                    {/* Título + badges */}
+                    <div className="flex-1 min-w-0">
+                      {renamingFormId === form.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            autoFocus
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleRenameSubmit(form.id);
+                              if (e.key === 'Escape') setRenamingFormId(null);
+                            }}
+                            onBlur={() => handleRenameSubmit(form.id)}
+                            disabled={renameSaving}
+                            className="flex-1 text-sm font-semibold border border-blue-400 rounded px-2 py-0.5 focus:ring-2 focus:ring-blue-500 focus:outline-none min-w-0"
+                          />
+                          {renameSaving && <span className="text-xs text-gray-400">Guardando...</span>}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h3 className="text-sm font-semibold text-gray-900 truncate">{form.title}</h3>
+                          <button
+                            onClick={() => handleStartRename(form)}
+                            className="p-0.5 rounded text-gray-400 hover:text-blue-600 transition flex-shrink-0"
+                            title="Renombrar"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          {form.isActive
+                            ? <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700 flex-shrink-0">Activo</span>
+                            : <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 flex-shrink-0">Inactivo</span>
+                          }
+                          {form.formType === 'EXAM_REGISTRATION' && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 flex-shrink-0">Registro</span>
+                          )}
+                        </div>
+                      )}
+                      {form.description && renamingFormId !== form.id && (
+                        <p className="text-xs text-gray-500 truncate mt-0.5">{form.description}</p>
+                      )}
+                    </div>
+
+                    {/* Stats */}
+                    <div className="hidden md:flex items-center gap-5 flex-shrink-0 text-xs text-gray-500">
+                      <div className="flex items-center gap-1.5" title="Respuestas">
+                        <Users className="w-3.5 h-3.5" />
+                        <span>{form._count?.responses ?? 0}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5" title="Creado por">
+                        <FileText className="w-3.5 h-3.5" />
+                        <span className="truncate max-w-[100px]">{form.createdBy.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5" title="Actualizado">
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>{new Date(form.updatedAt).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}</span>
+                      </div>
+                    </div>
+
+                    {/* Botones de enlace público */}
+                    {form.isActive && (
+                      <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => handleCopyLink(form)}
+                          className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition"
+                          title="Copiar enlace público"
+                        >
+                          {copiedFormId === form.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={() => window.open(`${window.location.origin}/p/${form.slug}`, '_blank')}
+                          className="p-2 rounded-lg text-purple-600 hover:bg-purple-50 transition"
+                          title="Abrir formulario público"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
+                      </div>
                     )}
-                  </button>
-                </div>
-                {form.description && (
-                  <p className="text-sm text-gray-600 line-clamp-2">{form.description}</p>
-                )}
-              </div>
 
-              {/* Card Body */}
-              <div className="p-6 space-y-3">
-                {/* Stats */}
-                <div className="flex items-center gap-4 text-sm text-gray-600">
-                  <div className="flex items-center gap-1">
-                    <Users className="w-4 h-4" />
-                    <span>{form._count?.responses || 0} respuestas</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <FileText className="w-4 h-4" />
-                    <span>v{form._count?.versions || 1}</span>
-                  </div>
-                </div>
+                    {/* Separador */}
+                    <div className="hidden sm:block w-px h-6 bg-gray-200 flex-shrink-0" />
 
-                {/* Metadata */}
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <Calendar className="w-3 h-3" />
-                  <span>
-                    {new Date(form.updatedAt).toLocaleDateString('es-MX', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric'
-                    })}
-                  </span>
-                </div>
-
-                {/* Creator */}
-                <div className="text-xs text-gray-500">
-                  Por: <span className="font-medium">{form.createdBy.name}</span>
-                </div>
-
-                {/* Status Badge */}
-                <div>
-                  {form.isActive ? (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      Activo
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      Inactivo
-                    </span>
-                  )}
-                </div>
-
-                {/* Public Link */}
-                {form.isActive && (
-                  <div className="pt-3 border-t border-gray-200">
-                    <p className="text-xs font-medium text-gray-700 mb-2">Enlace Público:</p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleCopyLink(form)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 min-h-[40px] min-w-[80px] text-xs font-medium bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition"
-                        title="Copiar enlace"
+                    {/* Acciones */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <a
+                        href={`/admin/forms/${form.id}/edit`}
+                        className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 transition"
+                        title="Editar"
                       >
-                        {copiedFormId === form.id ? (
-                          <>
-                            <Check className="w-4 h-4" />
-                            <span className="whitespace-nowrap">Copiado!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-4 h-4" />
-                            <span className="whitespace-nowrap">Copiar</span>
-                          </>
-                        )}
+                        <Edit className="w-4 h-4" />
+                      </a>
+                      <button
+                        onClick={() => setShareModalForm({ id: form.id, title: form.title })}
+                        className="p-2 rounded-lg text-green-600 hover:bg-green-50 transition"
+                        title="Compartir"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                      <a
+                        href={`/admin/forms/${form.id}/responses`}
+                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition"
+                        title="Ver respuestas"
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                      </a>
+                      {form.formType === 'EXAM_REGISTRATION' && (
+                        <a
+                          href={`/admin/forms/${form.id}/exam`}
+                          className="p-2 rounded-lg text-indigo-600 hover:bg-indigo-50 transition"
+                          title="Configuración de examen"
+                        >
+                          <ClipboardList className="w-4 h-4" />
+                        </a>
+                      )}
+                      <button
+                        onClick={() => handleDuplicate(form.id, form.title)}
+                        disabled={duplicatingFormId === form.id}
+                        className="p-2 rounded-lg text-amber-600 hover:bg-amber-50 transition disabled:opacity-40"
+                        title="Duplicar formulario"
+                      >
+                        <Files className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleOpenPublic(form.slug)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 min-h-[40px] min-w-[80px] text-xs font-medium bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition"
-                        title="Abrir en nueva pestaña"
+                        onClick={() => handleDeleteClick(form.id, form.title)}
+                        className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition"
+                        title="Eliminar"
                       >
-                        <ExternalLink className="w-4 h-4" />
-                        <span className="whitespace-nowrap">Abrir</span>
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-                  </div>
-                )}
-              </div>
 
-              {/* Card Footer */}
-              <div className="p-4 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-2">
-                <a
-                  href={`/admin/forms/${form.id}`}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] min-w-[70px] text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                >
-                  <Edit className="w-4 h-4 flex-shrink-0" />
-                  <span className="whitespace-nowrap">Editar</span>
-                </a>
-                <button
-                  onClick={() => setShareModalForm({ id: form.id, title: form.title })}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] min-w-[70px] text-sm font-medium text-green-600 hover:bg-green-50 rounded-lg transition"
-                  title="Compartir"
-                >
-                  <Share2 className="w-4 h-4 flex-shrink-0" />
-                  <span className="whitespace-nowrap">Compartir</span>
-                </button>
-                <a
-                  href={`/admin/forms/${form.id}/responses`}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] min-w-[70px] text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition"
-                >
-                  <BarChart3 className="w-4 h-4 flex-shrink-0" />
-                  <span className="whitespace-nowrap">Ver</span>
-                </a>
-                <button
-                  onClick={() => handleDeleteClick(form.id, form.title)}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[40px] min-w-[45px] text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition"
-                  title="Eliminar"
-                >
-                  <Trash2 className="w-4 h-4 flex-shrink-0" />
-                </button>
-              </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
-      {/* Share Modal */}
       {shareModalForm && (
         <ShareFormModal
           formId={shareModalForm.id}
@@ -313,7 +399,6 @@ export default function FormList() {
         />
       )}
 
-      {/* Delete Dialog */}
       <DeleteDialog
         isOpen={deleteDialog.isOpen}
         onClose={deleteDialog.close}
@@ -322,7 +407,6 @@ export default function FormList() {
         loading={deleteLoading}
       />
 
-      {/* Toast Container */}
       <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
     </div>
   );

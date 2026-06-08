@@ -6,6 +6,7 @@ export interface PublicForm {
   description?: string;
   slug: string;
   templateId?: string;
+  coverImage?: string;
   version: {
     id: string;
     version: number;
@@ -40,6 +41,10 @@ export interface PublicForm {
         }[];
       }[];
     }[];
+  };
+  hubspotValidation?: {
+    matchQuestionId: string;
+    message: string;
   };
 }
 

@@ -4,6 +4,26 @@ const prisma = new PrismaClient();
 
 const templates = [
   {
+    id: 'umx',
+    name: 'UMx',
+    description: 'Plantilla institucional de Universidad Mondragón México',
+    isActive: true,
+    primaryColor: '#FF4D00',
+    secondaryColor: '#0E5088',
+    accentColor: '#F3530E',
+    backgroundColor: '#F1F1F1',
+    textColor: '#222222',
+    headerStyle: 'gradient',
+    sectionStyle: 'card',
+    buttonStyle: 'rounded',
+    inputStyle: 'outlined',
+    fontFamily: 'Poppins, sans-serif',
+    fontSize: 'base',
+    customStyles: {
+      headerGradient: 'linear-gradient(135deg, #0E5088 0%, #1a6fad 100%)',
+    },
+  },
+  {
     id: 'modern',
     name: 'Moderna',
     description: 'Diseño minimalista y limpio, ideal para formularios profesionales',

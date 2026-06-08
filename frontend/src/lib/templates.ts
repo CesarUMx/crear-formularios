@@ -37,6 +37,26 @@ export interface FormTemplate {
 // Plantillas predefinidas
 export const FORM_TEMPLATES: FormTemplate[] = [
   {
+    id: 'umx',
+    name: 'UMx',
+    description: 'Plantilla institucional de Universidad Mondragón México con colores y tipografía de marca',
+    isActive: true,
+    primaryColor: '#FF4D00',
+    secondaryColor: '#0E5088',
+    accentColor: '#F3530E',
+    backgroundColor: '#F1F1F1',
+    textColor: '#222222',
+    headerStyle: 'gradient',
+    sectionStyle: 'card',
+    buttonStyle: 'rounded',
+    inputStyle: 'outlined',
+    fontFamily: 'Poppins, sans-serif',
+    fontSize: 'base',
+    customStyles: {
+      headerGradient: 'linear-gradient(135deg, #0E5088 0%, #1a6fad 100%)'
+    }
+  },
+  {
     id: 'modern',
     name: 'Moderna',
     description: 'Diseño minimalista y limpio, ideal para formularios profesionales',
@@ -119,7 +139,7 @@ export const getTemplateById = (id: string): FormTemplate | undefined => {
 
 // Obtener plantilla por defecto
 export const getDefaultTemplate = (): FormTemplate => {
-  return FORM_TEMPLATES[0]; // Moderna
+  return FORM_TEMPLATES.find(t => t.id === 'umx') ?? FORM_TEMPLATES[0];
 };
 
 // Obtener estilos CSS para una plantilla

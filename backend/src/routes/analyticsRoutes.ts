@@ -8,6 +8,32 @@ const router: import("express").Router = express.Router();
 const prisma = new PrismaClient();
 
 /**
+ * Verificar si el usuario puede acceder a las respuestas/estadísticas del formulario:
+ * - Es el propietario
+ * - Tiene rol SUPER_ADMIN
+ * - Tiene permiso FULL o EDIT en FormShare
+ */
+async function canAccessFormData(formId: string, userId: string, userRole: string): Promise<boolean> {
+  if (userRole === 'SUPER_ADMIN') return true;
+
+  const form = await prisma.form.findUnique({
+    where: { id: formId },
+    select: {
+      createdById: true,
+      sharedWith: {
+        where: { userId, permission: { in: ['FULL', 'EDIT'] } },
+        select: { id: true }
+      }
+    }
+  });
+
+  if (!form) return false;
+  if (form.createdById === userId) return true;
+  if (form.sharedWith.length > 0) return true;
+  return false;
+}
+
+/**
  * GET /api/analytics/forms/:formId/responses/:responseId
  * Obtener una respuesta específica por su ID
  */
@@ -26,8 +52,8 @@ router.get('/forms/:formId/responses/:responseId', requireAuth, async (req, res)
       return res.status(404).json({ error: 'Formulario no encontrado' });
     }
     
-    // Solo el propietario o un super admin puede ver las respuestas
-    if (form.createdById !== req.user!.id && req.user!.role !== 'SUPER_ADMIN') {
+    // Propietario, SUPER_ADMIN o usuario con permiso FULL/EDIT pueden ver las respuestas
+    if (!await canAccessFormData(formId, req.user!.id, req.user!.role)) {
       return res.status(403).json({ error: 'No tienes permiso para ver las respuestas de este formulario' });
     }
     
@@ -87,8 +113,8 @@ router.get('/forms/:formId/responses', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Formulario no encontrado' });
     }
     
-    // Solo el propietario o un super admin puede ver las respuestas
-    if (form.createdById !== req.user!.id && req.user!.role !== 'SUPER_ADMIN') {
+    // Propietario, SUPER_ADMIN o usuario con permiso FULL/EDIT pueden ver las respuestas
+    if (!await canAccessFormData(formId, req.user!.id, req.user!.role)) {
       return res.status(403).json({ error: 'No tienes permiso para ver las respuestas de este formulario' });
     }
     
@@ -150,23 +176,21 @@ router.get('/forms/:formId/responses', requireAuth, async (req, res) => {
 router.get('/forms/:formId/statistics', requireAuth, async (req, res) => {
   try {
     const formId = String(req.params.formId);
-    
-    // Verificar si el usuario tiene acceso al formulario
+
     const form = await prisma.form.findUnique({
       where: { id: formId },
-      select: { 
+      select: {
         createdById: true,
         title: true,
         versions: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
+          orderBy: { version: 'desc' },
           include: {
             sections: {
+              orderBy: { order: 'asc' },
               include: {
                 questions: {
-                  include: {
-                    options: true
-                  }
+                  orderBy: { order: 'asc' },
+                  include: { options: { orderBy: { order: 'asc' } } }
                 }
               }
             }
@@ -174,127 +198,128 @@ router.get('/forms/:formId/statistics', requireAuth, async (req, res) => {
         }
       }
     });
-    
+
     if (!form) {
       return res.status(404).json({ error: 'Formulario no encontrado' });
     }
-    
-    // Solo el propietario o un super admin puede ver las estadísticas
-    if (form.createdById !== req.user!.id && req.user!.role !== 'SUPER_ADMIN') {
+
+    if (!await canAccessFormData(formId, req.user!.id, req.user!.role)) {
       return res.status(403).json({ error: 'No tienes permiso para ver las estadísticas de este formulario' });
     }
-    
-    // Obtener la versión más reciente
+
+    // Obtener la versión más reciente para definir el "esquema" de preguntas visibles
     const latestVersion = form.versions[0];
-    
     if (!latestVersion) {
       return res.status(404).json({ error: 'No se encontró ninguna versión del formulario' });
     }
-    
-    // Obtener todas las preguntas
-    const questions = latestVersion.sections.flatMap(section => section.questions);
-    
-    // Obtener estadísticas para cada pregunta
+
+    const latestQuestions = latestVersion.sections.flatMap(s => s.questions);
+
+    // Construir un mapa: questionText → todos los questionId en todas las versiones
+    // Esto permite agregar respuestas de versiones antiguas con las nuevas
+    const textToIds = new Map<string, { type: string; ids: string[]; options: { id: string; text: string }[] }>();
+
+    for (const version of form.versions) {
+      for (const section of version.sections) {
+        for (const question of section.questions) {
+          const key = question.text.trim();
+          if (!textToIds.has(key)) {
+            textToIds.set(key, { type: question.type, ids: [], options: [] });
+          }
+          const entry = textToIds.get(key)!;
+          entry.ids.push(question.id);
+          // Tomar las opciones de la versión más reciente que tenga esta pregunta
+          if (question.options.length > entry.options.length) {
+            entry.options = question.options.map(o => ({ id: o.id, text: o.text }));
+          }
+        }
+      }
+    }
+
     const statistics: any[] = [];
-    
-    for (const question of questions) {
-      // Obtener respuestas para esta pregunta
+
+    for (const latestQ of latestQuestions) {
+      const key = latestQ.text.trim();
+      const entry = textToIds.get(key);
+      if (!entry) continue;
+
+      // Obtener TODAS las respuestas de todos los IDs de esta pregunta a través de versiones
       const answers = await prisma.answer.findMany({
         where: {
-          questionId: question.id,
-          response: {
-            formId
-          }
+          questionId: { in: entry.ids },
+          response: { formId }
         },
-        include: {
-          selectedOptions: true
-        }
+        include: { selectedOptions: { select: { id: true, text: true } } }
       });
-      
+
       let questionStats: any = {
-        questionId: question.id,
-        questionText: question.text,
-        questionType: question.type,
+        questionId: latestQ.id,
+        questionText: latestQ.text,
+        questionType: latestQ.type,
         totalAnswers: answers.length,
         data: {}
       };
-      
-      // Procesar estadísticas según el tipo de pregunta
-      switch (question.type) {
+
+      switch (latestQ.type) {
         case 'TEXT':
         case 'TEXTAREA':
-          // Para preguntas de texto, solo contamos el número de respuestas
-          questionStats.data = {
-            responseCount: answers.length
-          };
+          questionStats.data = { responseCount: answers.length };
           break;
-          
+
         case 'RADIO':
         case 'SELECT':
-        case 'CHECKBOX':
-          // Para preguntas de selección, contamos las opciones seleccionadas
-          const optionCounts: any = {};
-          
-          // Inicializar contadores para todas las opciones
-          question.options.forEach(option => {
-            optionCounts[option.id] = {
-              optionId: option.id,
-              optionText: option.text,
-              count: 0
-            };
-          });
-          
-          // Contar selecciones por selectedOptions (para CHECKBOX y algunos RADIO)
-          answers.forEach(answer => {
+        case 'CHECKBOX': {
+          // Inicializar contadores por texto de opción (no por ID, ya que los IDs cambian entre versiones)
+          const optionCountsByText: Map<string, number> = new Map();
+          for (const opt of entry.options) {
+            if (!optionCountsByText.has(opt.text)) optionCountsByText.set(opt.text, 0);
+          }
+
+          for (const answer of answers) {
             if (answer.selectedOptions && answer.selectedOptions.length > 0) {
-              answer.selectedOptions.forEach(option => {
-                if (optionCounts[option.id]) {
-                  optionCounts[option.id].count++;
-                }
-              });
-            } 
-            // Contar selecciones por textAnswer (para RADIO y SELECT)
-            else if (answer.textValue) {
-              // Buscar la opción que coincide con el texto
-              const matchingOption = question.options.find(opt => opt.text === answer.textValue);
-              if (matchingOption && optionCounts[matchingOption.id]) {
-                optionCounts[matchingOption.id].count++;
+              for (const sel of answer.selectedOptions) {
+                // sel.text is the option text from whatever version it was submitted with
+                optionCountsByText.set(sel.text, (optionCountsByText.get(sel.text) ?? 0) + 1);
               }
+            } else if (answer.textValue) {
+              optionCountsByText.set(answer.textValue, (optionCountsByText.get(answer.textValue) ?? 0) + 1);
             }
-          });
-          
-          questionStats.data = {
-            options: Object.values(optionCounts)
-          };
+          }
+
+          // Convertir a array con IDs de las opciones actuales
+          const optionsResult = entry.options.map(opt => ({
+            optionId: opt.id,
+            optionText: opt.text,
+            count: optionCountsByText.get(opt.text) ?? 0
+          }));
+          // Incluir textos que no corresponden a opciones actuales (respuestas de opciones renombradas/eliminadas)
+          for (const [text, count] of optionCountsByText.entries()) {
+            if (!entry.options.some(o => o.text === text) && count > 0) {
+              optionsResult.push({ optionId: `legacy-${text}`, optionText: `${text} (eliminada)`, count });
+            }
+          }
+
+          questionStats.data = { options: optionsResult };
           break;
-          
+        }
+
         case 'FILE':
-          // Para preguntas de archivo, contamos cuántos archivos se subieron
-          questionStats.data = {
-            fileCount: answers.filter(a => a.fileUrl).length
-          };
+          questionStats.data = { fileCount: answers.filter(a => a.fileUrl).length };
           break;
 
         case 'BOOLEAN':
-          // Contar cuántos respondieron 'true'
-          questionStats.data = {
-            accepted: answers.filter(a => a.textValue === 'true').length
-          };
+          questionStats.data = { accepted: answers.filter(a => a.textValue === 'true').length };
           break;
-          
+
         default:
           questionStats.data = {};
       }
-      
+
       statistics.push(questionStats);
     }
-    
-    return res.json({
-      formId,
-      formTitle: form.title,
-      statistics
-    });
-    
+
+    return res.json({ formId, formTitle: form.title, statistics });
+
   } catch (error) {
     console.error('Error al obtener estadísticas:', error);
     return res.status(500).json({ error: 'Error al obtener estadísticas' });
@@ -334,8 +359,8 @@ router.get('/forms/:formId/export', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Formulario no encontrado' });
     }
     
-    // Solo el propietario o un super admin puede exportar las respuestas
-    if (form.createdById !== req.user!.id && req.user!.role !== 'SUPER_ADMIN') {
+    // Propietario, SUPER_ADMIN o usuario con permiso FULL/EDIT pueden exportar las respuestas
+    if (!await canAccessFormData(formId, req.user!.id, req.user!.role)) {
       return res.status(403).json({ error: 'No tienes permiso para exportar las respuestas de este formulario' });
     }
     

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { formService } from '../../lib/formService';
-import { FormEditor } from './';
-import { AlertCircle } from 'lucide-react';
+import FormConfigEditor from './FormConfigEditor';
+import FormSubpageHeader from './FormSubpageHeader';
+import { AlertCircle, Settings } from 'lucide-react';
 import type { Form, SectionInput } from '../../lib/types';
 
 interface FormEditorLoaderProps {
@@ -59,22 +60,30 @@ export default function FormEditorLoader({ formId }: FormEditorLoaderProps) {
     );
   }
 
-  // Obtener la versión más reciente con preguntas; fallback a la primera
-  const latestVersion =
-    form.versions?.find((version) =>
-      version.sections?.some((section) => section.questions && section.questions.length > 0)
-    ) || form.versions?.[0];
-  
-  if (!latestVersion) {
-    return (
-      <div className="rounded-lg bg-yellow-50 p-4 flex items-start">
-        <AlertCircle className="h-5 w-5 text-yellow-400 mr-3 flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-yellow-700">No se encontró ninguna versión del formulario</div>
-      </div>
-    );
-  }
+  // Convertir secciones para los selectores de email/name question
+  const sortedVersions = [...(form.versions ?? [])].sort((a: any, b: any) => b.version - a.version);
+  const latestVersion = sortedVersions[0];
 
-  // Convertir la versión a formato de entrada
+  const sections: SectionInput[] = latestVersion
+    ? latestVersion.sections.map(section => ({
+        title: section.title,
+        description: section.description,
+        questions: section.questions.map(question => ({
+          id: question.id,
+          type: question.type,
+          text: question.text,
+          placeholder: question.placeholder,
+          helpText: question.helpText,
+          isRequired: question.isRequired,
+          allowedFileTypes: question.allowedFileTypes,
+          maxFileSize: question.maxFileSize,
+          textValidation: (question as any).textValidation,
+          conditionalLogic: question.conditionalLogic,
+          options: question.options.map(opt => ({ text: opt.text }))
+        }))
+      })) as SectionInput[]
+    : [];
+
   const initialData = {
     title: form.title,
     description: form.description,
@@ -85,23 +94,22 @@ export default function FormEditorLoader({ formId }: FormEditorLoaderProps) {
     nameQuestionId: form.nameQuestionId,
     allowExemption: form.allowExemption,
     registrationCondition: form.registrationCondition,
-    sections: latestVersion.sections.map(section => ({
-      title: section.title,
-      description: section.description,
-      questions: section.questions.map(question => ({
-        id: question.id, // Importante: mantener ID para referenciar en condiciones
-        type: question.type,
-        text: question.text,
-        placeholder: question.placeholder,
-        helpText: question.helpText,
-        isRequired: question.isRequired,
-        allowedFileTypes: question.allowedFileTypes,
-        maxFileSize: question.maxFileSize,
-        conditionalLogic: question.conditionalLogic,
-        options: question.options.map(opt => ({ text: opt.text }))
-      }))
-    })) as SectionInput[]
+    coverImage: form.coverImage,
+    sections,
   };
 
-  return <FormEditor formId={formId} initialData={initialData} />;
+  return (
+    <div className="space-y-0">
+      <FormSubpageHeader
+        formId={formId}
+        formTitle={form.title}
+        title="Configuración"
+        description="Edita el título, descripción, imagen de portada y plantilla del formulario"
+        icon={Settings}
+        currentSection="edit"
+        showExamSection={form.formType === 'EXAM_REGISTRATION'}
+      />
+      <FormConfigEditor formId={formId} initialData={initialData} />
+    </div>
+  );
 }

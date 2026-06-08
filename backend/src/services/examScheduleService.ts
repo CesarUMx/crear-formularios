@@ -257,8 +257,8 @@ export const updateSchedule = async (scheduleId: string, data: UpdateScheduleDat
     data: {
       ...(data.title && { title: data.title }),
       ...(data.description !== undefined && { description: data.description }),
-      ...(data.startTime && { startTime: data.startTime }),
-      ...(data.endTime && { endTime: data.endTime }),
+      ...(data.startTime && { startTime: new Date(data.startTime) }),
+      ...(data.endTime && { endTime: new Date(data.endTime) }),
       ...(data.capacity !== undefined && { capacity: data.capacity }),
       ...(data.location !== undefined && { location: data.location }),
       ...(data.isActive !== undefined && { isActive: data.isActive }),
