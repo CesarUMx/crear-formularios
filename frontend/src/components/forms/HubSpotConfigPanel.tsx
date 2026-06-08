@@ -689,19 +689,21 @@ export default function HubSpotConfigPanel({ formId, questions: questionsProp = 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Token de acceso HubSpot
-              {config && (
-                <span className="ml-2 text-xs text-gray-400 font-normal">
-                  (dejar vacío para conservar el actual)
-                </span>
-              )}
             </label>
+            {config?.hasToken && (
+              <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                <span className="text-sm text-green-700 font-medium">Token configurado</span>
+                <span className="text-xs text-green-600 ml-1">— deja el campo vacío para conservarlo</span>
+              </div>
+            )}
             <div className="relative">
               <input
                 type={showToken ? 'text' : 'password'}
                 value={form.accessToken}
                 onChange={(e) => setForm((f) => ({ ...f, accessToken: e.target.value }))}
                 placeholder={
-                  config ? '••••••••••••••••' : 'pat-na1-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+                  config ? 'Escribe solo si deseas cambiar el token actual' : 'pat-na1-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
                 }
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 text-sm font-mono"
                 required={!config}

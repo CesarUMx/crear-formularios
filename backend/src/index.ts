@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import session from 'express-session';
-import passportConfig from './config/passport.js';
+import passportConfig, { configurePassport } from './config/passport.js';
 import authRoutes from './routes/authRoutes.js';
 import formRoutes from './routes/formRoutes.js';
 import examRoutes from './routes/examRoutes.js';
@@ -30,6 +30,7 @@ import { startAbandonedAttemptsCleanup } from './utils/cronJobs.js';
 import { startEmailReminderWorker } from './utils/emailReminderWorker.js';
 
 dotenv.config();
+configurePassport();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
