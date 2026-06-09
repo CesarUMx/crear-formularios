@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { aiExamService } from '../../lib/aiExamService';
 import { useToast, ToastContainer, Dialog, useDialog, QuestionRenderer } from '../common';
 import PhotoCapture from './PhotoCapture';
+import EmailStatusIndicator from '../common/EmailStatusIndicator';
+import { publicFormService } from '../../lib/publicFormService';
 import {
   Brain,
   Clock,
@@ -272,6 +274,13 @@ export default function AIExamTaker({ slug }: { slug: string }) {
       // Validar confirmación de correo
       if (studentEmail.trim().toLowerCase() !== emailConfirm.trim().toLowerCase()) {
         toast.error('Error', 'Los correos no coinciden. Por favor verifica.');
+        return;
+      }
+
+      // Validar que el dominio del correo exista (registros MX)
+      const emailCheck = await publicFormService.checkEmail(studentEmail.trim());
+      if (!emailCheck.valid) {
+        toast.error('Error', emailCheck.reason || 'El correo electrónico no existe o no puede recibir correos');
         return;
       }
 
@@ -634,6 +643,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
                     placeholder="tu@email.com"
                     required
                   />
+                  <EmailStatusIndicator email={studentEmail} />
                 </div>
 
                 <div>

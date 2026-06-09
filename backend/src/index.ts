@@ -26,6 +26,7 @@ import examScheduleRoutes from './routes/examScheduleRoutes.js';
 import examRegistrationRoutes from './routes/examRegistrationRoutes.js';
 import emailTemplateRoutes from './routes/emailTemplateRoutes.js';
 import hubspotRoutes from './routes/hubspotRoutes.js';
+import utilityRoutes from './routes/utilityRoutes.js';
 import { startAbandonedAttemptsCleanup } from './utils/cronJobs.js';
 import { startEmailReminderWorker } from './utils/emailReminderWorker.js';
 
@@ -139,6 +140,7 @@ app.use('/api/exam-schedules', examScheduleRoutes);
 app.use('/api/exam-registrations', examRegistrationRoutes);
 app.use('/api', emailTemplateRoutes);
 app.use('/api', hubspotRoutes);
+app.use('/api', utilityRoutes);
 app.use('/api', progressRoutes);
 
 // 404 handler

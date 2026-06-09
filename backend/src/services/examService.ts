@@ -805,6 +805,7 @@ interface StudentInput {
   name: string;
   email: string;
   password: string;
+  scheduleId?: string;
 }
 
 /**
@@ -825,13 +826,15 @@ export const addStudents = async (examId: string, students: StudentInput[]) => {
       update: {
         name: student.name,
         password: hashedPassword,
-        isActive: true
+        isActive: true,
+        scheduleId: student.scheduleId || null,
       },
       create: {
         examId,
         name: student.name,
         email: student.email,
-        password: hashedPassword
+        password: hashedPassword,
+        scheduleId: student.scheduleId || null,
       }
     });
     created.push(result);
@@ -851,6 +854,10 @@ export const getStudents = async (examId: string) => {
       email: true,
       isActive: true,
       createdAt: true,
+      scheduleId: true,
+      schedule: {
+        select: { id: true, title: true, startTime: true, endTime: true, location: true }
+      },
       _count: { select: { attempts: true } }
     },
     orderBy: { createdAt: 'desc' }

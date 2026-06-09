@@ -9,6 +9,7 @@ import type { ConditionalLogic } from '../../lib/types';
 import TemplateWrapper from './templates/TemplateWrapper';
 import FileInput from './FileInput';
 import { API_URL } from '../../lib/config';
+import EmailStatusIndicator from '../common/EmailStatusIndicator';
 import { Send, CheckCircle, AlertCircle, Loader, Save, Calendar, MapPin, Users, Clock } from 'lucide-react';
 
 interface ExamSchedule {
@@ -325,6 +326,21 @@ export default function PublicForm({ slug }: PublicFormProps) {
       return;
     }
 
+    // Validar existencia del dominio en preguntas de tipo correo
+    const emailQuestions = form.version.sections
+      .flatMap(s => s.questions)
+      .filter(q => q.type === 'TEXT' && (q as any).textValidation?.inputType === 'email');
+    for (const q of emailQuestions) {
+      const ans = answers.get(q.id)?.textAnswer?.trim();
+      if (!ans) continue;
+      const emailCheck = await publicFormService.checkEmail(ans);
+      if (!emailCheck.valid) {
+        setError(emailCheck.reason || `El correo "${ans}" no existe o no puede recibir correos`);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+    }
+
     // Validación HubSpot: verificar existencia del registro antes de enviar
     const hubVal = (form as any).hubspotValidation as { matchQuestionId: string; message: string } | undefined;
     if (hubVal?.matchQuestionId) {
@@ -508,6 +524,7 @@ export default function PublicForm({ slug }: PublicFormProps) {
               title={titleAttr}
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
+            {tv?.inputType === 'email' && <EmailStatusIndicator email={answer?.textAnswer || ''} />}
             {hintLines.length > 0 && (
               <p className="mt-1 text-xs text-gray-400">
                 {hintLines.join(' · ')}
