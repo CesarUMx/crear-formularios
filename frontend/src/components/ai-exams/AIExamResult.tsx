@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { API_URL } from '../../lib/config';
 import { aiExamService } from '../../lib/aiExamService';
-import { useColors } from '../../hooks/useColors';
+import { UMX_BRAND, UmxBrandFont } from '../../lib/umxBrand';
 import ReportQuestionModal from './ReportQuestionModal';
 import {
   Brain,
@@ -61,7 +61,7 @@ interface AIExamResultProps {
 }
 
 export default function AIExamResult({ attemptId }: AIExamResultProps) {
-  const colors = useColors();
+  const colors = UMX_BRAND;
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -173,7 +173,8 @@ export default function AIExamResult({ attemptId }: AIExamResultProps) {
   const totalQuestions = result.totalQuestions ?? 0;
 
   return (
-    <div className="max-w-4xl mx-auto py-8 space-y-6">
+    <div className="umx-exam-theme max-w-4xl mx-auto py-8 space-y-6" style={{ fontFamily: UMX_BRAND.fontFamily }}>
+      <UmxBrandFont />
       {/* Header con resultado principal */}
       <div className={`rounded-lg border-2 p-8 ${
         passed ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
@@ -225,7 +226,7 @@ export default function AIExamResult({ attemptId }: AIExamResultProps) {
 
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center gap-3 mb-2">
-            <Clock className="w-5 h-5 text-purple-600" />
+            <Clock className="w-5 h-5 text-[#FF4D00]" />
             <p className="text-sm text-gray-600">Tiempo Utilizado</p>
           </div>
           <p className="text-3xl font-bold text-gray-900">

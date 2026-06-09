@@ -1343,13 +1343,17 @@ function Step2Questions(props: Step2Props) {
             {/* Contenido de seccion */}
             {isExpanded && (
               <div className="px-5 pb-5 space-y-4 border-t border-gray-100 pt-4">
-                <input
-                  type="text"
-                  value={section.description || ''}
-                  onChange={(e) => props.updateSection(sIdx, 'description', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500"
-                  placeholder="Descripcion de la seccion (opcional)"
-                />
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Descripcion de la seccion (opcional)
+                  </label>
+                  <RichTextEditor
+                    value={section.description || ''}
+                    onChange={(html) => props.updateSection(sIdx, 'description', html)}
+                    placeholder="Descripcion de la seccion (opcional)"
+                    rows={3}
+                  />
+                </div>
 
                 {/* Campo de tiempo limite por seccion */}
                 <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -2216,7 +2220,12 @@ function Step3Preview(props: Step3Props) {
         <div key={sIdx} className="space-y-4">
           <div className="bg-white rounded-lg shadow-sm p-4">
             <h4 className="font-semibold text-gray-800">{section.title}</h4>
-            {section.description && <p className="text-sm text-gray-500 mt-1">{section.description}</p>}
+            {section.description && (
+              <div
+                className="rich-text text-sm text-gray-500 mt-1"
+                dangerouslySetInnerHTML={{ __html: section.description }}
+              />
+            )}
           </div>
           {section.questions.map((question, qIdx) => {
             questionCounter++;

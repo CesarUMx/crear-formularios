@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { examService } from '../../lib/examService';
-import { useColors } from '../../hooks/useColors';
+import { UMX_BRAND, UmxBrandFont } from '../../lib/umxBrand';
 import type { Exam } from '../../lib/types';
 import { useToast, ToastContainer } from '../common';
 import { Clock, AlertCircle, CheckCircle, FileText, Award, Lock, Globe, Info, Loader } from 'lucide-react';
@@ -13,7 +13,7 @@ interface PublicExamStepsProps {
 }
 
 export default function PublicExamSteps({ slug }: PublicExamStepsProps) {
-  const colors = useColors();
+  const colors = UMX_BRAND;
   const toast = useToast();
   const [exam, setExam] = useState<Exam | null>(null);
   const [loading, setLoading] = useState(true);
@@ -169,7 +169,8 @@ export default function PublicExamSteps({ slug }: PublicExamStepsProps) {
   const isPrivate = exam.accessType === 'PRIVATE';
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="umx-exam-theme bg-gray-50 py-8 px-4" style={{ fontFamily: UMX_BRAND.fontFamily }}>
+      <UmxBrandFont />
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Exam Info */}
         <div className="bg-white rounded-lg border border-gray-200 p-8">
