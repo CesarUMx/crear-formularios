@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { examService } from '../../lib/examService';
 import type { ExamAttemptResult } from '../../lib/types';
 import { useColors } from '../../hooks/useColors';
-import { QuestionRenderer, FileAttachment, useToast, ToastContainer } from '../common';
+import { useToast, ToastContainer } from '../common';
 import { 
   CheckCircle, 
   XCircle, 
@@ -21,6 +21,12 @@ import {
 
 interface ExamResultsProps {
   attemptId: string;
+}
+
+/** Limpia marcadores de TinyMCE y devuelve HTML seguro para renderizar el enunciado */
+function cleanRichText(html: string): string {
+  if (!html) return '';
+  return html.replace(/<!--\s*x-tinymce\/html\s*-->/gi, '').trim();
 }
 
 export default function ExamResults({ attemptId }: ExamResultsProps) {
@@ -65,28 +71,6 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
     );
   };
 
-  /** Mapear la respuesta guardada al formato que QuestionRenderer entiende */
-  const mapStudentAnswer = (question: any): any => {
-    const sa = question.studentAnswer;
-    if (!sa) return undefined;
-
-    const type = question.type?.toUpperCase();
-
-    if (type === 'RADIO' || type === 'MULTIPLE_CHOICE' || type === 'TRUE_FALSE') {
-      return sa.selectedOptions?.[0]?.id || undefined;
-    }
-    if (type === 'CHECKBOX' || type === 'MULTIPLE_SELECT') {
-      return sa.selectedOptions?.map((o: any) => o.id) || [];
-    }
-    if (type === 'TEXT') return sa.textValue || '';
-    if (type === 'TEXTAREA') return sa.textValue || '';
-    if (type === 'MATCHING') return sa.jsonValue || [];
-    if (type === 'ORDERING') return sa.jsonValue || [];
-    if (type === 'FILL_BLANK') return sa.jsonValue || {};
-
-    return sa.textValue || sa.jsonValue || undefined;
-  };
-
   /** Resumen textual de la respuesta del estudiante para el modal de reporte */
   const summarizeAnswer = (question: any): string => {
     const sa = question.studentAnswer;
@@ -109,15 +93,6 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
     } finally {
       setSendingEmail(false);
     }
-  };
-
-  /** Resumen de la respuesta correcta para el modal de reporte */
-  const summarizeCorrect = (question: any): string => {
-    if (question.options?.length) {
-      const correct = question.options.filter((o: any) => o.isCorrect);
-      if (correct.length) return correct.map((o: any) => o.text).join(', ');
-    }
-    return '';
   };
 
   if (loading) {
@@ -271,7 +246,7 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
           )}
         </div>
 
-        {/* Boton ver respuestas */}
+        {/* Boton ver detalle de desempeño */}
         {result.sections && result.sections.length > 0 && (
           <div className="mb-6">
             <button
@@ -281,113 +256,114 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
               {showAnswers ? (
                 <>
                   <ChevronUp className="w-5 h-5" />
-                  Ocultar respuestas
+                  Ocultar detalle
                 </>
               ) : (
                 <>
                   <ChevronDown className="w-5 h-5" />
-                  Ver respuestas y retroalimentacion
+                  Ver detalle de mi desempeño
                 </>
               )}
             </button>
           </div>
         )}
 
-        {/* Detalle de respuestas con QuestionRenderer */}
+        {/* Resumen de desempeño por sección (sin revelar respuestas correctas) */}
         {showAnswers && result.sections && (
           <div className="space-y-4">
-            {result.sections.map((section, sIdx) => (
-              <div key={sIdx} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                <button
-                  onClick={() => toggleSection(sIdx)}
-                  className="w-full p-4 bg-gray-50 border-b flex items-center justify-between hover:bg-gray-100 transition"
-                >
-                  <div className="flex items-center gap-3">
-                    {expandedSections.includes(sIdx) ? (
-                      <ChevronUp className="w-5 h-5" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5" />
-                    )}
-                    <h3 className="font-semibold text-lg">{section.title}</h3>
-                  </div>
-                  <span className="text-sm text-gray-600">
-                    {section.questions.length} {section.questions.length === 1 ? 'pregunta' : 'preguntas'}
-                  </span>
-                </button>
+            {result.sections.map((section, sIdx) => {
+              const total = section.questions.length;
+              const correct = section.questions.filter((q: any) => q.isCorrect === true).length;
+              const pending = section.questions.filter((q: any) => q.isCorrect === undefined || q.isCorrect === null).length;
+              const ptsEarned = section.questions.reduce((acc: number, q: any) => acc + (q.pointsEarned || 0), 0);
+              const ptsTotal = section.questions.reduce((acc: number, q: any) => acc + (q.points || 0), 0);
+              const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+              const isExpanded = expandedSections.includes(sIdx);
 
-                {expandedSections.includes(sIdx) && (
-                  <div className="p-6 space-y-6">
-                    {/* Archivo de la seccion */}
-                    {section.fileUrl && section.fileName && section.fileType && (
-                      <FileAttachment
-                        fileUrl={section.fileUrl}
-                        fileName={section.fileName}
-                        fileType={section.fileType}
+              return (
+                <div key={sIdx} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  <div className="p-5 border-b">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-lg">{section.title}</h3>
+                      <span className="text-sm font-medium text-gray-700">
+                        {correct} / {total} correctas
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2.5 mb-2">
+                      <div
+                        className="h-2.5 rounded-full transition-all"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: pct >= 70 ? '#16a34a' : pct >= 40 ? '#f59e0b' : '#dc2626',
+                        }}
                       />
-                    )}
-
-                    {section.questions.map((question, qIdx) => (
-                      <div key={qIdx} className="relative">
-                        {/* QuestionRenderer en modo review */}
-                        <QuestionRenderer
-                          question={{
-                            type: question.type,
-                            text: question.text,
-                            points: question.points,
-                            options: question.options,
-                            metadata: question.metadata,
-                            fileUrl: question.fileUrl,
-                            fileName: question.fileName,
-                            fileType: question.fileType,
-                            feedback: question.answerFeedback || question.feedback,
-                            pairs: question.metadata?.pairs,
-                            blanks: question.metadata?.blanks,
-                            items: question.metadata?.items,
-                          }}
-                          questionNumber={qIdx + 1}
-                          mode="review"
-                          userAnswer={mapStudentAnswer(question)}
-                          showFeedback={!!(question.answerFeedback || question.feedback)}
-                        />
-
-                        {/* Badge de puntos + botón reportar */}
-                        <div className="flex items-center justify-between mt-2 px-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              question.isCorrect === true
-                                ? 'bg-green-100 text-green-800'
-                                : question.isCorrect === false
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-gray-100 text-gray-600'
-                            }`}>
-                              {question.pointsEarned} / {question.points} pts
-                              {question.isCorrect === true && ' — Correcta'}
-                              {question.isCorrect === false && ' — Incorrecta'}
-                              {question.isCorrect === undefined && ' — Pendiente'}
-                            </span>
-                          </div>
-
-                          {question.isCorrect === false && result.exam && (
-                            <button
-                              onClick={() => setReportQuestion({
-                                questionId: question.id,
-                                questionText: question.text,
-                                userAnswer: summarizeAnswer(question),
-                                correctAnswer: summarizeCorrect(question),
-                              })}
-                              className="flex items-center gap-1 px-3 py-1 text-xs text-orange-600 hover:bg-orange-50 rounded-lg transition"
-                            >
-                              <Flag className="w-3.5 h-3.5" />
-                              Reportar
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-gray-600">
+                      <span>{ptsEarned} / {ptsTotal} pts</span>
+                      {pending > 0 && (
+                        <span className="text-amber-600">{pending} pendiente{pending === 1 ? '' : 's'} de revisión</span>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  <button
+                    onClick={() => toggleSection(sIdx)}
+                    className="w-full px-5 py-3 bg-gray-50 flex items-center justify-between hover:bg-gray-100 transition text-sm font-medium text-gray-700"
+                  >
+                    <span>Ver detalle de preguntas</span>
+                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+
+                  {isExpanded && (
+                    <div className="p-5 space-y-3">
+                      {section.questions.map((question: any, qIdx: number) => {
+                        const status = question.isCorrect === true
+                          ? 'correct'
+                          : question.isCorrect === false
+                          ? 'incorrect'
+                          : 'pending';
+                        return (
+                          <div key={qIdx} className="flex items-start justify-between gap-3 p-3 rounded-lg border border-gray-100">
+                            <div className="flex items-start gap-2 min-w-0">
+                              {status === 'correct' && <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />}
+                              {status === 'incorrect' && <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />}
+                              {status === 'pending' && <Clock className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />}
+                              <div className="min-w-0">
+                                <p className="text-sm text-gray-800">
+                                  <span className="font-medium">{qIdx + 1}.</span>{' '}
+                                  <span dangerouslySetInnerHTML={{ __html: cleanRichText(question.text) }} />
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {question.pointsEarned} / {question.points} pts
+                                  {status === 'correct' && ' — Correcta'}
+                                  {status === 'incorrect' && ' — Incorrecta'}
+                                  {status === 'pending' && ' — Pendiente de revisión'}
+                                </p>
+                              </div>
+                            </div>
+
+                            {status === 'incorrect' && result.exam && (
+                              <button
+                                onClick={() => setReportQuestion({
+                                  questionId: question.id,
+                                  questionText: question.text,
+                                  userAnswer: summarizeAnswer(question),
+                                  correctAnswer: '',
+                                })}
+                                className="flex items-center gap-1 px-3 py-1 text-xs text-orange-600 hover:bg-orange-50 rounded-lg transition flex-shrink-0"
+                              >
+                                <Flag className="w-3.5 h-3.5" />
+                                Reportar
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 

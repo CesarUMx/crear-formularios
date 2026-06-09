@@ -5,6 +5,8 @@ import type { Exam } from '../../lib/types';
 import { useToast, ToastContainer } from '../common';
 import { Clock, AlertCircle, CheckCircle, FileText, Award, Lock, Globe, Info, Loader } from 'lucide-react';
 import ResumeAttemptModal from './ResumeAttemptModal';
+import EmailStatusIndicator from '../common/EmailStatusIndicator';
+import { publicFormService } from '../../lib/publicFormService';
 
 interface PublicExamStepsProps {
   slug: string;
@@ -77,6 +79,12 @@ export default function PublicExamSteps({ slug }: PublicExamStepsProps) {
       }
       if (email.trim().toLowerCase() !== emailConfirm.trim().toLowerCase()) {
         toast.error('Error', 'Los correos no coinciden, verifica que sean iguales');
+        return;
+      }
+      // Validar que el dominio del correo exista (registros MX)
+      const emailCheck = await publicFormService.checkEmail(email.trim());
+      if (!emailCheck.valid) {
+        toast.error('Error', emailCheck.reason || 'El correo electrónico no existe o no puede recibir correos');
         return;
       }
     }
@@ -305,6 +313,7 @@ export default function PublicExamSteps({ slug }: PublicExamStepsProps) {
                     required
                     autoComplete="off"
                   />
+                  <EmailStatusIndicator email={email} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

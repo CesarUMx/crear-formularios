@@ -17,6 +17,12 @@ interface ExamAttemptDetailsModalProps {
   onClose: () => void;
 }
 
+/** Limpia marcadores de TinyMCE y devuelve HTML seguro para renderizar el enunciado */
+function cleanRichText(html: string): string {
+  if (!html) return '';
+  return html.replace(/<!--\s*x-tinymce\/html\s*-->/gi, '').trim();
+}
+
 export default function ExamAttemptDetailsModal({
   isOpen,
   examId,
@@ -63,6 +69,42 @@ export default function ExamAttemptDetailsModal({
   const isPending = attempt?.requiresManualGrading || attempt?.passed === null || attempt?.passed === undefined;
   const totalCorrect = attempt?.answers?.filter((a: any) => a.isCorrect === true).length || 0;
   const totalQuestions = attempt?.answers?.length || 0;
+
+  // Desglose de aciertos por sección, cruzando secciones del examen con las respuestas del intento
+  const sectionBreakdown = (() => {
+    const sections = attempt?.exam?.sections;
+    if (!Array.isArray(sections) || sections.length === 0) return [];
+    const answerByQuestion = new Map<string, any>();
+    (attempt?.answers || []).forEach((a: any) => {
+      if (a.questionId) answerByQuestion.set(a.questionId, a);
+    });
+    return sections.map((section: any) => {
+      const questions = section.questions || [];
+      let correct = 0;
+      let pending = 0;
+      let ptsEarned = 0;
+      let ptsTotal = 0;
+      questions.forEach((q: any) => {
+        ptsTotal += q.points || 0;
+        const ans = answerByQuestion.get(q.id);
+        if (ans) {
+          ptsEarned += ans.pointsEarned || 0;
+          if (ans.isCorrect === true) correct += 1;
+          else if (ans.isCorrect === null || ans.isCorrect === undefined) pending += 1;
+        } else {
+          pending += 1;
+        }
+      });
+      return {
+        title: section.title,
+        total: questions.length,
+        correct,
+        pending,
+        ptsEarned,
+        ptsTotal,
+      };
+    });
+  })();
 
   const renderStudentAnswer = (answer: any) => {
     const question = answer.question;
@@ -255,6 +297,41 @@ export default function ExamAttemptDetailsModal({
             </div>
           </div>
 
+          {/* Desglose por sección */}
+          {sectionBreakdown.length > 0 && (
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-3">Desempeño por Sección</h4>
+              <div className="space-y-2">
+                {sectionBreakdown.map((s: any, i: number) => {
+                  const pct = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
+                  return (
+                    <div key={i} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-800">{s.title}</span>
+                        <span className="text-sm text-gray-600">{s.correct}/{s.total} correctas</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+                        <div
+                          className="h-2 rounded-full transition-all"
+                          style={{
+                            width: `${pct}%`,
+                            backgroundColor: pct >= 70 ? '#16a34a' : pct >= 40 ? '#f59e0b' : '#dc2626',
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>{s.ptsEarned} / {s.ptsTotal} pts</span>
+                        {s.pending > 0 && (
+                          <span className="text-amber-600">{s.pending} pendiente{s.pending === 1 ? '' : 's'}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Respuestas */}
           <div>
             <h4 className="font-semibold text-gray-900 mb-3">Respuestas Detalladas</h4>
@@ -279,7 +356,11 @@ export default function ExamAttemptDetailsModal({
                       )}
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">
-                          {idx + 1}. {answer.question?.text}
+                          <span className="mr-1">{idx + 1}.</span>
+                          <span
+                            className="rich-text inline"
+                            dangerouslySetInnerHTML={{ __html: cleanRichText(answer.question?.text || '') }}
+                          />
                         </p>
                         {renderStudentAnswer(answer)}
                         {answer.feedback && (
