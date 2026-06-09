@@ -536,11 +536,14 @@ model ExamStudent {
   email    String
   password String // Hash bcrypt
 
+  scheduleId String? // Horario asignado (opcional, para exámenes con horarios)
+
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   exam     Exam          @relation(fields: [examId], references: [id], onDelete: Cascade)
+  schedule ExamSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
   attempts ExamAttempt[]
 
   @@unique([examId, email])
@@ -854,6 +857,7 @@ model ExamSchedule {
 
   exam          Exam               @relation(fields: [examId], references: [id], onDelete: Cascade)
   registrations ExamRegistration[]
+  students      ExamStudent[]
 
   @@index([examId, startTime])
   @@map("exam_schedules")

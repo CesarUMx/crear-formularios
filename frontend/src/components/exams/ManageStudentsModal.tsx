@@ -1,16 +1,35 @@
 import { useState, useEffect } from 'react';
 import { examService } from '../../lib/examService';
+import { api } from '../../lib/api';
 import { useToast, ToastContainer, DeleteDialog, useDialog } from '../common';
-import { X, UserPlus, Trash2, Users, Mail, Key, Loader, AlertCircle, Copy, Check, Download } from 'lucide-react';
+import { X, UserPlus, Trash2, Users, Mail, Key, Loader, AlertCircle, Copy, Check, Download, Calendar } from 'lucide-react';
 
 interface Student {
   id: string;
   name: string;
   email: string;
   createdAt: string;
+  scheduleId: string | null;
+  schedule: {
+    id: string;
+    title: string;
+    startTime: string;
+    endTime: string;
+    location: string | null;
+  } | null;
   _count: {
     attempts: number;
   };
+}
+
+interface Schedule {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  location: string | null;
+  capacity: number;
+  availableSpots: number;
 }
 
 interface ManageStudentsModalProps {
@@ -29,6 +48,8 @@ export default function ManageStudentsModal({
   onClose,
 }: ManageStudentsModalProps) {
   const [students, setStudents] = useState<Student[]>([]);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [hasAnySchedule, setHasAnySchedule] = useState(false);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -42,6 +63,7 @@ export default function ManageStudentsModal({
     name: '',
     email: '',
     password: '',
+    scheduleId: '',
   });
 
   const toast = useToast();
@@ -49,8 +71,22 @@ export default function ManageStudentsModal({
   useEffect(() => {
     if (isOpen) {
       loadStudents();
+      loadSchedules();
     }
   }, [isOpen, examId]);
+
+  const loadSchedules = async () => {
+    try {
+      // Cargar todos para saber si el examen tiene horarios configurados
+      const all = await api.get<Schedule[]>(`/exam-schedules/exam/${examId}`);
+      setHasAnySchedule(all.length > 0);
+      // Solo los disponibles (activos y con cupo) para el selector
+      const available = await api.get<Schedule[]>(`/exam-schedules/exam/${examId}/available`);
+      setSchedules(available);
+    } catch {
+      // No es crítico si no hay horarios
+    }
+  };
 
   const loadStudents = async () => {
     try {
@@ -76,7 +112,7 @@ export default function ManageStudentsModal({
       setAdding(true);
       await examService.addStudents(examId, [newStudent]);
       toast.success('Estudiante agregado', `${newStudent.name} fue agregado correctamente`);
-      setNewStudent({ name: '', email: '', password: '' });
+      setNewStudent({ name: '', email: '', password: '', scheduleId: '' });
       setShowAddForm(false);
       await loadStudents();
     } catch (err) {
@@ -266,6 +302,37 @@ export default function ManageStudentsModal({
                   </p>
                 </div>
 
+                {hasAnySchedule && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Horario
+                    </label>
+                    {schedules.length === 0 ? (
+                      <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        No hay horarios disponibles. Todos están llenos o inactivos.
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <select
+                          value={newStudent.scheduleId}
+                          onChange={(e) => setNewStudent({ ...newStudent, scheduleId: e.target.value })}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+                        >
+                          <option value="">Sin horario asignado</option>
+                          {schedules.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.title} — {new Date(s.startTime).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                              {s.location ? ` · ${s.location}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   <button
                     type="submit"
@@ -288,7 +355,7 @@ export default function ManageStudentsModal({
                     type="button"
                     onClick={() => {
                       setShowAddForm(false);
-                      setNewStudent({ name: '', email: '', password: '' });
+                      setNewStudent({ name: '', email: '', password: '', scheduleId: '' });
                     }}
                     className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
                   >
@@ -357,6 +424,13 @@ export default function ManageStudentsModal({
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{student.name}</p>
                     <p className="text-sm text-gray-600">{student.email}</p>
+                    {student.schedule && (
+                      <p className="text-xs text-blue-700 mt-1 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {student.schedule.title} — {new Date(student.schedule.startTime).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        {student.schedule.location ? ` · ${student.schedule.location}` : ''}
+                      </p>
+                    )}
                     {student._count.attempts > 0 && (
                       <p className="text-xs text-blue-600 mt-1">
                         {student._count.attempts} intento(s) realizado(s)

@@ -543,8 +543,8 @@ export const getAttemptResult = async (attemptId: string) => {
           feedback: question.feedback,
           options: question.options?.map((opt: any) => ({
             id: opt.id,
-            text: opt.text,
-            isCorrect: opt.isCorrect
+            text: opt.text
+            // isCorrect se omite deliberadamente: el alumno no debe conocer la respuesta correcta
           })),
           pointsEarned: answer?.pointsEarned || 0,
           isCorrect: answer?.isCorrect,

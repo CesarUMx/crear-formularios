@@ -79,6 +79,7 @@ export default function ExamRegistrationsList({ examId }: ExamRegistrationsListP
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [scheduleFilter, setScheduleFilter] = useState<string>('');
   const { toasts, success: showSuccess, error: showError, removeToast } = useToast();
   const colors = useColors();
 
@@ -141,7 +142,8 @@ export default function ExamRegistrationsList({ examId }: ExamRegistrationsListP
       r.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.studentEmail.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = !statusFilter || r.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesSchedule = !scheduleFilter || r.schedule.id === scheduleFilter;
+    return matchesSearch && matchesStatus && matchesSchedule;
   });
 
   const columns = [
@@ -297,6 +299,20 @@ export default function ExamRegistrationsList({ examId }: ExamRegistrationsListP
             <option value="ATTENDED">Asistió</option>
             <option value="NO_SHOW">No asistió</option>
           </select>
+          {stats && stats.schedules.length > 1 && (
+            <select
+              value={scheduleFilter}
+              onChange={(e) => setScheduleFilter(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Todos los horarios</option>
+              {stats.schedules.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title} ({s.registered}/{s.capacity})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 

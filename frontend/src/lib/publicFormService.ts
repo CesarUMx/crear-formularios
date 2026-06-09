@@ -218,6 +218,24 @@ class PublicFormService {
     if (!response.ok) return { isRegistered: false };
     return await response.json();
   }
+
+  /**
+   * Validar formato y existencia del dominio de un correo (publico).
+   * Fail-open: si falla la red devuelve { valid: true }.
+   */
+  async checkEmail(email: string): Promise<{ valid: boolean; reason?: string }> {
+    try {
+      const response = await fetch(`${API_URL}/email-check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      if (!response.ok) return { valid: true };
+      return await response.json();
+    } catch {
+      return { valid: true };
+    }
+  }
 }
 
 export const publicFormService = new PublicFormService();
