@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { examService } from '../../lib/examService';
 import type { ExamAttempt, ExamSection, ExamQuestion } from '../../lib/types';
 import { useToast, ToastContainer, Dialog, useDialog, QuestionRenderer, FileAttachment } from '../common';
-import { useColors } from '../../hooks/useColors';
+import { UMX_BRAND, UmxBrandFont } from '../../lib/umxBrand';
 import SecurityLockModal from './SecurityLockModal';
 import {
   Clock,
@@ -75,7 +75,7 @@ function mapSavedAnswer(question: ExamQuestion, savedAnswer: any): any {
 }
 
 export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps) {
-  const colors = useColors();
+  const colors = UMX_BRAND;
   const [attempt, setAttempt] = useState<ExamAttempt | null>(initialAttempt || null);
   const [loading, setLoading] = useState(!initialAttempt);
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
@@ -795,13 +795,14 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
 
   return (
     <div
-      className="min-h-screen bg-gray-50"
+      className="umx-exam-theme bg-gray-50"
       onCopy={(e) => { e.preventDefault(); }}
       onCut={(e) => { e.preventDefault(); }}
       onPaste={(e) => { e.preventDefault(); }}
       onContextMenu={(e) => { e.preventDefault(); }}
-      style={{ userSelect: 'none' }}
+      style={{ userSelect: 'none', fontFamily: UMX_BRAND.fontFamily }}
     >
+      <UmxBrandFont />
       {/* Header sticky */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-4xl mx-auto px-6 py-4">
@@ -939,9 +940,10 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
                 {currentSection?.title}
               </h2>
               {currentSection?.description && (
-                <p className="text-gray-600 text-lg">
-                  {currentSection.description}
-                </p>
+                <div
+                  className="rich-text text-gray-600 text-lg"
+                  dangerouslySetInnerHTML={{ __html: currentSection.description }}
+                />
               )}
             </div>
 
@@ -1101,7 +1103,10 @@ export default function ExamTaker({ attemptId, initialAttempt }: ExamTakerProps)
             <div className="mb-6 pb-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900">{currentSection.title}</h2>
               {currentSection.description && (
-                <p className="text-sm text-gray-600 mt-1">{currentSection.description}</p>
+                <div
+                  className="rich-text text-sm text-gray-600 mt-1"
+                  dangerouslySetInnerHTML={{ __html: currentSection.description }}
+                />
               )}
               {currentSection.fileUrl && currentSection.fileName && currentSection.fileType && (
                 <div className="mt-3">

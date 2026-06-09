@@ -4,6 +4,7 @@ import { useToast, ToastContainer, Dialog, useDialog, QuestionRenderer } from '.
 import PhotoCapture from './PhotoCapture';
 import EmailStatusIndicator from '../common/EmailStatusIndicator';
 import { publicFormService } from '../../lib/publicFormService';
+import { UMX_BRAND, UmxBrandFont } from '../../lib/umxBrand';
 import {
   Brain,
   Clock,
@@ -507,7 +508,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <Loader className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-4" />
+          <Loader className="w-12 h-12 text-[#FF4D00] animate-spin mx-auto mb-4" />
           <p className="text-gray-600">Cargando examen...</p>
         </div>
       </div>
@@ -531,10 +532,11 @@ export default function AIExamTaker({ slug }: { slug: string }) {
   // Step: Información del examen
   if (step === 'info' || step === 'form') {
     return (
-      <div className="max-w-2xl mx-auto mt-12 space-y-6">
+      <div className="umx-exam-theme max-w-2xl mx-auto mt-12 space-y-6" style={{ fontFamily: UMX_BRAND.fontFamily }}>
+        <UmxBrandFont />
         <div className="bg-white rounded-lg border border-gray-200 p-8">
           <div className="flex items-center gap-3 mb-6">
-            <Brain className="w-8 h-8 text-purple-600" />
+            <Brain className="w-8 h-8 text-[#FF4D00]" />
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{examInfo?.title}</h1>
               {examInfo?.description && (
@@ -594,7 +596,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
                     type="email"
                     value={studentEmail}
                     onChange={(e) => setStudentEmail(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4D00] focus:border-transparent"
                     placeholder="tu@email.com"
                     required
                   />
@@ -608,7 +610,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
                     type="password"
                     value={studentPassword}
                     onChange={(e) => setStudentPassword(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4D00] focus:border-transparent"
                     placeholder="Tu contraseña"
                     required
                   />
@@ -625,7 +627,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
                     type="text"
                     value={studentName}
                     onChange={(e) => setStudentName(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4D00] focus:border-transparent"
                     placeholder="Tu nombre completo"
                     required
                   />
@@ -639,7 +641,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
                     type="email"
                     value={studentEmail}
                     onChange={(e) => setStudentEmail(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF4D00] focus:border-transparent"
                     placeholder="tu@email.com"
                     required
                   />
@@ -658,7 +660,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
                       e.preventDefault();
                       toast.error('Error', 'Por favor escribe el correo manualmente para confirmar');
                     }}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition ${
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#FF4D00] focus:border-transparent transition ${
                       emailConfirm && studentEmail.trim().toLowerCase() !== emailConfirm.trim().toLowerCase()
                         ? 'border-red-300 bg-red-50'
                         : 'border-gray-300'
@@ -676,7 +678,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-purple-600 text-white mt-4 py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-[#FF4D00] text-white mt-4 py-3 px-6 rounded-lg font-semibold hover:bg-[#e34400] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -727,13 +729,14 @@ export default function AIExamTaker({ slug }: { slug: string }) {
 
     return (
       <div
-        className="max-w-4xl mx-auto py-4 space-y-4"
+        className="umx-exam-theme max-w-4xl mx-auto py-4 space-y-4"
         onCopy={(e) => { e.preventDefault(); }}
         onCut={(e) => { e.preventDefault(); }}
         onPaste={(e) => { e.preventDefault(); }}
         onContextMenu={(e) => { e.preventDefault(); }}
-        style={{ userSelect: 'none' }}
+        style={{ userSelect: 'none', fontFamily: UMX_BRAND.fontFamily }}
       >
+        <UmxBrandFont />
         {/* Header sticky */}
         <div className="bg-white rounded-lg border border-gray-200 p-4 sticky top-0 z-10 shadow-sm">
           <div className="flex items-center justify-between">
@@ -767,7 +770,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
           <div className="mt-3">
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className="h-2 rounded-full bg-purple-600 transition-all duration-300"
+                className="h-2 rounded-full bg-[#FF4D00] transition-all duration-300"
                 style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
               />
             </div>
@@ -785,7 +788,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
                   onClick={() => setCurrentQuestionIndex(idx)}
                   className={`w-7 h-7 rounded-full text-xs font-medium transition ${
                     isActive
-                      ? 'ring-2 ring-offset-1 ring-purple-500 bg-purple-600 text-white'
+                      ? 'ring-2 ring-offset-1 ring-[#FF4D00] bg-[#FF4D00] text-white'
                       : isAnswered
                       ? 'bg-green-500 text-white'
                       : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
@@ -824,7 +827,7 @@ export default function AIExamTaker({ slug }: { slug: string }) {
               {!isLastQuestion ? (
                 <button
                   onClick={goToNext}
-                  className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                  className="flex items-center gap-2 px-6 py-3 bg-[#FF4D00] text-white rounded-lg hover:bg-[#e34400] transition"
                 >
                   Siguiente
                   <ChevronRight className="w-5 h-5" />
@@ -876,14 +879,15 @@ export default function AIExamTaker({ slug }: { slug: string }) {
   // Step: Enviado
   if (step === 'submitted') {
     return (
-      <div className="max-w-2xl mx-auto mt-12">
+      <div className="umx-exam-theme max-w-2xl mx-auto mt-12" style={{ fontFamily: UMX_BRAND.fontFamily }}>
+        <UmxBrandFont />
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
           <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Examen Enviado</h2>
           <p className="text-gray-600 mb-6">
             Tu examen ha sido enviado correctamente. Serás redirigido a los resultados...
           </p>
-          <Loader className="w-8 h-8 text-purple-600 animate-spin mx-auto" />
+          <Loader className="w-8 h-8 text-[#FF4D00] animate-spin mx-auto" />
         </div>
       </div>
     );

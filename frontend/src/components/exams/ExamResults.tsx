@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { examService } from '../../lib/examService';
 import type { ExamAttemptResult } from '../../lib/types';
-import { useColors } from '../../hooks/useColors';
+import { UMX_BRAND, UmxBrandFont } from '../../lib/umxBrand';
 import { useToast, ToastContainer } from '../common';
 import { 
   CheckCircle, 
@@ -30,7 +30,7 @@ function cleanRichText(html: string): string {
 }
 
 export default function ExamResults({ attemptId }: ExamResultsProps) {
-  const colors = useColors();
+  const colors = UMX_BRAND;
   const [result, setResult] = useState<ExamAttemptResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -162,7 +162,8 @@ export default function ExamResults({ attemptId }: ExamResultsProps) {
     : 'Examen no aprobado';
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="umx-exam-theme bg-gray-50 py-8" style={{ fontFamily: UMX_BRAND.fontFamily }}>
+      <UmxBrandFont />
       <div className="max-w-4xl mx-auto px-6">
         {/* Header con resultado */}
         <div className={`rounded-lg shadow-lg p-8 mb-6 ${headerClass}`}>

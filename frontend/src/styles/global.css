@@ -19,6 +19,41 @@
   pointer-events: none;
 }
 
+/* ===== Tema institucional UMx para pantallas de examen =====
+   Recolorea los acentos genericos a la paleta institucional, solo dentro
+   del contenedor .umx-exam-theme (no afecta el panel de administracion).
+   - Azul generico  -> Azul institucional  #0E5088
+   - Morado         -> Naranja institucional #FF4D00
+   Verde / ambar / rojo conservan su significado semantico. */
+
+/* Acentos azules -> azul institucional */
+.umx-exam-theme .bg-blue-100 { background-color: #E1ECF3; }
+.umx-exam-theme .bg-blue-50 { background-color: #EEF4F9; }
+.umx-exam-theme .text-blue-600 { color: #0E5088; }
+.umx-exam-theme .text-blue-700 { color: #0E5088; }
+.umx-exam-theme .text-blue-800 { color: #0A3A63; }
+.umx-exam-theme .text-blue-900 { color: #0A3A63; }
+.umx-exam-theme .border-blue-200 { border-color: rgba(14, 80, 136, 0.25); }
+.umx-exam-theme .border-blue-300 { border-color: rgba(14, 80, 136, 0.4); }
+.umx-exam-theme .border-blue-500 { border-color: #0E5088; }
+.umx-exam-theme .bg-blue-600 { background-color: #0E5088; }
+.umx-exam-theme .hover\:border-blue-300:hover { border-color: rgba(14, 80, 136, 0.4); }
+.umx-exam-theme .hover\:text-blue-600:hover { color: #0E5088; }
+.umx-exam-theme .ring-blue-500 { --tw-ring-color: #0E5088; }
+.umx-exam-theme .focus\:ring-blue-500:focus { --tw-ring-color: #0E5088; }
+.umx-exam-theme .focus\:border-blue-500:focus { border-color: #0E5088; }
+.umx-exam-theme .border-b-2.border-blue-600,
+.umx-exam-theme .border-blue-600 { border-color: #0E5088; }
+
+/* Acentos morados -> naranja institucional */
+.umx-exam-theme .bg-purple-50 { background-color: #FFF1EB; }
+.umx-exam-theme .bg-purple-100 { background-color: #FFE3D7; }
+.umx-exam-theme .border-purple-200 { border-color: rgba(255, 77, 0, 0.25); }
+.umx-exam-theme .text-purple-600 { color: #FF4D00; }
+.umx-exam-theme .text-purple-700 { color: #FF4D00; }
+.umx-exam-theme .text-purple-800 { color: #C23C00; }
+.umx-exam-theme .text-purple-900 { color: #C23C00; }
+
 :root {
   --color-primary: #2563eb;
   --color-secondary: #1e40af;
