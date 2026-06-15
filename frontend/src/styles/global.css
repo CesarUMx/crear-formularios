@@ -2,7 +2,11 @@
 
 /* ===== Rich text: estilos para texto formateado en preguntas ===== */
 .rich-text strong,
-.rich-text b { font-weight: 700; }
+.rich-text b { font-weight: 700 !important; }
+
+/* Normalizar tamaño y negrita del editor: ignorar estilos inline de TinyMCE */
+.rich-text * { font-size: inherit !important; }
+.rich-text :not(strong):not(b) { font-weight: inherit !important; }
 
 .rich-text em,
 .rich-text i { font-style: italic; }

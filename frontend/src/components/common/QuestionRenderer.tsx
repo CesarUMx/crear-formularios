@@ -165,7 +165,7 @@ export default function QuestionRenderer({
           </div>
           {type !== 'fill_blank' && (
             <h3
-              className="text-lg font-semibold text-gray-900 rich-text"
+              className="text-base font-normal text-gray-900 rich-text"
               dangerouslySetInnerHTML={{ __html: question.text }}
             />
           )}
