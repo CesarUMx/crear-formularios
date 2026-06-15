@@ -32,6 +32,17 @@ export const domainHasMx = async (email: string): Promise<boolean> => {
     hasMx = false;
   }
 
+  // RFC 5321: si no hay MX records, se acepta un registro A como destino de correo
+  if (!hasMx) {
+    try {
+      const { resolve } = await import('dns/promises');
+      const aRecords = await resolve(domain);
+      hasMx = Array.isArray(aRecords) && aRecords.length > 0;
+    } catch {
+      hasMx = false;
+    }
+  }
+
   mxCache.set(domain, { hasMx, expiresAt: Date.now() + CACHE_TTL_MS });
   return hasMx;
 };
