@@ -202,6 +202,7 @@ export const testTemplate = async (req: Request, res: Response): Promise<void> =
     port: Number(process.env.EMAIL_PORT) || 587,
     secure: process.env.EMAIL_SECURE === 'true',
     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+    tls: { rejectUnauthorized: false },
   });
 
   const from = process.env.EMAIL_FROM || `Formularios UMx <${process.env.EMAIL_USER}>`;
